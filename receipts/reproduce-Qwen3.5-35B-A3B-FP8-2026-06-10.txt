@@ -1,0 +1,62 @@
+HEADLINE REPRODUCTION — GPU-bound 35B MoE, full canonical matrix
+Date: 2026-06-10 (matrix completed 20:13 host clock)
+
+WHAT WE REPRODUCED
+  Leaderboard entry: Qwen/Qwen3.5-35B-A3B-FP8, single-host (clusterSize 1), runtime vLLM.
+  Entry page:   https://spark-arena.com/benchmark/28879af7-99f6-49bf-ae89-d6ceeb7eb229
+  Submitted:    2026-03-03.  Published tg128 (c1) = 50.75 t/s.
+  Full published matrix: data/published-raw-Qwen3.5-35B-A3B-FP8-28879af7.md (104 cells).
+
+RESULT (ours, full canonical matrix) — receipts/qwen3.5-35b-a3b-fp8-matrix-2026-06-10.csv
+  Headline:  tg128 (c1) = 56.22 ± 0.11 t/s   vs published 50.75   ->  +10.8%
+
+  Cell-by-cell vs published (t/s total; ours/pub):
+    tg128 (c1)   50.8 -> 56.2   1.11x      ctx_tg @ d4096  (c1)  50.2 -> 55.5   1.11x
+    tg128 (c2)   81.9 -> 94.9   1.16x      ctx_tg @ d8192  (c1)  49.7 -> 55.0   1.11x
+    tg128 (c5)  108.3 ->111.8   1.03x      ctx_tg @ d16384 (c1)  48.7 -> 53.8   1.10x
+    tg128 (c10) 197.8 ->144.7   0.73x      ctx_tg @ d32768 (c1)  47.4 -> 52.1   1.10x
+    pp2048(c1) 4239.4->3162.6   0.75x      ctx_tg @ d65535 (c1)  43.5 -> 48.3   1.11x
+                                           ctx_tg @ d100000(c1)  41.1 -> 45.6   1.11x
+
+  ACROSS ALL 104 COMMON CELLS: median ours/pub = 1.01x, mean = 0.99x (min 0.67x, max 1.53x).
+
+INTERPRETATION (honest — the matrix says "parity," not "faster")
+  - Single-user decode (tg, concurrency 1) is consistently ~1.10-1.11x FASTER, and FLAT across context
+    depth from 0 to 100k tokens. Clean signal, attributable to the vLLM-version drift below.
+  - Prefill (pp2048) is ~0.75x (SLOWER), and high-concurrency aggregate throughput diverges
+    (tg128 c10 = 0.73x). Likely vLLM batching/scheduling differences across the version gap and/or
+    KV-pressure at the recipe's gpu-mem-util 0.7 + 262k max-model-len; not attributed definitively.
+  - Net across the full matrix: median 1.01x = PARITY. We do not claim "Rocky is faster" — the stack
+    reproduces the published matrix at parity, faster on single-user decode, slower on prefill/high-conc.
+
+HOST STACK (zero carried source patches)
+  OS:       Rocky Linux 10.2 (Red Quartz)
+  kernel:   6.18.34  (config/rocky-6.18.34-gb10.config, sha256[:16]=605184b196b29d23)
+  driver:   NVIDIA open 610.43.02
+  device:   single NVIDIA GB10 (bare metal, /dev/nvme0n1p2), 121 GB unified memory
+
+BENCHMARK STACK
+  serve:    spark-vllm-docker (upstream eugr @ 8b6347d) -> run-recipe.sh, container vllm-node-tf5
+  runtime:  vLLM 0.22.1rc1.dev330+g6deb05e0e.d20260610 (built 2026-06-10)
+  measure:  llama-benchy 0.3.8 (pinned: uvx 'llama-benchy==0.3.8')
+
+RECIPE (verbatim from spark-arena — recipes/qwen3.5-35b-a3b-fp8-arena.yaml)
+  model:    Qwen/Qwen3.5-35B-A3B-FP8  (quant fp8)
+  serve:    flashinfer attention, --kv-cache-dtype fp8, fastsafetensors, --enable-prefix-caching,
+            --max-model-len 262144, --gpu-memory-utilization 0.7, mods/fix-qwen3.5-autoround,
+            VLLM_MARLIN_USE_ATOMIC_ADD=1   (run via run-recipe.sh qwen3.5-35b-a3b-fp8-arena --solo)
+  measure:  uvx 'llama-benchy==0.3.8' --base-url http://localhost:8888/v1 --model Qwen/Qwen3.5-35B-A3B-FP8 \
+              --depth 0 4096 8192 16384 32768 65535 100000 --pp 2048 --tg 128 \
+              --enable-prefix-caching --concurrency 1 2 5 10 --save-result results.csv  (runs=3 default)
+
+CONFOUND (the one uncontrolled variable)
+  spark-arena pins no vLLM version (spark-vllm-docker compiles latest at image-build time). This entry was
+  submitted 2026-03-03; our image built 2026-06-10 (~3 months newer). That gap is the most plausible source
+  of both the decode gain and the prefill/high-concurrency divergence. A fully-controlled A/B would pin the
+  entry-date vLLM; the leaderboard itself does not, so cross-date comparisons are runtime-version-drifted.
+
+NOTES
+  - FP8 MoE is supported + compact on sm_121 (vLLM auto-selected the TRITON FP8 MoE backend; ~45 GB weights,
+    no MARLIN-style expansion). The deepest cell (d100000 c10, ~1M-token KV) completed without OOM.
+  - vLLM ships no GB10-tuned fused-MoE config (default used, "performance might be sub-optimal") — issue #8.
+  - Full matrix wall-clock ~100 min; llama-benchy writes the CSV only at completion (no checkpoint).

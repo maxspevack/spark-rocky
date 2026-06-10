@@ -10,7 +10,7 @@ comparison to the published number, and every confound.
 | `tier1-tier2-2026-06-09.txt` | Tiers 1–2: Rocky 10.2 + 6.18.34 boots; open driver builds/loads; GPU computes. |
 | `proof-of-life-baremetal-2026-06-09.txt` | Tier 2.5: installed on the NVMe, reachable, GPU works from the bare-metal install. |
 | `reproduce-LFM2.5-350M-2026-06-10.txt` | Tier 3 (first): `tg128 (c1)` = 246.0 vs published 222.77, exact recipe, pinned tools. |
-| *(Qwen3.5-35B-A3B-FP8 full matrix — pending the running benchmark)* | Tier 3: full `llama-benchy` matrix vs the published `data/published-raw-Qwen…md`. |
+| `reproduce-Qwen3.5-35B-A3B-FP8-2026-06-10.txt` + `…-matrix-2026-06-10.csv` | Tier 3 (GPU-bound headline): full 104-cell `llama-benchy` matrix vs published; `tg128 (c1)`=56.2 vs 50.75, **median 1.01× across all cells = parity**. |
 
 ## How to read one
 

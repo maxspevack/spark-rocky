@@ -53,7 +53,7 @@ results: [`receipts/`](receipts/).
 | 1 — Boots | Rocky 10.2 + 6.18.34 boots on the GB10 | **PROVEN** |
 | 2 — GPU + CUDA | open driver builds/loads; GPU computes | **PROVEN** |
 | 2.5 — Bare metal | installed on the NVMe; SSH + console | **PROVEN** |
-| 3 — Benchmark | reproduce published single-host entries | **IN PROGRESS** — LFM2.5-350M `tg128(c1)`=246 vs 222.8; Qwen3.5-35B-A3B-FP8 full matrix running |
+| 3 — Benchmark | reproduce published single-host entries | **IN PROGRESS** — LFM2.5-350M `tg128(c1)`=246 vs 222.8 (+10.4%); Qwen3.5-35B-A3B-FP8 full 104-cell matrix reproduced, **median 1.01× = parity** |
 | 4 — Leaderboard | peer-reviewed, third-party-reproduced; then Max submits | NOT STARTED |
 
 ## Zero patches
