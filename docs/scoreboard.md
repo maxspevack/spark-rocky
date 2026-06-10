@@ -6,27 +6,26 @@ recipe permalink). Snapshot: `data/spark-arena-snapshot-2026-06-10.json`.
 
 ## Reproduced (committed receipts)
 
-| model | scope | published | ours | result | receipt |
+| model | scope | published `tg128 c1` | ours | full-matrix result | receipt |
 |---|---|---|---|---|---|
-| LFM2.5-350M | `tg128 (c1)` | 222.8 | 246.0 ±0.3 | **+10.4%** | `reproduce-LFM2.5-350M-2026-06-10.txt` |
-| Qwen3.5-35B-A3B-FP8 | `tg128 (c1)` | 50.75 | 56.2 ±0.1 | **+10.8%** | `reproduce-Qwen3.5-35B-A3B-FP8-2026-06-10.txt` |
-| Qwen3.5-35B-A3B-FP8 | **full 104-cell matrix** | — | — | **median 1.01× = parity** | (same) |
+| LFM2.5-350M | `tg128 (c1)` only | 222.8 | 246.0 ±0.3 | (single cell) +10.4% | `reproduce-LFM2.5-350M-2026-06-10.txt` |
+| Qwen3.5-35B-A3B-FP8 | full 104-cell matrix | 50.75 | 56.2 ±0.1 | **median 1.01× = parity** | `reproduce-Qwen3.5-35B-A3B-FP8-2026-06-10.txt` |
+| Qwen3.5-0.8B | full 104-cell matrix | 121.2 | 123.0 ±0.2 | **median 0.96× = parity** | `reproduce-Qwen3.5-0.8B-2026-06-10.txt` |
+| gemma-3-1b-it | 56-cell matrix (context-capped) | 91.0 | 101.9 ±0.1 | **median 1.05× = parity** | `reproduce-gemma-3-1b-it-2026-06-10.txt` |
 
-The 35B full-matrix result is the honest headline: single-user decode ~1.10–1.11× (faster, flat across
-context depth 0→100k); prefill ~0.75× and high-concurrency aggregate `tg128 c10` 0.73× (slower); **net
-across 104 cells, median 1.01× — parity.** Not "Rocky is faster"; reproduced at parity, with the gains and
-losses both attributable to the ~3-month vLLM-version drift (the one uncontrolled variable).
+The consistent shape across all four: single-user **decode** runs at or slightly above parity, **prefill**
+runs slower (~0.75–0.79×), and the full-matrix **median lands on parity (0.96–1.05×)**. The per-axis deltas
+track the vLLM-version drift (the one uncontrolled variable — spark-arena pins no runtime version), not the
+OS/kernel swap. Not "faster"; reproduced at parity.
 
-## Target backlog (top single-host `tg128 (c1)`, to reproduce next)
+## Target backlog (top single-host entries, to reproduce next)
 
 | model | published t/s | runtime | recipe | maps to issue |
 |---|---|---|---|---|
-| Qwen3.6-35B-A3B-NVFP4 | 218.8 | Atlas | sparkrun | #10 (Atlas) |
+| Qwen3.6-35B-A3B-NVFP4 | 218.8 | Atlas | sparkrun | #10 (Atlas) / #17 (NVFP4) |
 | Qwen3.6-35B-A3B-FP8 | 172.0 | Atlas | sparkrun | #10 (Atlas) |
-| Qwen3.5-0.8B | 121.2 | vLLM | spark-vllm-docker | #5 (breadth) |
 | Qwen3.6-35B-A3B-PrismaQuant-4.75bit | 95.1 | vLLM | spark-vllm-docker | #9 (faster-quant) |
 | Qwen3.6-35B-A3B-int4-AutoRound | 92.3 | vLLM | spark-vllm-docker | #9 (faster-quant) |
-| gemma-3-1b-it | 91.0 | vLLM | spark-vllm-docker | #5 (breadth) |
 | gpt-oss-120b | 58.8 | vLLM | spark-vllm-docker | #6 (resurrect 120b) |
 
 **Confound on every cross-date row:** spark-arena pins no vLLM version; our image's build date vs the

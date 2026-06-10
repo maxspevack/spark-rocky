@@ -1,0 +1,34 @@
+BREADTH REPRODUCTION — small dense model, full canonical matrix
+Date: 2026-06-10
+
+WHAT WE REPRODUCED
+  Entry: Qwen/Qwen3.5-0.8B, single-host (clusterSize 1), runtime vLLM, recipe spark-vllm-docker.
+  Permalink id sub1777633319098. Published tg128 (c1) = 121.19 t/s.
+  Full published matrix: data/published-raw-Qwen3.5-0.8B-sub1777633319098.md (104 cells, pipe-table format).
+
+RESULT (ours) — receipts/qwen3.5-0.8b-matrix-2026-06-10.csv
+  tg128 (c1) = 122.99 ± 0.16 t/s  vs published 121.19  ->  +1.5%
+  tg128 sweep: c1 1.01x  c2 1.02x  c5 0.98x  c10 1.05x   (all near parity)
+  pp2048 (c1): 0.93x (prefill slightly slower — same shape as the 35B result)
+  ACROSS ALL 104 COMMON CELLS: median 0.96x, mean 0.94x (min 0.60, max 1.22) = PARITY.
+
+  Note: the decode gain here (+1.5% at tg128 c1) is far smaller than the 35B-A3B-FP8's (+10.8%) — the
+  newer-vLLM decode improvement matters more for the large MoE than for a small dense model. Honest data
+  point, not a contradiction.
+
+HOST STACK (zero carried source patches)
+  Rocky Linux 10.2 · kernel 6.18.34 (config/rocky-6.18.34-gb10.config) · open driver 610.43.02 · single GB10.
+
+BENCHMARK STACK
+  serve:   spark-vllm-docker (upstream eugr @ 8b6347d) -> run-recipe.sh, container vllm-node
+  runtime: vLLM (vllm-node image)
+  measure: llama-benchy 0.3.8 (pinned: uvx 'llama-benchy==0.3.8')
+
+RECIPE (verbatim — recipes/qwen3.5-0.8b-arena.yaml)
+  model: Qwen/Qwen3.5-0.8B   serve via run-recipe.sh qwen3.5-0.8b-arena --solo  (port 8000)
+  measure: uvx 'llama-benchy==0.3.8' --base-url http://localhost:8000/v1 --model Qwen/Qwen3.5-0.8B \
+             --depth 0 4096 8192 16384 32768 65535 100000 --pp 2048 --tg 128 \
+             --enable-prefix-caching --concurrency 1 2 5 10 --save-result results.csv
+
+CONFOUND: spark-arena pins no vLLM version; our image vs the entry's submission date is a runtime-version
+drift (the one uncontrolled variable). HF: Qwen/Qwen3.5-0.8B is public (no token).

@@ -1,0 +1,29 @@
+cluster_only: false
+recipe_version: '1'
+env:
+  VLLM_MARLIN_USE_ATOMIC_ADD: '1'
+command: |
+  vllm serve google/gemma-3-1b-it  \
+    --max-model-len {max_model_len} \
+    --gpu-memory-utilization {gpu_memory_utilization} \
+    --port {port} \
+    --host {host} \
+    --trust-remote-code \
+    --load-format safetensors \
+    --enable-prefix-caching \
+    --enable-auto-tool-choice \
+    --max-num-seqs 4 \
+    --max-num-batched-tokens {max_num_batched_tokens} \
+    --tool-call-parser functiongemma \
+    -tp {tensor_parallel}
+defaults:
+  max_model_len: 32768
+  max_num_batched_tokens: 32768
+  gpu_memory_utilization: 0.9
+  tensor_parallel: 1
+  host: 0.0.0.0
+  port: 8000
+model: google/gemma-3-1b-it
+container: vllm-node-tf5
+solo_only: true
+name: Gemma3-1B-IT

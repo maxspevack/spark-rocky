@@ -9,6 +9,8 @@ the container tag). Reproducing an entry means running *its* recipe, not one we 
 |---|---|---|---|
 | `lfm2.5-350m-arena.yaml` | LFM2.5-350M (`6a9c9b76`) | `vllm-node` | flash_attn, fastsafetensors, gpu-util 0.8 |
 | `qwen3.5-35b-a3b-fp8-arena.yaml` | Qwen3.5-35B-A3B-FP8 (`28879af7`) | `vllm-node-tf5` | flashinfer, fp8 KV, `mods/fix-qwen3.5-autoround` |
+| `qwen3.5-0.8b-arena.yaml` | Qwen3.5-0.8B (`sub1777633319098`) | `vllm-node` | public model, no token |
+| `gemma-3-1b-it-arena.yaml` | gemma-3-1b-it (`sub1779455882567`) | `vllm-node-tf5` | HF-gated (token required to download) |
 
 ## Add a recipe
 

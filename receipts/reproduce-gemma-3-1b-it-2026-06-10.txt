@@ -1,0 +1,37 @@
+BREADTH REPRODUCTION — gemma-3-1b-it, canonical matrix (model context-capped)
+Date: 2026-06-10
+
+WHAT WE REPRODUCED
+  Entry: google/gemma-3-1b-it, single-host (clusterSize 1), runtime vLLM, recipe spark-vllm-docker.
+  Permalink id sub1779455882567. Published tg128 (c1) = 90.95 t/s.
+  Full published matrix: data/published-raw-gemma-3-1b-it-sub1779455882567.md (56 cells — pipe-table).
+
+RESULT (ours) — receipts/gemma-3-1b-it-matrix-2026-06-10.csv
+  tg128 (c1) = 101.89 ± 0.05 t/s  vs published 90.95  ->  +12.0%
+  tg128 sweep: c1 1.12x  c2 1.09x  c5 1.07x  c10 1.06x   (decode consistently faster)
+  pp2048 (c1): 0.79x (prefill slower — same shape as the other models)
+  ACROSS ALL 56 COMMON CELLS: median 1.05x, mean 1.01x (min 0.72, max 1.72) = parity (slightly above).
+
+  Matrix is 56 cells, not 104: gemma-3-1b's context window is smaller than 100k, so the deep-context
+  cells (d65535, d100000) are absent — and the PUBLISHED entry has the same 56 cells, so the comparison
+  aligns 1:1. The decode gain (~1.06-1.12x) is larger than Qwen3.5-0.8B's (~1.0x); both track the
+  vLLM/transformers version drift (this ran on the vllm-node-tf5 / transformers>=5 image).
+
+HOST STACK (zero carried source patches)
+  Rocky Linux 10.2 · kernel 6.18.34 (config/rocky-6.18.34-gb10.config) · open driver 610.43.02 · single GB10.
+
+BENCHMARK STACK
+  serve:   spark-vllm-docker (upstream eugr @ 8b6347d) -> run-recipe.sh, container vllm-node-tf5
+  measure: llama-benchy 0.3.8 (pinned: uvx 'llama-benchy==0.3.8')
+
+RECIPE (verbatim — recipes/gemma-3-1b-it-arena.yaml)
+  model: google/gemma-3-1b-it   serve via run-recipe.sh gemma-3-1b-it-arena --solo  (port 8000)
+  measure: uvx 'llama-benchy==0.3.8' --base-url http://localhost:8000/v1 --model google/gemma-3-1b-it \
+             --depth 0 4096 8192 16384 32768 65535 100000 --pp 2048 --tg 128 \
+             --enable-prefix-caching --concurrency 1 2 5 10 --save-result results.csv
+
+HF CREDENTIALS: google/gemma-3-1b-it is GATED (license + token). Served with an HF_TOKEN passed to the
+  container via run-recipe -e HF_TOKEN. The benchmark client (llama-benchy) needs no token (it's an HTTP client).
+
+CONFOUND: spark-arena pins no vLLM version; our image vs the entry's submission date is a runtime-version
+  drift (the one uncontrolled variable). Parity, not superiority.
