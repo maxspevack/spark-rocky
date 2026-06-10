@@ -13,7 +13,7 @@ is **three separate software environments**, and they exist on purpose. Conflati
 
 | | Environment | Where it runs | Role | Has PyTorch? |
 |---|---|---|---|---|
-| **1** | **Host** | bare metal | the layer **we swapped** (CIQ stack) | **No — by design** |
+| **1** | **Host** | bare metal | the layer **we swapped** (the RPM stack) | **No — by design** |
 | **2** | **Serving container** `vllm-node-tf5` | Docker, on the host | the **AI stack** that runs the model on the GPU (**held constant**) | **Yes — torch 2.11.0+cu130** |
 | **3** | **Benchmark client** `llama-benchy` | host, ephemeral `uvx` venv | sends HTTP requests, counts tokens/sec | **No — and shouldn't** |
 
@@ -96,6 +96,6 @@ carries zero kernel/driver source patches; the workload container is the upstrea
 the full-matrix reproduction (the canonical `llama-benchy` sweep) — a single cell is not a reproduction.
 Inferred, not proven: the specific leaderboard submitter ran stock DGX OS (the spark-arena population is
 "DGX Spark"); their exact driver is not recorded. The claim we will stand behind is narrow and exact:
-*on identical hardware running an identical AI-stack container, swapping the host to the CIQ-shaped stack
+*on identical hardware running an identical AI-stack container, swapping the host to the RPM stack
 (Rocky + upstream kernel + open driver, zero patches) reproduces the published single-host numbers* —
 not "Rocky is faster."

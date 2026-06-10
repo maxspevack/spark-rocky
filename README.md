@@ -62,8 +62,9 @@ Kernel: upstream + a `.config` (GB10 enablement — config, not code). Driver: u
 an el10 container. Benchmark stack: upstream, unmodified. No `.patch`/`.diff` exists anywhere in the repo.
 Pins + the reasoning: [`THIRD_PARTY.md`](THIRD_PARTY.md).
 
-The open driver itself is **not** the novelty — on the GB10 it's mandatory (GPUDirect RDMA is unsupported on
-Blackwell SoCs, so `*-open` is the only path; everyone runs it). The novelty is narrower and checkable:
+The open driver itself is **not** the novelty — on the GB10 it's mandatory (NVIDIA ships only the open kernel
+module for this Blackwell-generation silicon, so `*-open` is the only path; everyone runs it). The novelty is
+narrower and checkable:
 **the open module builds clean against stock kernel.org mainline 6.18.34, so NVIDIA's vendored 6.17 kernel is
 unnecessary.** We run Rocky 10.2 (RPM) + stock mainline + open module with a config-only delta and zero
 carried patches — and a scan of the field turned up **no public GB10 example doing this** (other alt-distro
