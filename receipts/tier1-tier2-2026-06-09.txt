@@ -1,0 +1,25 @@
+Rocky Linux 10.2 + upstream 6.18.34 on DGX Spark (GB10) — Tier 1 + Tier 2 receipts
+Captured 2026-06-09 over SSH (wired) to the running Rocky-from-USB instance.
+
+=== TIER 1: kernel + OS ===
+$ uname -r
+6.18.34
+$ grep PRETTY_NAME /etc/os-release
+PRETTY_NAME="Rocky Linux 10.2 (Red Quartz)"
+
+=== NVIDIA modules loaded (open driver, built against 6.18.34, zero source patches) ===
+nvidia_uvm           1810432  0
+nvidia_drm            143360  0
+nvidia_modeset       1527808  1 nvidia_drm
+nvidia              16601088  2 nvidia_uvm,nvidia_modeset
+
+=== TIER 2: nvidia-smi sees the GB10 ===
+NVIDIA-SMI 610.43.02   KMD Version: 610.43.02   CUDA UMD Version: 13.3
+GPU 0: NVIDIA GB10   46C   P8   4W   (idle)
+
+=== Network (wired Realtek RTL8127, in-tree driver under 6.18.34) ===
+enP7s7   UP   192.168.1.120/24   internet: HTTP/2 200
+
+Build note: open NVIDIA driver 610.43.02 compiled in a rockylinux:10 container
+(gcc 14.3.1 el10 — the kernel's toolchain), vermagic 6.18.34, installed to
+/lib/modules/6.18.34/extra, GSP firmware gsp_ga10x.bin. No source patches.

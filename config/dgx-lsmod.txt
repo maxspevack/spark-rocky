@@ -1,0 +1,143 @@
+Module                  Size  Used by
+aes_ce_ccm             12288  3
+rfcomm                102400  4
+xt_conntrack           12288  1
+snd_seq_dummy          12288  0
+xt_MASQUERADE          16384  1
+snd_hrtimer            12288  2
+bridge                405504  0
+stp                    12288  1 bridge
+llc                    16384  2 bridge,stp
+xfrm_user              61440  1
+xfrm_algo              20480  1 xfrm_user
+xt_set                 20480  0
+ip_set                 65536  1 xt_set
+nft_chain_nat          12288  5
+nf_nat                 65536  2 nft_chain_nat,xt_MASQUERADE
+nf_conntrack          200704  3 xt_conntrack,nf_nat,xt_MASQUERADE
+nf_defrag_ipv6         24576  1 nf_conntrack
+nf_defrag_ipv4         12288  1 nf_conntrack
+xt_addrtype            12288  4
+nft_compat             24576  6
+nf_tables             352256  57 nft_compat,nft_chain_nat
+nvidia_uvm           1900544  0
+nvidia_drm            135168  5
+overlay               212992  1
+nvidia_modeset       1957888  8 nvidia_drm
+algif_hash             16384  1
+algif_skcipher         12288  1
+af_alg                 32768  6 algif_hash,algif_skcipher
+qrtr                   49152  2
+bnep                   36864  2
+binfmt_misc            28672  1
+nls_iso8859_1          12288  1
+rpcrdma               380928  0
+sunrpc                782336  2 rpcrdma
+rdma_ucm               36864  0
+mt7925e                24576  0
+mt7925_common         155648  1 mt7925e
+snd_hda_codec_tegrahdmi    12288  1
+ib_iser                57344  0
+mt792x_lib             77824  2 mt7925e,mt7925_common
+mt76_connac_lib       106496  3 mt792x_lib,mt7925e,mt7925_common
+snd_hda_codec_hdmi     61440  1 snd_hda_codec_tegrahdmi
+libiscsi               77824  1 ib_iser
+nvidia              14680064  85 nvidia_uvm,nvidia_modeset
+mt76                  163840  4 mt792x_lib,mt7925e,mt76_connac_lib,mt7925_common
+btusb                  81920  0
+btrtl                  32768  1 btusb
+scsi_transport_iscsi   163840  2 ib_iser,libiscsi
+snd_hda_acpi           16384  2
+ib_umad                45056  0
+btintel                73728  1 btusb
+mac80211             1679360  4 mt792x_lib,mt76,mt76_connac_lib,mt7925_common
+snd_seq_midi           24576  0
+rdma_cm               147456  3 rpcrdma,ib_iser,rdma_ucm
+btbcm                  24576  1 btusb
+ib_ipoib              135168  0
+snd_seq_midi_event     20480  1 snd_seq_midi
+snd_hda_codec         208896  3 snd_hda_acpi,snd_hda_codec_hdmi,snd_hda_codec_tegrahdmi
+iw_cm                  57344  1 rdma_cm
+btmtk                  36864  1 btusb
+snd_hwdep              24576  1 snd_hda_codec
+video                  81920  1 nvidia_modeset
+snd_rawmidi            53248  1 snd_seq_midi
+bluetooth            1028096  34 btrtl,btmtk,btintel,btbcm,bnep,btusb,rfcomm
+cfg80211             1331200  4 mt76,mac80211,mt76_connac_lib,mt7925_common
+snd_hda_core          176128  4 snd_hda_acpi,snd_hda_codec_hdmi,snd_hda_codec,snd_hda_codec_tegrahdmi
+ib_cm                 147456  2 rdma_cm,ib_ipoib
+drm_ttm_helper         16384  1 nvidia_drm
+snd_seq               131072  15 snd_seq_midi,snd_seq_midi_event,snd_seq_dummy
+sbsa_gwdt              20480  1
+ttm                   126976  1 drm_ttm_helper
+snd_pcm               200704  3 snd_hda_codec_hdmi,snd_hda_codec,snd_hda_core
+arm_smmuv3_pmu         32768  0
+arm_spe_pmu            24576  0
+libarc4                12288  1 mac80211
+snd_seq_device         16384  3 snd_seq,snd_seq_midi,snd_rawmidi
+mlx5_fwctl             16384  0
+snd_timer              53248  3 snd_seq,snd_hrtimer,snd_pcm
+cppc_cpufreq           32768  0
+snd                   147456  17 snd_seq,snd_hda_acpi,snd_seq_device,snd_hda_codec_hdmi,snd_hwdep,snd_hda_codec,snd_timer,snd_pcm,snd_rawmidi
+mtk_pcie_hotplug       40960  0
+soundcore              16384  1 snd
+acpi_tad               20480  0
+sch_fq_codel           24576  2
+mstflint_access        32768  0
+dm_multipath           49152  0
+ipmi_devintf           20480  0
+ipmi_msghandler       102400  1 ipmi_devintf
+nvme_fabrics           36864  0
+efi_pstore             12288  0
+nfnetlink              20480  5 nft_compat,nf_tables,ip_set
+dmi_sysfs              24576  0
+ip_tables              36864  0
+x_tables               65536  6 xt_conntrack,nft_compat,xt_addrtype,xt_set,ip_tables,xt_MASQUERADE
+autofs4                61440  2
+btrfs                2023424  0
+blake2b_generic        20480  0
+raid10                 77824  0
+raid456               212992  0
+async_raid6_recov      24576  1 raid456
+async_memcpy           16384  2 raid456,async_raid6_recov
+async_pq               16384  2 raid456,async_raid6_recov
+async_xor              16384  3 async_pq,raid456,async_raid6_recov
+async_tx               16384  5 async_pq,async_memcpy,async_xor,raid456,async_raid6_recov
+xor                    12288  2 async_xor,btrfs
+xor_neon               16384  1 xor
+raid6_pq              106496  4 async_pq,btrfs,raid456,async_raid6_recov
+raid1                  61440  0
+raid0                  28672  0
+linear                 16384  0
+dm_mirror              28672  0
+dm_region_hash         24576  1 dm_mirror
+dm_log                 20480  2 dm_region_hash,dm_mirror
+mlx5_ib               520192  0
+ib_uverbs             208896  2 rdma_ucm,mlx5_ib
+macsec                 77824  1 mlx5_ib
+ib_core               528384  10 rdma_cm,ib_ipoib,rpcrdma,iw_cm,ib_iser,ib_umad,rdma_ucm,ib_uverbs,mlx5_ib,ib_cm
+polyval_ce             12288  0
+ghash_ce               20480  0
+sm4_ce_gcm             16384  0
+sm4_ce_ccm             16384  0
+sm4_ce                 28672  2 sm4_ce_gcm,sm4_ce_ccm
+mlx5_core            2760704  2 mlx5_fwctl,mlx5_ib
+sm4_ce_cipher          12288  0
+sm4                    12288  4 sm4_ce,sm4_ce_cipher,sm4_ce_gcm,sm4_ce_ccm
+nvme                   69632  2
+sm3_ce                 12288  0
+sha3_ce                16384  0
+arm_smccc_trng         12288  0
+mlxfw                  32768  1 mlx5_core
+nvme_core             237568  4 nvme,nvme_fabrics
+r8127                 233472  0
+psample                24576  1 mlx5_core
+tls                   159744  1 mlx5_core
+nvme_keyring           20480  2 nvme_core,nvme_fabrics
+nvme_auth              28672  1 nvme_core
+pci_hyperv_intf        12288  1 mlx5_core
+xhci_plat_hcd          24576  0
+aes_neon_bs            24576  0
+aes_neon_blk           24576  1 aes_neon_bs
+aes_ce_blk             32768  5 aes_ce_ccm
+aes_ce_cipher          12288  2 aes_ce_ccm,aes_ce_blk

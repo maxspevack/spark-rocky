@@ -1,0 +1,31 @@
+name: LFM2.5-350M
+solo_only: false
+cluster_only: false
+command: |
+  vllm serve LiquidAI/LFM2.5-350M \
+    --host {host} \
+    --port {port} \
+    --language-model-only \
+    --max-model-len {max_model_len} \
+    --max-num-batched-tokens {max_num_batched_tokens} \
+    --max-num-seqs {max_num_seqs} \
+    --gpu-memory-utilization {gpu_memory_utilization} \
+    --load-format fastsafetensors \
+    --attention-backend flash_attn \
+    --enable-prefix-caching \
+    --enable-chunked-prefill \
+    --trust-remote-code \
+    --dtype auto \
+defaults:
+  max_model_len: 32768
+  max_num_seqs: 4
+  port: 8000
+  max_num_batched_tokens: 8192
+  host: 0.0.0.0
+  gpu_memory_utilization: 0.8
+description: LFM2.5-350M
+env:
+  VLLM_MARLIN_USE_ATOMIC_ADD: '1'
+container: vllm-node
+model: LiquidAI/LFM2.5-350M
+recipe_version: '1'

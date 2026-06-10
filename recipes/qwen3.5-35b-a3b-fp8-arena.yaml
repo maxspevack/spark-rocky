@@ -1,0 +1,35 @@
+solo_only: true
+model: Qwen/Qwen3.5-35B-A3B-FP8
+command: |
+  vllm serve Qwen/Qwen3.5-35B-A3B-FP8 \
+    --served-model-name Qwen/Qwen3.5-35B-A3B-FP8 \
+    --enable-auto-tool-choice \
+    --tool-call-parser qwen3_coder \
+    --gpu-memory-utilization {gpu_memory_utilization} \
+    --host {host} \
+    --port {port} \
+    --kv-cache-dtype fp8 \
+    --load-format fastsafetensors \
+    --enable-prefix-caching \
+    --attention-backend flashinfer \
+    --max-model-len {max_model_len} \
+    --max-num-batched-tokens 32768 \
+    --reasoning-parser qwen3 \
+    --trust-remote-code \
+    --max_num_seqs 10 \
+    --max_cudagraph_capture_size 10 \
+    --mamba_ssm_cache_dtype float16
+mods:
+  - mods/fix-qwen3.5-autoround
+cluster_only: false
+recipe_version: '1'
+container: vllm-node-tf5
+description: vLLM serving Qwen3.5-35B-A3B-FP8
+name: Qwen3.5-35B-A3B-FP8
+env:
+  VLLM_MARLIN_USE_ATOMIC_ADD: '1'
+defaults:
+  max_model_len: 262144
+  gpu_memory_utilization: 0.7
+  host: 0.0.0.0
+  port: 8888

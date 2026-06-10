@@ -1,0 +1,10 @@
+# build outputs (images are large — not tracked; rebuild from scripts/)
+*.img
+*.iso
+*.qcow2
+*.raw
+# python / tooling cruft
+__pycache__/
+*.pyc
+.DS_Store
+*.swp

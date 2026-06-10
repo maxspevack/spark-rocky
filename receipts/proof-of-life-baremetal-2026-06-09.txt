@@ -1,0 +1,28 @@
+Rocky 10.2 + 6.18.34 + NVIDIA/CUDA — BARE-METAL proof of life on DGX Spark (GB10)
+Captured 2026-06-09T20:51Z over SSH (wired) to the bare-metal NVMe install.
+
+boot device: /dev/nvme0n1p2   (bare metal — internal NVMe, not USB)
+
+--- OS + kernel ---
+PRETTY_NAME="Rocky Linux 10.2 (Red Quartz)"
+kernel: 6.18.34
+
+--- network (SSH reachable, wired Realtek RTL8127, autoconnect) ---
+enP7s7 UP 192.168.1.120/24
+
+--- NVIDIA driver / GPU ---
+name, driver_version, temperature.gpu
+NVIDIA GB10, 610.43.02, 49
+
+--- loaded nvidia modules ---
+nvidia_uvm   nvidia_drm   nvidia_modeset   nvidia
+
+--- CUDA compute test (compiled vectorAdd, ran ON the GPU) ---
+device   : NVIDIA GB10 (compute 12.1, 130.7 GB)
+vectorAdd: 1048576 elems, sum-sq-err=0, status=no error
+CUDA COMPUTE: PASS
+
+Build provenance: open NVIDIA driver 610.43.02 compiled against upstream 6.18.34 in a
+rockylinux:10 container (gcc 14.3.1 el10 — the kernel's toolchain), vermagic 6.18.34,
+ZERO source patches. Installed bare-metal via scripts/install-baremetal.sh; bootloader
+is a grub2-mkimage'd grubaa64.efi (prefix /EFI/rocky) + minimal grub.cfg (no BLS/shim/os-prober).

@@ -1,0 +1,73 @@
+### DGX OS REFERENCE CAPTURE
+kernel: 6.17.0-1021-nvidia
+PRETTY_NAME="Ubuntu 24.04.4 LTS"
+DGX_NAME="DGX Spark"
+DGX_PRETTY_NAME="NVIDIA DGX Spark"
+DGX_SWBUILD_DATE="2026-03-23-18-44-19"
+
+=== nvidia driver ===
+NVRM version: NVIDIA UNIX Open Kernel Module for aarch64  580.159.03  Release Build  (dvs-builder@U22-I3-AK02-23-4)  Fri Apr 24 05:57:43 UTC 2026
+GCC version:  gcc version 13.3.0 (Ubuntu 13.3.0-6ubuntu2~24.04.1) 
+
+=== nvidia-smi ===
+Mon Jun  8 10:02:13 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 580.159.03             Driver Version: 580.159.03     CUDA Version: 13.0     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA GB10                    On  |   0000000F:01:00.0 Off |                  N/A |
+| N/A   31C    P8              4W /  N/A  | Not Supported          |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|    0   N/A  N/A            2358      G   /usr/lib/xorg/Xorg                       18MiB |
+|    0   N/A  N/A            2603      G   /usr/bin/gnome-shell                      6MiB |
++-----------------------------------------------------------------------------------------+
+
+=== coherency / addressing ===
+Driver Version                                         : 580.159.03
+CUDA Version                                           : 13.0
+    Product Name                                       : NVIDIA GB10
+    Addressing Mode                                    : ATS
+            Link Width
+
+=== NUMA ===
+available: 1 nodes (0)
+node 0 cpus: 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19
+node 0 size: 124610 MB
+node 0 free: 119377 MB
+node distances:
+node   0 
+  0:  10 
+
+=== clocks/power/mem ===
+name, power.draw [W], power.limit [W], clocks.current.sm [MHz], clocks.current.memory [MHz], temperature.gpu, memory.total [MiB]
+NVIDIA GB10, 4.44 W, [N/A], 214 MHz, [N/A], 31, [N/A]
+
+=== cmdline ===
+BOOT_IMAGE=/boot/vmlinuz-6.17.0-1021-nvidia root=UUID=4d363a94-aff4-4ea1-94fd-e93a4a6ec9eb ro init_on_alloc=0 iommu.passthrough=0 console=tty0 plymouth.ignore-serial-consoles plymouth.use-simpledrm earlycon=uart,mmio32,0x16A00000 console=tty0 console=ttyS0,921600 crashkernel=1G-:0M quiet splash initcall_blacklist=tegra234_cbb_init pci=pcie_bus_safe vt.handoff=7
+
+=== out-of-tree modules loaded ===
+nvidia_uvm
+nvidia_drm
+nvidia_modeset
+nvidia
+mstflint_access
+
+=== Spark PCI (GPU + platform) ===
+0004:01:00.0 Non-Volatile memory controller [0108]: Samsung Electronics Co Ltd Device [144d:a810]
+	Subsystem: Samsung Electronics Co Ltd Device [144d:a801]
+	Kernel driver in use: nvme
+--
+	Kernel driver in use: mt7925e
+	Kernel modules: mt7925e
+000f:00:00.0 PCI bridge [0604]: NVIDIA Corporation Device [10de:22d1]
+	Kernel driver in use: pcieport
