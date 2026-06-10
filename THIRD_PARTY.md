@@ -46,14 +46,11 @@ and committed under `recipes/`. The entry→recipe mapping (Firestore `benchmark
 the registries (official, community, and the benchmarked recipes browsable on spark-arena.com). It is **not**
 limited to Atlas/SGLang (an earlier note here said so — wrong). Its README documents running and browsing,
 **not** a `submit`/`upload` command, so the path for posting a result to the leaderboard is most likely the
-**spark-arena.com site itself**. **TODO (pre-submission): confirm the exact submit mechanism before Max
-submits.** sparkrun is not needed for *reproduction* — `spark-vllm-docker` + `llama-benchy` + the recipe API
-cover that — so it stays unpulled until we submit, or until an Atlas/SGLang target requires it.
+**spark-arena.com site itself**. sparkrun is not needed for *reproduction* — `spark-vllm-docker` +
+`llama-benchy` + the recipe API cover that — so it stays unpulled until we submit, or until an Atlas/SGLang
+target requires it.
 
 ## Upstream-filing plan
 
-- `eugr/spark-vllm-docker`, `eugr/llama-benchy`: file issues/PRs for any GB10/sm_121 fix we make (none yet).
-- **Concrete candidate:** vLLM ships no GB10-tuned fused-MoE kernel config (`device_name=NVIDIA_GB10`); MoE
-  models fall back to a default (`"Performance might be sub-optimal"`). Generating + upstreaming it is a real
-  contribution. **TODO (post initial commit): file it as a GitHub issue in the `spark-rocky` repo** to track.
+- `eugr/spark-vllm-docker`, `eugr/llama-benchy`: file issues/PRs upstream for any GB10/sm_121 fix we make.
 - Submitting reproduced results: Max submits after peer review (mechanism per the section above).

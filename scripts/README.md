@@ -21,6 +21,4 @@ One-time bring-up artifacts from this box's first install — kept for reference
 `arm-boot.sh`, `prep-boot.sh`, `finalize-v2.sh`, `patch-stick-nvidia-fw.sh`, `ssh-ready.sh`,
 `watch-rocky-v2.sh`, `rocky-nvbw.sh`, `cleanup-nvidia.sh`.
 
-**Owed (tracked as an issue):** give `01`→`04` a single entry point (`make image`) and move these helpers to
-`scripts/bringup/`. The `01`→`04` chain has not yet been re-run clean-room from a fresh checkout — that
-reproduction is the pre-submission bar.
+A clean build uses only the pipeline above; these helpers are kept for reference, not maintained as part of it.

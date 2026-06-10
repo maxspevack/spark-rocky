@@ -52,12 +52,10 @@ reproducible build. A clean build does not need them:
 - `ssh-ready.sh` — make the booted stick SSH-reachable.
 - `watch-rocky-v2.sh`, `rocky-nvbw.sh`, `cleanup-nvidia.sh` — observe/bandwidth/module-hygiene helpers.
 
-**Cleanup owed (tracked):** these should move to `scripts/bringup/` or be cut, and the `01`→`04` pipeline
-should get a single entry point (`make image`). See the repo issues.
+(A clean build invokes none of these.)
 
 ## Honesty note (gafton)
 
 The `01`→`04` chain was developed iteratively, not yet re-run clean-room from a fresh checkout to a booting
-image. A **clean-room reproduction is the pre-submission bar** (and a tracked issue) — until then, "the repo
-builds a Live USB" means "these scripts, in this order, built the running box," not "one command, verified
-from scratch."
+image. Until then, "the repo builds a Live USB" means "these scripts, in this order, built the running box,"
+not "one command, verified from scratch."
