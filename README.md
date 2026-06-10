@@ -56,11 +56,19 @@ results: [`receipts/`](receipts/).
 | 3 — Benchmark | reproduce published single-host entries | **IN PROGRESS** — LFM2.5-350M `tg128(c1)`=246 vs 222.8 (+10.4%); Qwen3.5-35B-A3B-FP8 full 104-cell matrix reproduced, **median 1.01× = parity** |
 | 4 — Leaderboard | peer-reviewed, third-party-reproduced; then Max submits | NOT STARTED |
 
-## Zero patches
+## Zero patches — and what's actually novel
 
 Kernel: upstream + a `.config` (GB10 enablement — config, not code). Driver: upstream open-modules, built in
 an el10 container. Benchmark stack: upstream, unmodified. No `.patch`/`.diff` exists anywhere in the repo.
 Pins + the reasoning: [`THIRD_PARTY.md`](THIRD_PARTY.md).
+
+The open driver itself is **not** the novelty — on the GB10 it's mandatory (GPUDirect RDMA is unsupported on
+Blackwell SoCs, so `*-open` is the only path; everyone runs it). The novelty is narrower and checkable:
+**the open module builds clean against stock kernel.org mainline 6.18.34, so NVIDIA's vendored 6.17 kernel is
+unnecessary.** We run Rocky 10.2 (RPM) + stock mainline + open module with a config-only delta and zero
+carried patches — and a scan of the field turned up **no public GB10 example doing this** (other alt-distro
+attempts run distro-patched or vendored-source kernels). As a bonus it sidesteps the recurring DGX-OS
+"apt-upgrade-broke-my-driver" failure mode by construction.
 
 ## Repo layout
 
