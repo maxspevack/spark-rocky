@@ -5,6 +5,8 @@ NVIDIA driver (610.43.02)** — **zero carried patches** — and prove it agains
 benchmarks. (Exact kernel pinned in [`config/versions.env`](config/versions.env); benchmark receipts are on
 6.18.34, and the build is validated on 6.18.35 — the version is a config bump, not load-bearing.)
 
+**→ The 30-second version: [`PROOF.md`](PROOF.md)** — claim, parity table (5 models), and the three differentiators at a glance.
+
 **This repo delivers two things:**
 
 1. **A Live USB that jumpstarts the box.** Build it from `scripts/`, boot a DGX Spark off it to get the

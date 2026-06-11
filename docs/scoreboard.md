@@ -12,7 +12,7 @@ recipe permalink). Snapshot: `data/spark-arena-snapshot-2026-06-10.json`.
 | Qwen3.5-35B-A3B-FP8 | full 104-cell matrix | 50.75 | 56.2 ±0.1 | **median 1.01× = parity** | `reproduce-Qwen3.5-35B-A3B-FP8-2026-06-10.txt` |
 | Qwen3.5-0.8B | full 104-cell matrix | 121.2 | 123.0 ±0.2 | **median 0.96× = parity** | `reproduce-Qwen3.5-0.8B-2026-06-10.txt` |
 | gemma-3-1b-it | 56-cell matrix (context-capped) | 91.0 | 101.9 ±0.1 | **median 1.05× = parity** | `reproduce-gemma-3-1b-it-2026-06-10.txt` |
-| gpt-oss-120b | `tg128 (c1)` so far | 58.8 | 62.6 ±0.0 | **single cell** 1.06× (full matrix running) | receipt pending |
+| gpt-oss-120b | `tg128 (c1)` | 58.8 | 62.6 ±0.0 | **single cell** 1.06× — full matrix gated by this desk box's cooling, not the stack (see #6) | single-cell |
 
 The consistent shape across the **three full-matrix** models (Qwen-35B, Qwen-0.8B, gemma): single-user
 **decode** runs at or slightly above parity, **prefill** runs slower (~0.75–0.79×), and the full-matrix
