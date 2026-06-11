@@ -15,7 +15,7 @@ recipe permalink). Snapshot: `data/spark-arena-snapshot-2026-06-10.json`.
 | gpt-oss-120b | `tg128 (c1)` | 58.8 | 62.6 ±0.0 | **single cell** 1.06× — full matrix gated by this desk box's cooling, not the stack (see #6) | single-cell |
 
 The consistent shape across the **three full-matrix** models (Qwen-35B, Qwen-0.8B, gemma): single-user
-**decode** runs at or slightly above parity, **prefill** runs slower (~0.75–0.79×), and the full-matrix
+**decode** runs at or slightly above parity, **prefill** runs slower (~0.75–0.93×), and the full-matrix
 **median lands on parity (0.96–1.05×)**. The two **single-cell** results (LFM2.5-350M, gpt-oss-120b) measure
 `tg128 (c1)` only — a full matrix is the bar for a parity claim. The per-axis deltas track the vLLM-version
 drift (the one uncontrolled variable — spark-arena pins no runtime version), not the OS/kernel swap. Not
