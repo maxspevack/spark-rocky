@@ -51,6 +51,9 @@ set -e
 dnf install -y -q grub2-efi-aa64 grub2-efi-aa64-modules shim-aa64 dracut-network NetworkManager openssh-server 2>/dev/null || true
 echo 'root:rocky' | chpasswd   # DEV-IMAGE default — this box is LAN-only + reinstalled on demand; change before exposing off-LAN
 systemctl enable sshd NetworkManager serial-getty@ttyS0.service getty@tty1.service 2>/dev/null || true
+# GB10 unified memory: swap-on-overcommit hangs the box ("zombie" instead of a clean CUDA OOM). Disable swap.
+# (fstab here carries no swap; this mask is belt-and-suspenders so nothing activates swap at runtime.)
+systemctl mask swap.target 2>/dev/null || true
 dracut --force --no-hostonly --add-drivers "usb_storage uas xhci_pci xhci_hcd ehci_pci ext4 nvme" --kver 6.18.34 /boot/initramfs-6.18.34.img 6.18.34
 grub2-install --target=arm64-efi --efi-directory=/boot/efi --removable --boot-directory=/boot --no-nvram
 cp -f /boot/grub2/grub.cfg /boot/efi/EFI/BOOT/grub.cfg 2>/dev/null || true

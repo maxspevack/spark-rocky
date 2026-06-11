@@ -41,10 +41,10 @@ Flash the image from step 4 to a USB stick (`dd` / your tool of choice).
 `proof-of-life.sh` — confirms OS (Rocky 10.2), kernel (`uname -r`=6.18.34), `nvidia-smi` (GB10 / 610.43.02),
 and compiles + runs a CUDA `vectorAdd` on the GPU. Green here = Tiers 1–2.5 reproduced.
 
-## First-install helper scripts (NOT part of the clean pipeline)
+## First-install helper scripts ([`scripts/bringup/`](../scripts/bringup/), NOT part of the clean pipeline)
 
-These are operational artifacts from the first bring-up of *this* box — kept for reference, not part of the
-reproducible build. A clean build does not need them:
+Operational artifacts from the first bring-up of *this* box, moved to `scripts/bringup/`: kept for reference,
+not part of the reproducible build. A clean build does not need them:
 
 - `arm-boot.sh`, `prep-boot.sh` — one-time DGX-grub boot into Rocky from the USB (first boot only).
 - `finalize-v2.sh` — WiFi NM profile + re-arm one-time boot.
