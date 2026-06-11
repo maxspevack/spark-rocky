@@ -13,14 +13,19 @@ inputs we author are a kernel `.config` and these scripts.
 
 ## Build pipeline (run in order)
 
+All versions are pinned in one place — **[`config/versions.env`](../config/versions.env)** (`KVER`, `DRIVER_VER`,
+`ROCKY_RELEASEVER`). Every script below sources it; bumping a value there and rebuilding is the whole
+"stay current" mechanism (see *Upgrading* below). Stage the scripts + `config/` into the build workdir and run
+from there; each script self-locates its workdir as the parent of `scripts/`.
+
 | Step | Script | Produces | Patches |
 |---|---|---|---|
-| 1 | `01-build-kernel.sh` | upstream **6.18.34** built with `config/rocky-6.18.34-gb10.config`, in `rockylinux:10` | none |
-| 2 | `02-build-rootfs.sh` | a Rocky **10.2** rootfs with that kernel installed | none |
-| 2b | `02b-install-gpu-docker.sh` | CUDA stack + container runtime added to the rootfs | none |
-| 2c | `02c-driver-userspace.sh` | driver **userspace** 610.43.02 (`.run --no-kernel-modules`) | none |
-| 3 | `03-build-nvidia-open.sh` | the **open** kernel module, built in `rockylinux:10` (gcc 14.3.1 el10 — matches the kernel's compiler) | none |
-| 4 | `04-build-image.sh` | a bootable Rocky 10.2 + 6.18.34 disk **image** | none |
+| 1 | `01-build-kernel.sh` | the pinned upstream kernel (`KVER`) built with the GB10 `.config`, in `rockylinux:10` | none |
+| 2 | `02-build-rootfs.sh` | a current Rocky rootfs (`ROCKY_RELEASEVER`) with that kernel installed | none |
+| 2b | `02b-install-gpu-docker.sh` | CUDA stack + container runtime + open `.ko` (vermagic-checked == `KVER`) into the rootfs | none |
+| 2c | `02c-driver-userspace.sh` | driver **userspace** `DRIVER_VER` (`.run --no-kernel-modules`) into the rootfs | none |
+| 3 | `03-build-nvidia-open.sh` | the **open** kernel module, built in `rockylinux:10` (gcc 14.3.1 el10 — matches the kernel's compiler); the standalone proof, asserts vermagic == `KVER` | none |
+| 4 | `04-build-image.sh` | a bootable Rocky + `KVER` disk **image**, then `dd` to a USB (guarded: refuses any non-removable target) | none |
 
 > **The one non-obvious requirement (the headline finding):** build the open module in a `rockylinux:10`
 > container, not on the host. The DGX-OS host's gcc-13 fails on `-fmin-function-alignment=8`; el10's gcc 14.3.1
@@ -38,25 +43,25 @@ Flash the image from step 4 to a USB stick (`dd` / your tool of choice).
 
 ## Verify
 
-`proof-of-life.sh` — confirms OS (Rocky 10.2), kernel (`uname -r`=6.18.34), `nvidia-smi` (GB10 / 610.43.02),
-and compiles + runs a CUDA `vectorAdd` on the GPU. Green here = Tiers 1–2.5 reproduced.
+`proof-of-life.sh` — confirms OS (Rocky), kernel (`uname -r` = the pinned `KVER`), `nvidia-smi` (GB10 /
+`DRIVER_VER`), and compiles + runs a CUDA `vectorAdd` on the GPU. Green here = Tiers 1–2.5 reproduced.
 
 ## Upgrading / staying current
 
-The stack pins three things: the kernel (`KVER`), the open driver version, and the Rocky userspace. To pick up
-a new upstream kernel (e.g. `6.18.34` → `6.18.35`) or Rocky updates:
+The stack pins three things, all in **[`config/versions.env`](../config/versions.env)**: the kernel (`KVER`),
+the open driver (`DRIVER_VER`), and the Rocky userspace (`ROCKY_RELEASEVER`). To pick up a new upstream kernel
+(e.g. `6.18.34` → `6.18.35`) or Rocky updates:
 
-1. **Bump the kernel.** Today `6.18.34` is hardcoded in `01-build-kernel.sh` (`KVER=`), `02-build-rootfs.sh`,
-   `02b-install-gpu-docker.sh`, `03-build-nvidia-open.sh`, `04-build-image.sh`, `install-baremetal.sh`, and
-   `proof-of-life.sh`. (The first real bump parameterizes these to one `KVER` — see the repo issues.)
-2. **Bump the driver** the same way (the `610.43.02` references in `02b` / `02c` / `03`).
-3. **Pick up Rocky userspace updates:** the rootfs stage (`02`) installs current Rocky 10.x packages, so a
-   rebuild pulls the latest; or `dnf update` on the running box.
-4. **Rebuild `01`→`04`** (kernel → rootfs → driver → image). The open module **must** be rebuilt against the
-   new kernel — its `vermagic` must match exactly.
-5. **Install, reboot, `proof-of-life.sh`.** Confirm `uname -r` = the new `KVER`, `nvidia-smi` works, the CUDA
+1. **Bump the version(s) in `config/versions.env`.** One file. Every script (`01`–`04`, `install-baremetal.sh`)
+   sources it; nothing else hardcodes a version. The base GB10 `.config` carries forward across point releases —
+   `01`'s `olddefconfig` adapts it to the new `KVER` and prints the carried-vs-upstream symbol readout.
+2. **Pick up Rocky userspace updates** for free: the rootfs stage (`02`) installs current Rocky packages at
+   `ROCKY_RELEASEVER`, so a rebuild pulls the latest; or `dnf update` on the running box.
+3. **Rebuild `01`→`04`** (kernel → rootfs → driver → image). The open module **must** be rebuilt against the
+   new kernel — `02b` and `03` assert its `vermagic` matches `KVER` exactly and fail the build otherwise.
+4. **Boot, then `proof-of-life.sh`.** Confirm `uname -r` = the new `KVER`, `nvidia-smi` works, the CUDA
    `vectorAdd` runs, and (kernel-version-sensitive) the wired NIC survives a warm reboot.
-6. **Re-run a benchmark** (e.g. Qwen3.5-35B-A3B-FP8) and confirm parity still holds. That is the upgrade
+5. **Re-run a benchmark** (e.g. Qwen3.5-35B-A3B-FP8) and confirm parity still holds. That is the upgrade
    validated — the whole point of pinning a *stock* upstream kernel is that bumping it is a config bump, not a
    patch-rebase.
 

@@ -1,6 +1,7 @@
 #!/bin/bash
-# Proof of life for Rocky 10.2 + 6.18.34 + NVIDIA/CUDA on the DGX Spark (GB10).
-# Run on the bare-metal Rocky. Produces a shareable status snapshot.
+# Proof of life for Rocky + the pinned upstream kernel + NVIDIA/CUDA on the DGX Spark (GB10).
+# Reports uname -r (version-agnostic) so it works against any pinned KVER. Run on the booted Rocky
+# (USB-live or bare-metal). Produces a shareable status snapshot.
 set +e
 echo "=================== SPARK / ROCKY PROOF OF LIFE ==================="
 echo "date:        $(date -u +%Y-%m-%dT%H:%M:%SZ)"

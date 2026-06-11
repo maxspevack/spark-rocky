@@ -1,25 +1,38 @@
 #!/bin/bash
-# Build the OPEN NVIDIA module inside rockylinux:10 (gcc 14.3.1 el10 = the compiler the kernel was built with).
+# Build the OPEN NVIDIA module standalone in rockylinux:10 (gcc 14.3.1 el10 = the compiler the kernel was
+# built with). The headline finding: el10's gcc-14 compiles the open module against a stock upstream kernel
+# with ZERO source changes, where the DGX-OS host's gcc-13 fails on -fmin-function-alignment=8.
+# This is the proof/verify step (02b already builds the .ko into the rootfs). Asserts vermagic == $KVER.
+# Parameterized via config/versions.env. Assumes 02b downloaded+extracted the driver to $W/driver-610.
 set -uo pipefail
-LOG=/home/max/kbuild/nvbuild2.full.log
-KO=/home/max/kbuild/driver-610/NVIDIA-Linux-aarch64-610.43.02/kernel-open
-echo "=== build open module in rockylinux:10 (matching gcc-14 el10) ==="
-sudo docker run --rm -v /home/max/kbuild:/kbuild rockylinux/rockylinux:10 bash -c '
+HERE="$(cd "$(dirname "$0")" && pwd)"
+source "$HERE/../config/versions.env"          # KVER, DRIVER_VER, ROCKY_RELEASEVER
+W="${W:-$(dirname "$HERE")}"
+LOG="$W/nvbuild.full.log"
+KO="$W/driver-610/NVIDIA-Linux-aarch64-$DRIVER_VER/kernel-open"
+[ -d "$KO" ] || { echo "FATAL: $KO missing — run 02b first (it downloads+extracts the driver)"; exit 1; }
+echo "=== build open module in rockylinux:10 (matching gcc-14 el10) against $KVER ==="
+docker run --rm -v "$W":/kbuild -e KVER="$KVER" -e DRIVER_VER="$DRIVER_VER" rockylinux/rockylinux:10 bash -c '
   set -e
   dnf -y install gcc make kmod findutils >/dev/null 2>&1
   echo "container gcc: $(gcc --version | head -1)"
-  cd /kbuild/driver-610/NVIDIA-Linux-aarch64-610.43.02/kernel-open
+  cd /kbuild/driver-610/NVIDIA-Linux-aarch64-$DRIVER_VER/kernel-open
   make clean >/dev/null 2>&1 || true
-  make -j"$(nproc)" SYSSRC=/kbuild/linux-6.18.34 modules
+  make -j"$(nproc)" SYSSRC=/kbuild/linux-$KVER modules
 ' > "$LOG" 2>&1
 RC=$?
 echo "container build rc=$RC"
 echo "=== tail ==="; tail -20 "$LOG"
-echo "=== .ko produced? ==="; ls -la "$KO"/*.ko 2>/dev/null || echo "(no .ko)"
+echo "=== .ko produced? ==="; ls -la "$KO"/*.ko 2>/dev/null || { echo "(no .ko) — FAIL"; exit 1; }
 echo "=== Unknown symbol / hard errors (carried-patch territory) ==="
 grep -iE "unknown symbol|error:|undefined reference" "$LOG" | head -25 || echo "(none)"
-echo "=== vermagic (MUST be exactly 6.18.34) ==="
+echo "=== vermagic (MUST be exactly $KVER) ==="
+FAIL=0
 for m in nvidia.ko nvidia-uvm.ko nvidia-modeset.ko nvidia-drm.ko; do
-  [ -f "$KO/$m" ] && echo "$m -> $(modinfo -F vermagic "$KO/$m" 2>/dev/null)"
+  if [ -f "$KO/$m" ]; then
+    VM=$(modinfo -F vermagic "$KO/$m" 2>/dev/null | awk '{print $1}')
+    echo "$m -> $VM"
+    [ "$VM" = "$KVER" ] || FAIL=1
+  fi
 done
-echo "BUILD2-DONE rc=$RC"
+if [ "$RC" = 0 ] && [ "$FAIL" = 0 ]; then echo "BUILD-OPEN-OK $KVER"; else echo "BUILD-OPEN-FAIL rc=$RC vermagic_mismatch=$FAIL"; exit 1; fi

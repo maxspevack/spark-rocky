@@ -1,17 +1,25 @@
 #!/bin/bash
-# Build a bootable Rocky 10.2 + 6.18.34 disk IMAGE on the fast NVMe (fast small-file writes),
+# Build a bootable Rocky + $KVER disk IMAGE on the fast NVMe (fast small-file writes),
 # then stream it to the USB stick in one sequential dd. Runs on the Spark as root.
+# Parameterized via config/versions.env. The dd target is guarded: it MUST be a removable USB.
 set -uo pipefail
-R=/home/max/rocky-img/rootfs
-IMG=/home/max/rocky-img/rocky-gb10.img
-DEV=/dev/sda
+HERE="$(cd "$(dirname "$0")" && pwd)"
+source "$HERE/../config/versions.env"          # KVER, DRIVER_VER, ROCKY_RELEASEVER
+W="${W:-$(dirname "$HERE")}"
+R="$W/rocky-img/rootfs"
+IMG="$W/rocky-img/rocky-gb10.img"
+DEV="${DEV:-/dev/sda}"
 MNT=/mnt/rimg
+[ -d "$R" ] || { echo "FATAL: rootfs missing — run 02/02b/02c first"; exit 1; }
 
+# Safety guard: refuse to write anything that is not a removable USB. This is what keeps the NVMe
+# (and everything on it) untouchable — /dev/nvme0n1 is TRAN=nvme RM=0 and fails this check.
 [ "$(lsblk -dno TRAN "$DEV" 2>/dev/null|tr -d '[:space:]')" = usb ] \
   && [ "$(lsblk -dno RM "$DEV" 2>/dev/null|tr -d '[:space:]')" = 1 ] \
-  || { echo "REFUSE: $DEV not removable USB"; exit 1; }
+  || { echo "REFUSE: $DEV is not a removable USB (TRAN=$(lsblk -dno TRAN "$DEV" 2>/dev/null) RM=$(lsblk -dno RM "$DEV" 2>/dev/null))"; exit 1; }
+echo "target USB: $DEV ($(lsblk -dno SIZE,MODEL "$DEV" 2>/dev/null))"
 
-RSZ=$(du -sB1G "$R" | cut -f1); IMGSZ=$(( ${RSZ%G} + 14 ))
+RSZ=$(du -sB1G "$R" | cut -f1); IMGSZ=$(( ${RSZ%G} + 2 ))   # +2G margin covers chroot pkg adds + initramfs + ext4 overhead
 echo "rootfs ${RSZ} -> image ${IMGSZ}G"
 rm -f "$IMG"; truncate -s ${IMGSZ}G "$IMG"
 parted -s "$IMG" mklabel gpt
@@ -31,37 +39,63 @@ UUID=$ROOT_UUID / ext4 defaults 0 1
 UUID=$EFI_UUID /boot/efi vfat umask=0077,shortname=winnt 0 2
 EOF
 sed -i 's/^SELINUX=.*/SELINUX=permissive/' "$MNT"/etc/selinux/config 2>/dev/null||true
-mkdir -p "$MNT"/root/.ssh && cp /home/max/.ssh/authorized_keys "$MNT"/root/.ssh/authorized_keys 2>/dev/null \
+mkdir -p "$MNT"/root/.ssh && cp /root/.ssh/authorized_keys "$MNT"/root/.ssh/authorized_keys 2>/dev/null \
   && chmod 700 "$MNT"/root/.ssh && chmod 600 "$MNT"/root/.ssh/authorized_keys
 mkdir -p "$MNT"/boot/grub2
 cat > "$MNT"/boot/grub2/grub.cfg <<EOF
 set timeout=5
 set default=0
 insmod all_video
-menuentry 'Rocky 10.2 + 6.18.34 (GB10)' {
+menuentry 'Rocky $ROCKY_RELEASEVER + $KVER (GB10)' {
   search --no-floppy --fs-uuid --set=root $ROOT_UUID
-  linux /boot/vmlinuz-6.18.34 root=UUID=$ROOT_UUID ro rootwait iommu.passthrough=0 init_on_alloc=0 console=tty0 console=ttyS0,921600 earlycon=uart,mmio32,0x16A00000 selinux=0
-  initrd /boot/initramfs-6.18.34.img
+  linux /boot/vmlinuz-$KVER root=UUID=$ROOT_UUID ro rootwait iommu.passthrough=0 init_on_alloc=0 console=tty0 console=ttyS0,921600 earlycon=uart,mmio32,0x16A00000 selinux=0
+  initrd /boot/initramfs-$KVER.img
 }
 EOF
 for m in proc sys dev dev/pts; do mount --bind /$m "$MNT"/$m; done
 mount -t tmpfs -o size=20G tmpfs "$MNT"/var/tmp   # dracut scratch in RAM, not the image root
-chroot "$MNT" /bin/bash <<'CHROOT'
+chroot "$MNT" /bin/bash <<CHROOT
 set -e
-dnf install -y -q grub2-efi-aa64 grub2-efi-aa64-modules shim-aa64 dracut-network NetworkManager openssh-server 2>/dev/null || true
+dnf install -y -q grub2-efi-aa64 grub2-efi-aa64-modules shim-aa64 dracut-network NetworkManager openssh-server zstd 2>/dev/null || true
 echo 'root:rocky' | chpasswd   # DEV-IMAGE default — this box is LAN-only + reinstalled on demand; change before exposing off-LAN
 systemctl enable sshd NetworkManager serial-getty@ttyS0.service getty@tty1.service 2>/dev/null || true
 # GB10 unified memory: swap-on-overcommit hangs the box ("zombie" instead of a clean CUDA OOM). Disable swap.
 # (fstab here carries no swap; this mask is belt-and-suspenders so nothing activates swap at runtime.)
 systemctl mask swap.target 2>/dev/null || true
-dracut --force --no-hostonly --add-drivers "usb_storage uas xhci_pci xhci_hcd ehci_pci ext4 nvme" --kver 6.18.34 /boot/initramfs-6.18.34.img 6.18.34
-grub2-install --target=arm64-efi --efi-directory=/boot/efi --removable --boot-directory=/boot --no-nvram
-cp -f /boot/grub2/grub.cfg /boot/efi/EFI/BOOT/grub.cfg 2>/dev/null || true
+dracut --force --no-hostonly --compress zstd --add-drivers "usb_storage uas xhci_pci xhci_hcd ehci_pci ext4 nvme" --kver $KVER /boot/initramfs-$KVER.img $KVER
 CHROOT
+# RHEL ships a PREBUILT grubaa64.efi (grub2-efi-aa64) — grub2-install --target=arm64-efi does NOT work here
+# (no /usr/lib/grub/arm64-efi modules; it errors on modinfo.sh). The prebuilt binary reads its config from
+# /EFI/rocky/grub.cfg (baked-in prefix, confirmed against the proven bare-metal box). So: write a
+# self-contained menuentry there, and copy the prebuilt binary to the UEFI removable fallback
+# /EFI/BOOT/BOOTAA64.EFI so the firmware boots the USB as removable media.
+install -D -m644 "$MNT/boot/efi/EFI/rocky/grubaa64.efi" "$MNT/boot/efi/EFI/BOOT/BOOTAA64.EFI" 2>/dev/null || true
+cat > "$MNT/boot/efi/EFI/rocky/grub.cfg" <<EOF
+set timeout=5
+set default=0
+insmod all_video
+menuentry 'Rocky $ROCKY_RELEASEVER + $KVER (GB10)' {
+  search --no-floppy --fs-uuid --set=root $ROOT_UUID
+  linux /boot/vmlinuz-$KVER root=UUID=$ROOT_UUID ro rootwait iommu.passthrough=0 init_on_alloc=0 console=tty0 console=ttyS0,921600 earlycon=uart,mmio32,0x16A00000 selinux=0
+  initrd /boot/initramfs-$KVER.img
+}
+EOF
+# Also place the config at the self-relative path, covering both possible prefixes of the prebuilt binary.
+cp -f "$MNT/boot/efi/EFI/rocky/grub.cfg" "$MNT/boot/efi/EFI/BOOT/grub.cfg" 2>/dev/null || true
+# Verify the built image carries kernel + initramfs + grub BEFORE the ~1hr flash (advisor: artifacts, not banners).
+VERR=0
+[ -f "$MNT/boot/vmlinuz-$KVER" ] || { echo "VERIFY-FAIL: no vmlinuz-$KVER in image"; VERR=1; }
+ISZ=$(stat -c%s "$MNT/boot/initramfs-$KVER.img" 2>/dev/null || echo 0)
+[ "$ISZ" -gt 5000000 ] || { echo "VERIFY-FAIL: initramfs-$KVER.img missing/tiny ($ISZ bytes)"; VERR=1; }
+[ -f "$MNT/boot/efi/EFI/BOOT/BOOTAA64.EFI" ] || { echo "VERIFY-FAIL: no /EFI/BOOT/BOOTAA64.EFI — USB would not boot as removable media"; VERR=1; }
+[ -f "$MNT/boot/efi/EFI/rocky/grub.cfg" ] || { echo "VERIFY-FAIL: no /EFI/rocky/grub.cfg (the prebuilt grub's config path)"; VERR=1; }
+grep -q "vmlinuz-$KVER" "$MNT/boot/efi/EFI/rocky/grub.cfg" 2>/dev/null || { echo "VERIFY-FAIL: /EFI/rocky/grub.cfg does not reference vmlinuz-$KVER"; VERR=1; }
+[ "$VERR" = 0 ] && echo "IMAGE-VERIFY-OK: vmlinuz-$KVER + initramfs-$KVER.img ($ISZ bytes) + BOOTAA64.EFI + /EFI/rocky/grub.cfg present"
 for m in var/tmp dev/pts dev sys proc; do umount -l "$MNT"/$m 2>/dev/null||true; done
 umount "$MNT"/boot/efi 2>/dev/null||true; umount "$MNT" 2>/dev/null||true; losetup -d "$LOOP"; sync
+[ "$VERR" = 0 ] || { echo "ABORT: image failed verification, not flashing $DEV"; exit 1; }
 echo "=== image ready ($(ls -la $IMG|awk '{print $5}') bytes); streaming to $DEV ==="
 for p in "$DEV"?*; do umount "$p" 2>/dev/null||true; done
 dd if="$IMG" of="$DEV" bs=16M oflag=direct status=progress
 sync
-echo "USB-IMAGE-DONE"
+echo "USB-IMAGE-DONE $KVER -> $DEV"

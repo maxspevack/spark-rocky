@@ -3,8 +3,10 @@
 # DESTRUCTIVE: wipes /dev/nvme0n1 (DGX OS). The USB remains as recovery.
 # Uses parted (present in rootfs); installs dosfstools+rsync from BaseOS; cp -ax fallback if rsync absent.
 set -uo pipefail
+HERE="$(cd "$(dirname "$0")" && pwd)"
+source "$HERE/../config/versions.env"          # KVER, DRIVER_VER, ROCKY_RELEASEVER
 TGT=/dev/nvme0n1
-echo "=== Rocky 10.2 + 6.18.34 -> bare metal on $TGT ==="
+echo "=== Rocky $ROCKY_RELEASEVER + $KVER -> bare metal on $TGT ==="
 SRC=$(findmnt -no SOURCE /); echo "running root: $SRC"
 [ "$SRC" = "/dev/sda2" ] || { echo "ABORT: not running from USB /dev/sda2 (got $SRC)"; exit 1; }
 [ -b "$TGT" ] && [ "$(lsblk -dno TRAN "$TGT" 2>/dev/null)" != usb ] || { echo "ABORT: $TGT not a safe internal target"; exit 1; }
@@ -49,7 +51,7 @@ grub2-mkconfig -o /boot/grub2/grub.cfg 2>&1 | tail -1
 EFIBIN=\$([ -f /boot/efi/EFI/rocky/shimaa64.efi ] && echo '\\\\EFI\\\\rocky\\\\shimaa64.efi' || echo '\\\\EFI\\\\rocky\\\\grubaa64.efi')
 efibootmgr -c -d $TGT -p 1 -L 'Rocky-10.2-GB10' -l \"\$EFIBIN\" 2>&1 | tail -1 || true
 echo '--- ESP ---'; ls -R /boot/efi/EFI 2>/dev/null | head -25
-echo -n '--- grub.cfg 6.18.34 entries: '; grep -c 6.18.34 /boot/efi/EFI/rocky/grub.cfg 2>/dev/null || echo 0
+echo -n '--- grub.cfg $KVER entries: '; grep -c $KVER /boot/efi/EFI/rocky/grub.cfg 2>/dev/null || echo 0
 echo '--- boot order ---'; efibootmgr 2>/dev/null | grep -iE 'BootOrder|Rocky'
 "
 for d in dev/pts dev sys proc run; do umount /mnt/tgt/$d 2>/dev/null; done
