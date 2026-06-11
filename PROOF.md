@@ -1,10 +1,8 @@
-# A standard Rocky Linux stack runs NVIDIA's DGX Spark – at parity, and you can refute it yourself
+# A standard Rocky Linux stack runs NVIDIA's DGX Spark – at parity, and you can confirm it yourself
 
-> Rocky 10.2 + a stock upstream 6.18 kernel + the open NVIDIA driver 610.43.02, on the GB10, reproduces the community's own [spark-arena.com](https://spark-arena.com) single-host benchmarks **at parity** – *not* "faster." Every host change is auditable, the stack stays current through stock public tooling, and the published numbers came back. **Reproduce or refute any entry yourself, credential-free** – the link is at the bottom.
+> Rocky 10.2 + a stock upstream 6.18 kernel + the open NVIDIA driver 610.43.02, on the GB10, reproduces the community's own [spark-arena.com](https://spark-arena.com) single-host benchmarks. Every host change is auditable, the stack stays current through stock public tooling, and the published numbers came back.
 
-A standard RHEL-family host also runs the Spark, lands the published numbers at parity, and stays current with a one-line change.
-
-## The proof – three full-matrix models at parity
+## The proof
 
 A full `llama-benchy` matrix sweeps the whole performance surface – **decode** (single-user generation), **prefill** (prompt processing), and **concurrency** (throughput as users stack up). No single cell is "the" number; the honest summary is the **median vs 1.0× (parity)**. Decode lands at or just above parity, prefill below it (~0.75–0.93× at the `pp2048` cell across the three models).
 
@@ -23,15 +21,13 @@ Medians spanning **0.96×–1.05×** straddle parity, the signature of a transpa
 | LFM2.5-350M | 222.8 | 246.0 | single cell – full matrix not yet run |
 | gpt-oss-120b | 58.8 | 62.6 | single cell – **full matrix in progress** ⏳ ([#6](https://github.com/maxspevack/spark-rocky/issues/6)) |
 
-<sub>⏳ The 120B's full matrix is gated by desk-appliance cooling, not the stack – but the single cell shows the stack serves a 120B model single-host on the GB10.</sub>
-
 ## We changed only the host
 
 The benchmark runs in a serving container built from the spark-arena project's **own Dockerfile, unmodified** (vLLM + the model + the spark-arena recipe). We swapped only the **host beneath it** – Rocky 10.2 + a stock 6.18 kernel + the open driver we built – and the host's `libcuda` is injected into that container at runtime. Same Dockerfile, same recipe, same GB10 silicon.
 
-One variable still differs between the published run and ours: **the vLLM build, not the host.** spark-arena pins no runtime version, so the published entry and our run compiled vLLM on different dates. That residual is named on every receipt and is the most plausible source of the per-axis deltas – and it is exactly why the claim is **parity, not speed.**
+One variable still differs between the published run and ours: **the vLLM build, not the host.** spark-arena pins no runtime version, so the published entry and our run compiled vLLM on different dates.
 
-## Why it holds up – all checkable
+## Why it holds up
 
 - ✅ **Auditable.** Every host change is a named `.config` symbol or build step – no `.patch`/`.diff` anywhere in the repo, and the open driver is built unmodified (`make … SYSSRC=… modules`, no source edits). Nothing hidden to carry or rot.
 - ✅ **Firmware-current, the standard way.** The box runs the latest platform firmware NVIDIA publishes to the **public LVFS**, applied with stock `fwupd` – no DGX OS, no entitlement, no proprietary tool. The parity result carries no stale-firmware confound.
