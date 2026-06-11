@@ -17,6 +17,12 @@ fork, carried patches, and the upstream-filing plan.
 `patch`/`git apply`; the box's spark-vllm-docker checkout has zero local modifications. This matches the host
 layer (kernel + driver carry no patches; see the build scripts and `config/rocky-6.18.34-gb10.config`).
 
+**Host/platform side (this table defers to two places, to avoid duplicating the accounting):** the kernel
+`.config` + the DGX baseline live in [`config/`](config/); the boot-time platform deltas — each classified
+*carry / upstream / decline / benign* — plus the firmware-currency conclusion live in
+[`docs/platform-deltas.md`](docs/platform-deltas.md). Platform firmware is NVIDIA's, applied **unmodified** via
+stock public `fwupd`/LVFS (the box is on the latest published) — adopted, not carried or patched.
+
 ## Fork vs. upstream — why the box runs upstream
 
 We forked all three per the adopt-by-fork doctrine, but **because we carry zero patches, the box runs

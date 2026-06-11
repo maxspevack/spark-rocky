@@ -53,8 +53,14 @@ results: [`receipts/`](receipts/).
 | 1 — Boots | Rocky 10.2 + 6.18.34 boots on the GB10 | **PROVEN** |
 | 2 — GPU + CUDA | open driver builds/loads; GPU computes | **PROVEN** |
 | 2.5 — Bare metal | installed on the NVMe; SSH + console | **PROVEN** |
-| 3 — Benchmark | reproduce published single-host entries | **IN PROGRESS** — LFM2.5-350M `tg128(c1)`=246 vs 222.8 (+10.4%); Qwen3.5-35B-A3B-FP8 full 104-cell matrix reproduced, **median 1.01× = parity** |
+| 3 — Benchmark | reproduce published single-host entries | **4 reproduced at parity** — full-matrix medians Qwen3.5-35B-A3B-FP8 1.01×, Qwen3.5-0.8B 0.96×, gemma-3-1b-it 1.05×; plus LFM2.5-350M `tg128(c1)` +10.4%. → [`docs/scoreboard.md`](docs/scoreboard.md) |
 | 4 — Leaderboard | peer-reviewed, third-party-reproduced; then Max submits | NOT STARTED |
+
+The Live USB was validated clean-room on 2026-06-11 — build → boot **6.18.35** off the USB → the open driver
+**auto-loads** → `nvidia-smi` + a CUDA `vectorAdd` pass — proving the stack stands up on a newer kernel;
+bumping it is a one-file [`config/versions.env`](config/versions.env) change. The box also runs **NVIDIA's
+latest platform firmware via stock public `fwupd`/LVFS** (no DGX OS, no entitlement), so benchmarks run on the
+same firmware a DGX OS box would — details in [`docs/build-and-install.md`](docs/build-and-install.md).
 
 ## Zero patches — and what's actually novel
 
@@ -87,9 +93,10 @@ Every directory has its own README explaining what it holds and how to regenerat
 
 ## More
 
-- [`docs/software-stack.md`](docs/software-stack.md) — the three environments (host / serving container /
-  benchmark client) and why "PyTorch not found" is correct, not a gap.
-- [`docs/stack-and-delta.md`](docs/stack-and-delta.md) — layer-by-layer: what we swapped vs held constant.
+- [`docs/software-stack.md`](docs/software-stack.md) — the full stack, the layer-by-layer delta vs DGX OS,
+  "PyTorch not found" explained, and the controlled-experiment argument.
+- [`docs/platform-deltas.md`](docs/platform-deltas.md) — every boot-time delta classified (carry / upstream /
+  decline / benign), and the firmware-currency conclusion.
 
 ## License
 

@@ -39,5 +39,13 @@ NVIDIA's release notes. GPU VBIOS `9A.0B.25.00.00` and GSP `610.43.02` ride the 
 | L9 | `PCI: OF: of_root NULL` (×8) | **NO-OP** | PCI host bridges come from ACPI on this hybrid ACPI+DT boot; expected |
 
 ## Carried kernel cmdline (boot parameters, not source patches)
-`iommu.passthrough=0 init_on_alloc=0 console=tty0 console=ttyS0,921600 earlycon=uart,mmio32,0x16A00000 selinux=0`
-— inherited from the proven bare-metal box. *Open: write the one-line rationale for each so they are intentional.*
+Inherited from the proven bare-metal box; each is a deliberate boot parameter, not a patch:
+- `iommu.passthrough=0` — SMMU does DMA translation rather than bypass (matches the DGX baseline; keeps PCIe
+  DMA isolated). The GB10 GPU reaches memory over NVLink-C2C coherence, so GPU compute is unaffected either way.
+- `init_on_alloc=0` — disables zero-on-allocation (a small throughput win). This is a single-user benchmark
+  host, not a multi-tenant security boundary; revisit if that changes.
+- `console=tty0 console=ttyS0,921600` — console on both the monitor (`tty0`) and serial (`ttyS0` @ 921600), so
+  the box is debuggable over serial and the boot is visible on an attached monitor.
+- `earlycon=uart,mmio32,0x16A00000` — early-boot console on the GB10 UART before the full console driver
+  initializes (surfaces early panics).
+- `selinux=0` — disabled to keep single-user bring-up simple; revisit for a hardened/multi-tenant target.
