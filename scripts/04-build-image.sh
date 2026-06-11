@@ -82,7 +82,9 @@ menuentry 'Rocky $ROCKY_RELEASEVER + $KVER (GB10)' {
 EOF
 # Also place the config at the self-relative path, covering both possible prefixes of the prebuilt binary.
 cp -f "$MNT/boot/efi/EFI/rocky/grub.cfg" "$MNT/boot/efi/EFI/BOOT/grub.cfg" 2>/dev/null || true
-# Verify the built image carries kernel + initramfs + grub BEFORE the ~1hr flash (advisor: artifacts, not banners).
+# Ship the GPU proof-of-life IN the image so the booted USB self-validates (run /root/proof-of-life.sh).
+[ -f "$HERE/proof-of-life.sh" ] && install -m755 "$HERE/proof-of-life.sh" "$MNT/root/proof-of-life.sh"
+# Verify the built image carries kernel + initramfs + grub BEFORE the flash (advisor: artifacts, not banners).
 VERR=0
 [ -f "$MNT/boot/vmlinuz-$KVER" ] || { echo "VERIFY-FAIL: no vmlinuz-$KVER in image"; VERR=1; }
 ISZ=$(stat -c%s "$MNT/boot/initramfs-$KVER.img" 2>/dev/null || echo 0)
@@ -98,4 +100,10 @@ echo "=== image ready ($(ls -la $IMG|awk '{print $5}') bytes); streaming to $DEV
 for p in "$DEV"?*; do umount "$p" 2>/dev/null||true; done
 dd if="$IMG" of="$DEV" bs=16M oflag=direct status=progress
 sync
+# We dd a sized image onto a larger stick, so the backup GPT header lands at the image's end, not the disk's
+# end -> the kernel logs "Alternate GPT header not at the end of the disk". Cosmetic, but relocate it so a
+# clean reproducer shows no GPT errors. (Does not grow the partition; we do not need the extra space.)
+command -v sgdisk >/dev/null 2>&1 || dnf install -y -q gdisk 2>/dev/null || true
+if command -v sgdisk >/dev/null 2>&1; then sgdisk -e "$DEV" >/dev/null 2>&1 && echo "GPT backup header relocated to end of $DEV"; fi
+partprobe "$DEV" 2>/dev/null || true; sync
 echo "USB-IMAGE-DONE $KVER -> $DEV"

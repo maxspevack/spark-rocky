@@ -48,7 +48,13 @@ make modules -j"$(nproc)" SYSSRC=/host/linux-$KVER >/host/ko.log 2>&1
 mkdir -p "$R/lib/modules/$KVER/extra"
 cp *.ko "$R/lib/modules/$KVER/extra/"
 strip --strip-debug "$R/lib/modules/$KVER/extra/"*.ko 2>/dev/null || true   # ~98M unstripped -> ~15M; --strip-debug keeps vermagic
-echo "[gpu] open .ko installed: $(ls "$R/lib/modules/$KVER/extra/"*.ko | wc -l) modules ($(du -sh "$R/lib/modules/$KVER/extra" | cut -f1))"
+# depmod so the freshly-copied open modules resolve. WITHOUT this, modprobe cannot find them and nothing
+# loads nvidia at boot -> nvidia-smi fails "couldnt communicate with the driver" even though the .ko is present.
+depmod -b "$R" "$KVER"
+# auto-load the stack at boot (systemd-modules-load) so the GPU is up without manual modprobe.
+mkdir -p "$R/etc/modules-load.d"
+printf "nvidia\nnvidia-modeset\nnvidia-uvm\nnvidia-drm\n" > "$R/etc/modules-load.d/nvidia.conf"
+echo "[gpu] open .ko installed: $(ls "$R/lib/modules/$KVER/extra/"*.ko | wc -l) modules ($(du -sh "$R/lib/modules/$KVER/extra" | cut -f1)); depmod + modules-load.d done"
 '
 # Verify: the open .ko exists in the rootfs AND its vermagic matches $KVER exactly (the whole point).
 R="$W/rocky-img/rootfs"
@@ -56,4 +62,7 @@ KO="$R/lib/modules/$KVER/extra/nvidia.ko"
 [ -f "$KO" ] || { echo "VERIFY-FAIL: nvidia.ko not in rootfs"; exit 1; }
 VM=$(modinfo -F vermagic "$KO" 2>/dev/null | awk '{print $1}')
 [ "$VM" = "$KVER" ] || { echo "VERIFY-FAIL: nvidia.ko vermagic '$VM' != $KVER"; exit 1; }
-echo "GPU-DOCKER-OK: open .ko vermagic=$VM in rootfs"
+# These two would have caught the "nvidia-smi can't talk to the driver" failure at BUILD time:
+grep -q "extra/nvidia.ko" "$R/lib/modules/$KVER/modules.dep" || { echo "VERIFY-FAIL: nvidia not in modules.dep (depmod did not run) — modprobe/boot-load would fail"; exit 1; }
+[ -f "$R/etc/modules-load.d/nvidia.conf" ] || { echo "VERIFY-FAIL: no /etc/modules-load.d/nvidia.conf — nvidia would not auto-load at boot"; exit 1; }
+echo "GPU-DOCKER-OK: open .ko vermagic=$VM in rootfs; in modules.dep; modules-load.d set"
