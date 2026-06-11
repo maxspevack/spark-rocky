@@ -62,6 +62,7 @@ systemctl enable sshd NetworkManager serial-getty@ttyS0.service getty@tty1.servi
 # GB10 unified memory: swap-on-overcommit hangs the box ("zombie" instead of a clean CUDA OOM). Disable swap.
 # (fstab here carries no swap; this mask is belt-and-suspenders so nothing activates swap at runtime.)
 systemctl mask swap.target 2>/dev/null || true
+mkdir -p /var/log/journal   # persistent journald — a thermal/OOM event must survive a power-off for forensics (volatile default lost the 2026-06-11 crash logs)
 dracut --force --no-hostonly --compress zstd --add-drivers "usb_storage uas xhci_pci xhci_hcd ehci_pci ext4 nvme" --kver $KVER /boot/initramfs-$KVER.img $KVER
 CHROOT
 # RHEL ships a PREBUILT grubaa64.efi (grub2-efi-aa64) — grub2-install --target=arm64-efi does NOT work here
@@ -82,8 +83,10 @@ menuentry 'Rocky $ROCKY_RELEASEVER + $KVER (GB10)' {
 EOF
 # Also place the config at the self-relative path, covering both possible prefixes of the prebuilt binary.
 cp -f "$MNT/boot/efi/EFI/rocky/grub.cfg" "$MNT/boot/efi/EFI/BOOT/grub.cfg" 2>/dev/null || true
-# Ship the GPU proof-of-life IN the image so the booted USB self-validates (run /root/proof-of-life.sh).
+# Ship the GPU proof-of-life + the passive thermal/mem logger IN the image (run /root/proof-of-life.sh;
+# run /root/templog.sh alongside a benchmark for a forensic trace — logging only, it throttles nothing).
 [ -f "$HERE/proof-of-life.sh" ] && install -m755 "$HERE/proof-of-life.sh" "$MNT/root/proof-of-life.sh"
+[ -f "$HERE/templog.sh" ] && install -m755 "$HERE/templog.sh" "$MNT/root/templog.sh"
 # Verify the built image carries kernel + initramfs + grub BEFORE the flash (advisor: artifacts, not banners).
 VERR=0
 [ -f "$MNT/boot/vmlinuz-$KVER" ] || { echo "VERIFY-FAIL: no vmlinuz-$KVER in image"; VERR=1; }
