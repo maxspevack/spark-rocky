@@ -41,6 +41,25 @@ Flash the image from step 4 to a USB stick (`dd` / your tool of choice).
 `proof-of-life.sh` — confirms OS (Rocky 10.2), kernel (`uname -r`=6.18.34), `nvidia-smi` (GB10 / 610.43.02),
 and compiles + runs a CUDA `vectorAdd` on the GPU. Green here = Tiers 1–2.5 reproduced.
 
+## Upgrading / staying current
+
+The stack pins three things: the kernel (`KVER`), the open driver version, and the Rocky userspace. To pick up
+a new upstream kernel (e.g. `6.18.34` → `6.18.35`) or Rocky updates:
+
+1. **Bump the kernel.** Today `6.18.34` is hardcoded in `01-build-kernel.sh` (`KVER=`), `02-build-rootfs.sh`,
+   `02b-install-gpu-docker.sh`, `03-build-nvidia-open.sh`, `04-build-image.sh`, `install-baremetal.sh`, and
+   `proof-of-life.sh`. (The first real bump parameterizes these to one `KVER` — see the repo issues.)
+2. **Bump the driver** the same way (the `610.43.02` references in `02b` / `02c` / `03`).
+3. **Pick up Rocky userspace updates:** the rootfs stage (`02`) installs current Rocky 10.x packages, so a
+   rebuild pulls the latest; or `dnf update` on the running box.
+4. **Rebuild `01`→`04`** (kernel → rootfs → driver → image). The open module **must** be rebuilt against the
+   new kernel — its `vermagic` must match exactly.
+5. **Install, reboot, `proof-of-life.sh`.** Confirm `uname -r` = the new `KVER`, `nvidia-smi` works, the CUDA
+   `vectorAdd` runs, and (kernel-version-sensitive) the wired NIC survives a warm reboot.
+6. **Re-run a benchmark** (e.g. Qwen3.5-35B-A3B-FP8) and confirm parity still holds. That is the upgrade
+   validated — the whole point of pinning a *stock* upstream kernel is that bumping it is a config bump, not a
+   patch-rebase.
+
 ## First-install helper scripts ([`scripts/bringup/`](../scripts/bringup/), NOT part of the clean pipeline)
 
 Operational artifacts from the first bring-up of *this* box, moved to `scripts/bringup/`: kept for reference,
