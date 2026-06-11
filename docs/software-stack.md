@@ -21,7 +21,7 @@ Verified inventory (2026-06-10, on the bare-metal box):
 ```
 ENV 1 — HOST (ours, the swapped layer)
   OS                       Rocky Linux 10.2 (Red Quartz)
-  kernel                   6.18.34   upstream mainline, ZERO patches   (parameterized; 6.18.35 validated — see build-and-install.md)
+  kernel                   6.18.34   upstream mainline, ZERO patches   (benchmark kernel; 6.18.35 validated to boot + GPU, not yet benchmarked — see build-and-install.md)
   GPU driver               610.43.02 open module, WE built it
   platform firmware        NVIDIA's latest, via public fwupd/LVFS      (see build-and-install.md → Firmware)
   docker                   29.5.3 ; nvidia-container-toolkit 1.19.1
@@ -67,7 +67,7 @@ Everything we changed is **below** the container boundary (the host). Everything
 |---|---|---|---|
 | **GPU silicon** | GB10 (sm_121), 121 GB unified | *same* | **CONSTANT** — the leaderboard is keyed to "DGX Spark" |
 | **OS userspace** | Ubuntu 24.04.4 LTS | **Rocky Linux 10.2** | **OURS** |
-| **Kernel** | `6.17.0-1021-nvidia` (vendored, NVIDIA-patched, gcc 13.3.0) | **stock upstream (`6.18.34`; `6.18.35` validated), ZERO patches** (gcc 14.3.1) | **OURS** — vendor kernel → stock mainline |
+| **Kernel** | `6.17.0-1021-nvidia` (vendored, NVIDIA-patched, gcc 13.3.0) | **stock upstream 6.18, ZERO patches** (gcc 14.3.1) — `6.18.34` benchmarked, `6.18.35` boot/GPU-validated | **OURS** — vendor kernel → stock mainline |
 | **GPU kernel driver** | open `580.159.03` (NVIDIA-built) | **open `610.43.02`, WE built** (in `rockylinux:10`, against the stock tree, zero source patches) | **OURS** — both *open*; our delta is version + that we built it against a stock kernel |
 | **Driver userspace** (`libcuda.so`) | 580.159.03 | **610.43.02** (host; injected into the container) | **OURS** |
 | **Platform firmware** | NVIDIA, via DGX OS OTA | **NVIDIA's latest, via public fwupd/LVFS** | **CONSTANT** — same firmware, different delivery path (no DGX OS needed) |
@@ -86,8 +86,9 @@ OS/kernel/driver one. We name it on every receipt and match the recipe's `contai
 
 - **Proves:** replacing the entire host — Ubuntu → Rocky 10.2, vendor `6.17-nvidia` → stock upstream (zero
   patches), NVIDIA-built `580` → self-built open `610` — is **transparent to the workload**. The same
-  container + recipe + tool land the published numbers on the community's own scoreboard. Across four
-  single-host models the full-matrix **median is parity (0.96–1.05×)** — see [`scoreboard.md`](scoreboard.md).
+  container + recipe + tool land the published numbers on the community's own scoreboard. Across **three
+  full-matrix** models the **median is parity (0.96–1.05×)**; two more (LFM2.5-350M, gpt-oss-120b) reproduced
+  at single-cell `tg128 (c1)` — see [`scoreboard.md`](scoreboard.md).
 - **Does NOT prove "Rocky is faster."** Per-axis deltas (e.g. LFM `tg128` +10.4%) track the vLLM-date drift,
   not the host swap. A clean speed claim would require pinning the entry-date vLLM, which the leaderboard does
   not do.

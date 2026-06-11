@@ -6,7 +6,7 @@ The mechanism behind deliverable #1. Full walkthrough + prerequisites: [`../docs
 
 | Script | Produces |
 |---|---|
-| `01-build-kernel.sh` | upstream 6.18.34 + `config/rocky-6.18.34-gb10.config`, built in `rockylinux:10` |
+| `01-build-kernel.sh` | stock upstream `$KVER` (from `versions.env`; currently 6.18.35) + `config/rocky-6.18.34-gb10.config` (base config — carries forward to newer `$KVER` via `olddefconfig`), built in `rockylinux:10` |
 | `02-build-rootfs.sh` | Rocky 10.2 rootfs with that kernel |
 | `02b-install-gpu-docker.sh` | CUDA + container runtime in the rootfs |
 | `02c-driver-userspace.sh` | 610.43.02 driver userspace (`.run --no-kernel-modules`) |

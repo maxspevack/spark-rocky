@@ -11,6 +11,7 @@ the container tag). Reproducing an entry means running *its* recipe, not one we 
 | `qwen3.5-35b-a3b-fp8-arena.yaml` | Qwen3.5-35B-A3B-FP8 (`28879af7`) | `vllm-node-tf5` | flashinfer, fp8 KV, `mods/fix-qwen3.5-autoround` |
 | `qwen3.5-0.8b-arena.yaml` | Qwen3.5-0.8B (`sub1777633319098`) | `vllm-node` | public model, no token |
 | `gemma-3-1b-it-arena.yaml` | gemma-3-1b-it (`sub1779455882567`) | `vllm-node-tf5` | HF-gated (token required to download) |
+| `gpt-oss-120b-arena.yaml` | gpt-oss-120b | `vllm-node-mxfp4` | MXFP4 `--mxfp4-backend CUTLASS`, fp8 KV, flashinfer, ray |
 
 ## Add a recipe
 
