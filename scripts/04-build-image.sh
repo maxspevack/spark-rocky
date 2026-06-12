@@ -45,7 +45,7 @@ set default=0
 insmod all_video
 menuentry 'Rocky $ROCKY_RELEASEVER + $KVER (GB10)' {
   search --no-floppy --fs-uuid --set=root $ROOT_UUID
-  linux /boot/vmlinuz-$KVER root=UUID=$ROOT_UUID ro rootwait iommu.passthrough=0 init_on_alloc=0 console=tty0 console=ttyS0,921600 earlycon=uart,mmio32,0x16A00000 selinux=0
+  linux /boot/vmlinuz-$KVER root=UUID=$ROOT_UUID ro rootwait iommu.passthrough=0 init_on_alloc=0 console=tty0 earlycon=uart,mmio32,0x16A00000 selinux=0
   initrd /boot/initramfs-$KVER.img
 }
 EOF
@@ -55,7 +55,15 @@ chroot "$MNT" /bin/bash <<CHROOT
 set -e
 dnf install -y -q grub2-efi-aa64 grub2-efi-aa64-modules shim-aa64 dracut-network NetworkManager openssh-server zstd 2>/dev/null || true
 echo 'root:rocky' | chpasswd   # DEV-IMAGE default — this box is LAN-only + reinstalled on demand; change before exposing off-LAN
-systemctl enable sshd NetworkManager serial-getty@ttyS0.service getty@tty1.service 2>/dev/null || true
+systemctl enable sshd NetworkManager getty@tty1.service 2>/dev/null || true
+# serial-getty@ttyS0 dropped + console=ttyS0 removed above: /dev/ttyS0 does not exist on the GB10, so
+# it hung boot ~90s waiting for the device. earlycon still gives early-boot serial output; the vended
+# image is monitor-driven.
+# Only the management NIC (r8169) should DHCP — leave the cable-less ConnectX (mlx5) ports unmanaged so
+# NetworkManager does not burn 45s per port on dead DHCP and flood the console.
+mkdir -p /etc/NetworkManager/conf.d
+printf '[keyfile]\nunmanaged-devices=driver:mlx5_core\n' > /etc/NetworkManager/conf.d/10-spark-unmanage.conf
+systemctl mask NetworkManager-wait-online.service 2>/dev/null || true   # do not block boot on the network
 # GB10 unified memory: swap-on-overcommit hangs the box ("zombie" instead of a clean CUDA OOM). Disable swap.
 # (fstab here carries no swap; this mask is belt-and-suspenders so nothing activates swap at runtime.)
 systemctl mask swap.target 2>/dev/null || true
@@ -74,7 +82,7 @@ set default=0
 insmod all_video
 menuentry 'Rocky $ROCKY_RELEASEVER + $KVER (GB10)' {
   search --no-floppy --fs-uuid --set=root $ROOT_UUID
-  linux /boot/vmlinuz-$KVER root=UUID=$ROOT_UUID ro rootwait iommu.passthrough=0 init_on_alloc=0 console=tty0 console=ttyS0,921600 earlycon=uart,mmio32,0x16A00000 selinux=0
+  linux /boot/vmlinuz-$KVER root=UUID=$ROOT_UUID ro rootwait iommu.passthrough=0 init_on_alloc=0 console=tty0 earlycon=uart,mmio32,0x16A00000 selinux=0
   initrd /boot/initramfs-$KVER.img
 }
 EOF

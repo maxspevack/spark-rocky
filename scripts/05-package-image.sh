@@ -55,7 +55,10 @@ KbdInteractiveAuthentication no
 EOF
 chroot "$MNT" /bin/bash -c "echo 'root:$INIT_PW' | chpasswd"                      # 3. documented console password root/rocky (no forced reset — Max: don't annoy validators)
 rm -f "$MNT"/etc/ssh/ssh_host_*                                           # 4. per-box host identity
-: > "$MNT/etc/machine-id"
+echo uninitialized > "$MNT/etc/machine-id"            # regenerate a unique ID per box on first boot,
+# but mask the commit service: on a ro-root boot an empty/transient machine-id triggers a bind-mount
+# commit that HUNG boot for 90s and timed out. The transient /run id is fine for a live image.
+ln -sf /dev/null "$MNT/etc/systemd/system/systemd-machine-id-commit.service"
 rm -f "$MNT/root/.bash_history"; rm -f "$MNT"/home/*/.bash_history 2>/dev/null || true   # 5. build residue
 rm -rf "$MNT"/tmp/* "$MNT"/var/tmp/* 2>/dev/null || true
 find "$MNT/root" -maxdepth 2 -name '*.run' -delete 2>/dev/null || true
@@ -89,7 +92,8 @@ chk '[ ! -e "$MNT/root/.ssh/authorized_keys" ]'                          "builde
 chk '[ -f "$MNT/etc/ssh/sshd_config.d/99-spark-rocky.conf" ]'            "sshd network-root lockdown present"
 chk 'chroot "$MNT" passwd -S root 2>/dev/null | grep -q "^root P "'        "root password set (root/rocky, console-only)"
 chk '! ls "$MNT"/etc/ssh/ssh_host_* >/dev/null 2>&1'                     "ssh host keys cleared"
-chk '[ ! -s "$MNT/etc/machine-id" ]'                                     "machine-id zeroed"
+chk 'grep -qx uninitialized "$MNT/etc/machine-id"'                       "machine-id set to regenerate (uninitialized)"
+chk '[ -L "$MNT/etc/systemd/system/systemd-machine-id-commit.service" ]' "machine-id-commit masked (no 90s boot hang)"
 chk '[ ! -e "$MNT/root/.bash_history" ]'                                 "build-host shell history removed"
 UNVERIFIED=""; for rf in "$MNT"/etc/yum.repos.d/*.repo; do [ -f "$rf" ] || continue; grep -q '^gpgcheck=1' "$rf" && continue; grep -q '^repo_gpgcheck=1' "$rf" && continue; UNVERIFIED="$UNVERIFIED $(basename "$rf")"; done
 chk '[ -z "$UNVERIFIED" ]'                                               "every repo verifies signatures (gpgcheck or repo_gpgcheck)${UNVERIFIED:+ — UNVERIFIED:$UNVERIFIED}"
@@ -138,7 +142,7 @@ supply chain        : every dnf repo verifies signatures (gpgcheck=1; repo_gpgch
 
 hardening applied by 05
 -----------------------
-removed builder authorized_keys; sshd network-root lockdown; cleared host keys; zeroed machine-id;
+removed builder authorized_keys; sshd network-root lockdown; cleared host keys; machine-id reset to regenerate;
 removed build-host shell history + leftover .run/tmp; installed validate.sh; verified proof-of-life.sh.
 EOF
 
