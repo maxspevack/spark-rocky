@@ -59,10 +59,7 @@ rm -f "$MNT"/etc/ssh/ssh_host_*                                           # 4. p
 rm -f "$MNT/root/.bash_history"; rm -f "$MNT"/home/*/.bash_history 2>/dev/null || true   # 5. build residue
 rm -rf "$MNT"/tmp/* "$MNT"/var/tmp/* 2>/dev/null || true
 find "$MNT/root" -maxdepth 2 -name '*.run' -delete 2>/dev/null || true
-if grep -rlq '^gpgcheck=0' "$MNT"/etc/yum.repos.d/ 2>/dev/null; then       # 6. supply chain (belt-and-suspenders)
-  sed -i 's/^gpgcheck=0/gpgcheck=1/' "$MNT"/etc/yum.repos.d/*.repo
-fi
-install -m755 "$HERE/validate.sh" "$MNT/root/validate.sh"                  # 7. one-command validator
+install -m755 "$HERE/validate.sh" "$MNT/root/validate.sh"                  # 6. one-command validator (repos verified in the gate)
 cat > "$MNT/etc/spark-rocky-release" <<EOF                                # 8. provenance INSIDE the image
 spark-rocky live image
 build_id=${STAMP}
@@ -94,7 +91,8 @@ chk 'chroot "$MNT" chage -l root 2>/dev/null | grep -qi "must be changed"' "root
 chk '! ls "$MNT"/etc/ssh/ssh_host_* >/dev/null 2>&1'                     "ssh host keys cleared"
 chk '[ ! -s "$MNT/etc/machine-id" ]'                                     "machine-id zeroed"
 chk '[ ! -e "$MNT/root/.bash_history" ]'                                 "build-host shell history removed"
-chk '! grep -rq "^gpgcheck=0" "$MNT"/etc/yum.repos.d/ 2>/dev/null'       "no gpgcheck=0 repo ships in the image"
+UNVERIFIED=""; for rf in "$MNT"/etc/yum.repos.d/*.repo; do [ -f "$rf" ] || continue; grep -q '^gpgcheck=1' "$rf" && continue; grep -q '^repo_gpgcheck=1' "$rf" && continue; UNVERIFIED="$UNVERIFIED $(basename "$rf")"; done
+chk '[ -z "$UNVERIFIED" ]'                                               "every repo verifies signatures (gpgcheck or repo_gpgcheck)${UNVERIFIED:+ — UNVERIFIED:$UNVERIFIED}"
 chk '[ -x "$MNT/root/validate.sh" ]'                                     "validate.sh installed"
 chk '[ -x "$MNT/root/proof-of-life.sh" ]'                                "proof-of-life.sh present (validate.sh CUDA check)"
 chk '[ -s "$MNT/etc/spark-rocky-release" ]'                              "provenance stamp written"
@@ -136,7 +134,7 @@ security posture
 selinux             : DISABLED (kernel cmdline selinux=0 overrides the permissive config file)
 root ssh            : password auth off; key-only (prohibit-password); initial password reset forced at first console login
 host identity       : ssh host keys + machine-id regenerated per box on first boot
-supply chain        : every dnf repo in the image is gpgcheck=1
+supply chain        : every dnf repo verifies signatures (gpgcheck=1; repo_gpgcheck=1 for the container-toolkit repo)
 
 hardening applied by 05
 -----------------------
