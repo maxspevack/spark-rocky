@@ -32,7 +32,10 @@ echo "writing $(basename "$IMG") -> $DEV ($(lsblk -dno SIZE,MODEL "$DEV" 2>/dev/
 for p in "$DEV"?*; do umount "$p" 2>/dev/null || true; done
 
 START=$SECONDS
-timeout "$HANG_GUARD" bash -c 'xz -dc "$1" | dd of="$2" bs=16M oflag=direct status=progress' _ "$IMG" "$DEV"
+# iflag=fullblock is REQUIRED on a pipe: without it dd writes whatever short chunk xz hands it
+# (often 64 KB) as a separate direct write, which collapses throughput and makes the MB/s metric
+# measure dd's inefficiency, not the stick. fullblock accumulates a real 16 MB block per write.
+timeout "$HANG_GUARD" bash -c 'xz -dc "$1" | dd of="$2" bs=16M iflag=fullblock oflag=direct status=progress' _ "$IMG" "$DEV"
 RC=$?; sync; ELAPSED=$(( SECONDS - START )); [ "$ELAPSED" -lt 1 ] && ELAPSED=1
 
 [ "$RC" = 124 ] && { echo "WRITE-FAIL: hit the ${HANG_GUARD}s hang-guard — the write stalled."; exit 1; }
