@@ -4,7 +4,7 @@
 # It checks the kernel, the open NVIDIA driver, the GPU, and runs a real CUDA kernel on the
 # hardware, then prints a single PASS/FAIL plus the exact text to drop into a report.
 set -uo pipefail
-ISSUE="https://github.com/maxspevack/spark-rocky/issues/11"
+ISSUE="https://github.com/maxspevack/spark-rocky/issues/new"
 line(){ printf '%s\n' "============================================================"; }
 line; echo " spark-rocky · does the stack come up on this box?"; line
 FAIL=0
@@ -35,7 +35,7 @@ line
 if [ "$FAIL" = 0 ]; then
   echo " RESULT: PASS"
   echo " Rocky + stock kernel $K + open driver $DRV drives the GB10 on this box."
-  echo " It worked — please say so on the issue (one line is plenty):"
+  echo " It worked — please open a quick issue to let us know (one line is plenty):"
 else
   echo " RESULT: FAIL"
   echo " Something above did not come up. This is exactly the bug worth filing —"
