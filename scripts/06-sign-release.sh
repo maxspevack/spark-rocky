@@ -16,13 +16,14 @@ gpg --list-secret-keys "$KEY" >/dev/null 2>&1 || { echo "FATAL: no secret key ma
 
 echo "=== CHECKSUM over: ${ARTS[*]} ==="
 CK="CHECKSUM"
-sha256sum "${ARTS[@]}" > "$CK"
-cat "$CK"
+sha256sum "${ARTS[@]}" > "$CK.plain"
+cat "$CK.plain"
 
-echo "=== GPG-clearsign the CHECKSUM ==="
-rm -f "$CK.asc"
-gpg --default-key "$KEY" --clearsign --output "$CK.asc" "$CK"
-gpg --verify "$CK.asc" 2>&1 | sed 's/^/  /' && echo "  clearsign round-trips OK"
+echo "=== clearsign into ONE authoritative CHECKSUM (Fedora model; no unsigned duplicate to swap) ==="
+rm -f "$CK"
+gpg --default-key "$KEY" --clearsign --output "$CK" "$CK.plain"
+rm -f "$CK.plain"
+gpg --verify "$CK" 2>&1 | sed 's/^/  /' && echo "  clearsigned CHECKSUM verifies OK"
 
 echo "=== export public key (publish in the repo + beside the image) ==="
 PUB="spark-rocky-release-key.asc"
@@ -31,6 +32,6 @@ FPR=$(gpg --with-colons --fingerprint "$KEY" 2>/dev/null | awk -F: '/^fpr:/{prin
 
 echo ""
 echo "=== SIGNED RELEASE ==="
-ls -lh "$CK" "$CK.asc" "$PUB" "${ARTS[@]}"
+ls -lh "$CK" "$PUB" "${ARTS[@]}"
 echo "fingerprint: $FPR"
 echo "Publish $PUB + this fingerprint in docs/verify.md; share the fingerprint OUT-OF-BAND (not only in-repo)."
