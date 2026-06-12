@@ -49,6 +49,23 @@ if [ "${DEBUG:-0}" = 1 ]; then
   date -u +%Y-%m-%dT%H:%M:%SZ > "$MNT/etc/spark-rocky-debug-hatch"
   echo "DEBUG-HATCH: injected $(grep -c '^ssh-' "$DBG") dedicated debug key(s) + marker — THIS IMAGE CANNOT BE RELEASED"
 fi
+# Validator easy-debug path (works on the locked RELEASE too): a one-command opt-in that authorizes the
+# DEDICATED maintainer debug key. A stuck validator runs ONE line instead of typing an 80-char key; the
+# release stays locked by default (no authorized_keys) until they choose to run it. Built from the same
+# config/debug-authorized_keys (revoke by editing that file). Not a personal key.
+DBG="$W/config/debug-authorized_keys"
+if [ -f "$DBG" ] && grep -q '^ssh-' "$DBG"; then
+  { echo '#!/bin/bash'
+    echo '# Run ONLY if the maintainer asks, to let them SSH in and debug this box. Dedicated key, not personal.'
+    echo 'mkdir -p /root/.ssh && chmod 700 /root/.ssh'
+    echo 'cat >> /root/.ssh/authorized_keys <<KEYS'
+    grep '^ssh-' "$DBG"
+    echo 'KEYS'
+    echo 'chmod 600 /root/.ssh/authorized_keys'
+    echo 'echo "Debug access enabled. Tell the maintainer this box'\''s IP. Undo any time: rm /root/.ssh/authorized_keys"'
+  } > "$MNT/root/spark-rocky-debug-enable.sh"
+  chmod +x "$MNT/root/spark-rocky-debug-enable.sh"
+fi
 mkdir -p "$MNT"/boot/grub2
 cat > "$MNT"/boot/grub2/grub.cfg <<EOF
 set timeout=5
