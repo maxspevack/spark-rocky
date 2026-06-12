@@ -100,6 +100,8 @@ Every directory has its own README explaining what it holds and how to regenerat
   "PyTorch not found" explained, and the controlled-experiment argument.
 - [`docs/platform-deltas.md`](docs/platform-deltas.md) — every boot-time delta classified (carry / upstream /
   decline / benign), and the firmware-currency conclusion.
+- [`docs/verify.md`](docs/verify.md) — releases are GPG-clearsigned; import the key, `gpg --verify CHECKSUM`,
+  `sha256sum -c`, then write. The signing-key fingerprint lives there and in [`keys/`](keys/).
 
 ## License
 
