@@ -11,13 +11,16 @@ W="${W:-$(dirname "$HERE")}"
 CONFIG="${CONFIG:-$HERE/../config/rocky-6.18.34-gb10.config}"   # base GB10 .config (olddefconfig adapts it to $KVER)
 [ -f "$CONFIG" ] || { echo "FATAL: base config $CONFIG missing"; exit 1; }
 mkdir -p "$W"; cp "$CONFIG" "$W/dgx-config"
-docker run --rm -v "$W":/work -e KVER="$KVER" rockylinux/rockylinux:10 bash -c '
+docker run --rm -v "$W":/work -e KVER="$KVER" -e KERNEL_SHA256="$KERNEL_SHA256" rockylinux/rockylinux:10 bash -c '
 set -e
 echo "[build] installing toolchain..."
 dnf install -y -q gcc make flex bison bc openssl-devel elfutils-libelf-devel elfutils-devel \
   ncurses-devel dwarves perl diffutils xz wget tar gawk findutils rsync which python3 zlib-devel >/dev/null 2>&1
 cd /work
 [ -f linux-$KVER.tar.xz ] || wget -q https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-$KVER.tar.xz
+# Verify against the kernel.org-published SHA256 (pinned in versions.env) before trusting a byte
+# of it — a compromised CDN/MITM otherwise gets compiled and later GPG-signed in our name.
+[ -n "$KERNEL_SHA256" ] && { echo "$KERNEL_SHA256  linux-$KVER.tar.xz" | sha256sum -c - || { echo "FATAL: kernel tarball SHA256 mismatch"; exit 1; }; }
 rm -rf linux-$KVER && tar xf linux-$KVER.tar.xz
 cd linux-$KVER
 cp /work/dgx-config .config

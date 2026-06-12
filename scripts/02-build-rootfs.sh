@@ -18,8 +18,13 @@ cat >/etc/yum.repos.d/cuda.repo <<EOF
 name=cuda-rhel10-sbsa
 baseurl=https://developer.download.nvidia.com/compute/cuda/repos/rhel10/sbsa/
 enabled=1
-gpgcheck=0
+gpgcheck=1
+gpgkey=https://developer.download.nvidia.com/compute/cuda/repos/rhel10/sbsa/D42D0685.pub
 EOF
+# Import NVIDIAs CUDA repo signing key so the install below is signature-verified (Bruce: a
+# gpgcheck=0 repo inside a signed release is self-contradicting). The repo file copied into the
+# rootfs carries gpgkey= so runtime dnf on the colleagues box verifies too.
+rpm --import https://developer.download.nvidia.com/compute/cuda/repos/rhel10/sbsa/D42D0685.pub
 echo "[rootfs] installing base + boot + tooling (current Rocky $RV) ..."
 dnf -y --installroot="$R" --releasever="$RV" --setopt=install_weak_deps=False \
   install @core dracut dracut-config-generic systemd-udev kmod nvme-cli pciutils numactl \

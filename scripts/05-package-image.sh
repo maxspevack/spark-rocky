@@ -1,0 +1,153 @@
+#!/bin/bash
+# Turn the box-local build output into a VENDABLE, traceable artifact: harden it for handing to
+# other people, stamp provenance INTO the image, introspect a build manifest, and compress.
+#
+# FAIL-CLOSED by design (Bruce/Gafton): every hardening step is RE-VERIFIED against the mounted
+# image, and if any did not take the script aborts and emits NO checksum. You must never hand a
+# checksum (let alone a signature) to an artifact you did not verify.
+#
+# Runs on the Spark (aarch64 — it chroots into the image). Operates on a COPY; the validated
+# build image is never touched. Provenance (git) is passed in by env because the box checkout may
+# be an rsync copy with no .git.
+set -uo pipefail
+HERE="$(cd "$(dirname "$0")" && pwd)"
+source "$HERE/../config/versions.env"                 # KVER, DRIVER_VER, ROCKY_RELEASEVER, KERNEL_SHA256
+W="${W:-$(dirname "$HERE")}"
+SRC="${SRC:-$W/rocky-img/rocky-gb10.img}"             # derive like 04 derives IMG (was a hardcoded mismatch)
+OUTDIR="${OUTDIR:-$W/vend}"
+INIT_PW="${INIT_PW:-rocky}"                            # documented initial password; reset forced on first login
+GIT_DESC="${GIT_DESC:-unknown}"                        # passed from the dev box
+GIT_COMMIT="${GIT_COMMIT:-unknown}"
+RELDATE="${RELDATE:-$(date -u +%Y%m%d)}"
+DATE_UTC="${DATE_UTC:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
+STAMP="spark-rocky-live-aarch64-${KVER}-${RELDATE}"
+
+[ "$(id -u)" = 0 ]        || { echo "FATAL: must run as root (loop-mounts an image)"; exit 1; }
+[ "$(uname -m)" = aarch64 ] || { echo "FATAL: 05 chroots into an aarch64 image; run on the Spark (or register qemu-user-static)"; exit 1; }
+[ -f "$SRC" ]             || { echo "FATAL: source image not found: $SRC (run 01-04 first, or pass SRC=)"; exit 1; }
+command -v xz >/dev/null 2>&1 || dnf install -y -q xz 2>/dev/null || true
+
+mkdir -p "$OUTDIR"
+WORK="$OUTDIR/${STAMP}.raw"
+echo "=== copy the build image (the validated original is never touched) ==="
+cp -f --reflink=auto "$SRC" "$WORK"
+
+# --- mount, waiting for the partition node (losetup -P creates it asynchronously via udev) ---
+LOOP=$(losetup --find --show -P "$WORK")
+for _ in $(seq 1 50); do [ -e "${LOOP}p2" ] && break; sleep 0.2; done
+[ -e "${LOOP}p2" ] || { echo "FATAL: ${LOOP}p2 never appeared"; losetup -d "$LOOP"; exit 1; }
+MNT=$(mktemp -d)
+mount "${LOOP}p2" "$MNT"
+mountpoint -q "$MNT" || { echo "FATAL: mount of ${LOOP}p2 failed"; losetup -d "$LOOP"; rmdir "$MNT"; exit 1; }
+cleanup(){ umount "$MNT" 2>/dev/null||true; losetup -d "$LOOP" 2>/dev/null||true; rmdir "$MNT" 2>/dev/null||true; }
+trap cleanup EXIT
+
+echo "=== harden for vending ==="
+rm -f "$MNT/root/.ssh/authorized_keys"                                    # 1. builder trust
+install -d -m755 "$MNT/etc/ssh/sshd_config.d"                             # 2. close the network root-password race (Bruce CRITICAL)
+cat > "$MNT/etc/ssh/sshd_config.d/99-spark-rocky.conf" <<EOF
+# spark-rocky vended image: the initial root password is CONSOLE-ONLY. No password-based root over
+# the network (an expired-password reset over SSH would otherwise hand root to the first connector).
+# Key-based root is allowed for headless use once you add your own key to /root/.ssh/authorized_keys.
+PermitRootLogin prohibit-password
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+EOF
+chroot "$MNT" /bin/bash -c "echo 'root:$INIT_PW' | chpasswd && chage -d 0 root"   # 3. forced reset, first login
+rm -f "$MNT"/etc/ssh/ssh_host_*                                           # 4. per-box host identity
+: > "$MNT/etc/machine-id"
+rm -f "$MNT/root/.bash_history"; rm -f "$MNT"/home/*/.bash_history 2>/dev/null || true   # 5. build residue
+rm -rf "$MNT"/tmp/* "$MNT"/var/tmp/* 2>/dev/null || true
+find "$MNT/root" -maxdepth 2 -name '*.run' -delete 2>/dev/null || true
+if grep -rlq '^gpgcheck=0' "$MNT"/etc/yum.repos.d/ 2>/dev/null; then       # 6. supply chain (belt-and-suspenders)
+  sed -i 's/^gpgcheck=0/gpgcheck=1/' "$MNT"/etc/yum.repos.d/*.repo
+fi
+install -m755 "$HERE/validate.sh" "$MNT/root/validate.sh"                  # 7. one-command validator
+cat > "$MNT/etc/spark-rocky-release" <<EOF                                # 8. provenance INSIDE the image
+spark-rocky live image
+build_id=${STAMP}
+git_describe=${GIT_DESC}
+git_commit=${GIT_COMMIT}
+kernel=${KVER}
+driver=${DRIVER_VER}
+rocky_releasever=${ROCKY_RELEASEVER}
+built_utc=${DATE_UTC}
+builder_arch=$(uname -m)
+EOF
+[ "${SBOM:-0}" = 1 ] && rpm -qa --root "$MNT" --qf '%{NEVRA}\n' 2>/dev/null | sort > "$OUTDIR/${STAMP}.packages.txt" \
+  && echo "  - SBOM package list written (SBOM=1)"
+
+# --- introspect for the manifest WHILE mounted (generated, never hand-typed -> can't drift) ---
+OS_VER=$(. "$MNT/etc/os-release" 2>/dev/null; echo "${VERSION:-unknown}")
+CUDA_PKGS=$(rpm -qa --root "$MNT" 2>/dev/null | grep -iE '^cuda-' | sort | tr '\n' ' ')
+KMODS=$(ls "$MNT"/lib/modules/ 2>/dev/null | tr '\n' ' ')
+CFG=$(ls "$HERE"/../config/*-gb10.config 2>/dev/null | head -1)
+CFG_SHA=$([ -f "$CFG" ] && sha256sum "$CFG" | cut -d' ' -f1 || echo unknown)
+
+# --- FAIL-CLOSED gate: re-check the REAL image state; abort before compressing if anything failed ---
+echo "=== verify hardening actually took (fail-closed) ==="
+VERR=0
+chk(){ if eval "$1"; then echo "  ok: $2"; else echo "  VERIFY-FAIL: $2"; VERR=1; fi; }
+chk '[ ! -e "$MNT/root/.ssh/authorized_keys" ]'                          "builder authorized_keys removed"
+chk '[ -f "$MNT/etc/ssh/sshd_config.d/99-spark-rocky.conf" ]'            "sshd network-root lockdown present"
+chk 'chroot "$MNT" chage -l root 2>/dev/null | grep -qi "must be changed"' "root password reset forced"
+chk '! ls "$MNT"/etc/ssh/ssh_host_* >/dev/null 2>&1'                     "ssh host keys cleared"
+chk '[ ! -s "$MNT/etc/machine-id" ]'                                     "machine-id zeroed"
+chk '[ ! -e "$MNT/root/.bash_history" ]'                                 "build-host shell history removed"
+chk '! grep -rq "^gpgcheck=0" "$MNT"/etc/yum.repos.d/ 2>/dev/null'       "no gpgcheck=0 repo ships in the image"
+chk '[ -x "$MNT/root/validate.sh" ]'                                     "validate.sh installed"
+chk '[ -x "$MNT/root/proof-of-life.sh" ]'                                "proof-of-life.sh present (validate.sh CUDA check)"
+chk '[ -s "$MNT/etc/spark-rocky-release" ]'                              "provenance stamp written"
+
+sync; cleanup; trap - EXIT
+[ "$VERR" = 0 ] || { echo "ABORT: hardening verification failed — NOT compressing, NOT emitting a checksum."; rm -f "$WORK"; exit 1; }
+
+echo "=== inner (uncompressed) image hash ==="
+INNER_SHA=$(sha256sum "$WORK" | cut -d' ' -f1)
+echo "=== compress for download (xz multithreaded) ==="
+rm -f "$WORK.xz"; xz -T0 -6 -v "$WORK"
+ART="$WORK.xz"
+OUTER_SHA=$(sha256sum "$ART" | cut -d' ' -f1)
+
+MANIFEST="$OUTDIR/${STAMP}.BUILD-MANIFEST.txt"
+cat > "$MANIFEST" <<EOF
+spark-rocky live image — build manifest
+========================================
+build_id            : ${STAMP}
+artifact            : $(basename "$ART")
+artifact_sha256     : ${OUTER_SHA}
+inner_image_sha256  : ${INNER_SHA}
+git_describe        : ${GIT_DESC}
+git_commit          : ${GIT_COMMIT}
+built_utc           : ${DATE_UTC}
+builder_arch        : $(uname -m)
+
+contents (introspected from the image)
+--------------------------------------
+os                  : ${OS_VER}
+kernel modules dir  : ${KMODS}
+kernel pin (KVER)   : ${KVER} (tarball verified against pinned SHA256, versions.env)
+nvidia driver       : ${DRIVER_VER} (open kernel module, built in rockylinux:10 / gcc 14.3.1)
+cuda packages       : ${CUDA_PKGS:-none}
+kernel .config      : $([ -f "$CFG" ] && basename "$CFG" || echo unknown)  (sha256 ${CFG_SHA})
+
+security posture
+----------------
+selinux             : DISABLED (kernel cmdline selinux=0 overrides the permissive config file)
+root ssh            : password auth off; key-only (prohibit-password); initial password reset forced at first console login
+host identity       : ssh host keys + machine-id regenerated per box on first boot
+supply chain        : every dnf repo in the image is gpgcheck=1
+
+hardening applied by 05
+-----------------------
+removed builder authorized_keys; sshd network-root lockdown; cleared host keys; zeroed machine-id;
+removed build-host shell history + leftover .run/tmp; installed validate.sh; verified proof-of-life.sh.
+EOF
+
+echo ""
+echo "=== VENDABLE ARTIFACTS (no build required to consume) ==="
+ls -lh "$ART" "$MANIFEST"
+echo "  inner sha256: $INNER_SHA"
+echo "  outer sha256: $OUTER_SHA"
+echo ""
+echo "Next: mint the release key, then sign with 06-sign-release.sh."

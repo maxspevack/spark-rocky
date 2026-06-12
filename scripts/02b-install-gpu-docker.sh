@@ -20,10 +20,13 @@ cat >"$R/etc/yum.repos.d/docker.repo" <<EOF
 name=docker-ce
 baseurl=https://download.docker.com/linux/centos/10/aarch64/stable
 enabled=1
-gpgcheck=0
+gpgcheck=1
+gpgkey=https://download.docker.com/linux/centos/gpg
 EOF
+# nvidia-container-toolkit.repo ships from upstream with gpgcheck=1 + repo_gpgcheck=1 + a gpgkey.
+# Leave them ON (Bruce: do NOT sed them off) so both the build-time install and the colleagues
+# runtime dnf verify signatures. dnf -y auto-imports the gpgkey into the installroot.
 curl -fsSL -o "$R/etc/yum.repos.d/nvidia-container-toolkit.repo" https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo
-sed -i "s/gpgcheck=1/gpgcheck=0/g; s/repo_gpgcheck=1/repo_gpgcheck=0/g" "$R/etc/yum.repos.d/nvidia-container-toolkit.repo"
 dnf -y --installroot="$R" --releasever="$RV" --setopt=install_weak_deps=False install \
   docker-ce docker-ce-cli containerd.io nvidia-container-toolkit >/host/rocky-img/gpu.log 2>&1
 echo "[gpu] docker+toolkit OK"

@@ -12,12 +12,9 @@ DEV="${DEV:-/dev/sda}"
 MNT=/mnt/rimg
 [ -d "$R" ] || { echo "FATAL: rootfs missing — run 02/02b/02c first"; exit 1; }
 
-# Safety guard: refuse to write anything that is not a removable USB. This is what keeps the NVMe
-# (and everything on it) untouchable — /dev/nvme0n1 is TRAN=nvme RM=0 and fails this check.
-[ "$(lsblk -dno TRAN "$DEV" 2>/dev/null|tr -d '[:space:]')" = usb ] \
-  && [ "$(lsblk -dno RM "$DEV" 2>/dev/null|tr -d '[:space:]')" = 1 ] \
-  || { echo "REFUSE: $DEV is not a removable USB (TRAN=$(lsblk -dno TRAN "$DEV" 2>/dev/null) RM=$(lsblk -dno RM "$DEV" 2>/dev/null))"; exit 1; }
-echo "target USB: $DEV ($(lsblk -dno SIZE,MODEL "$DEV" 2>/dev/null))"
+# We build the IMAGE first — no USB required. Flashing to a physical USB is an OPTIONAL final step
+# (guarded so it can only ever touch a removable USB, never the NVMe). The vend flow stops at the
+# image: 05-package-image.sh consumes $IMG and colleagues write it to their own USB with an imager.
 
 RSZ=$(du -sB1G "$R" | cut -f1); IMGSZ=$(( ${RSZ%G} + 2 ))   # +2G margin covers chroot pkg adds + initramfs + ext4 overhead
 echo "rootfs ${RSZ} -> image ${IMGSZ}G"
@@ -98,15 +95,20 @@ grep -q "vmlinuz-$KVER" "$MNT/boot/efi/EFI/rocky/grub.cfg" 2>/dev/null || { echo
 [ "$VERR" = 0 ] && echo "IMAGE-VERIFY-OK: vmlinuz-$KVER + initramfs-$KVER.img ($ISZ bytes) + BOOTAA64.EFI + /EFI/rocky/grub.cfg present"
 for m in var/tmp dev/pts dev sys proc; do umount -l "$MNT"/$m 2>/dev/null||true; done
 umount "$MNT"/boot/efi 2>/dev/null||true; umount "$MNT" 2>/dev/null||true; losetup -d "$LOOP"; sync
-[ "$VERR" = 0 ] || { echo "ABORT: image failed verification, not flashing $DEV"; exit 1; }
-echo "=== image ready ($(ls -la $IMG|awk '{print $5}') bytes); streaming to $DEV ==="
-for p in "$DEV"?*; do umount "$p" 2>/dev/null||true; done
-dd if="$IMG" of="$DEV" bs=16M oflag=direct status=progress
-sync
-# We dd a sized image onto a larger stick, so the backup GPT header lands at the image's end, not the disk's
-# end -> the kernel logs "Alternate GPT header not at the end of the disk". Cosmetic, but relocate it so a
-# clean reproducer shows no GPT errors. (Does not grow the partition; we do not need the extra space.)
-command -v sgdisk >/dev/null 2>&1 || dnf install -y -q gdisk 2>/dev/null || true
-if command -v sgdisk >/dev/null 2>&1; then sgdisk -e "$DEV" >/dev/null 2>&1 && echo "GPT backup header relocated to end of $DEV"; fi
-partprobe "$DEV" 2>/dev/null || true; sync
-echo "USB-IMAGE-DONE $KVER -> $DEV"
+[ "$VERR" = 0 ] || { echo "ABORT: image failed verification"; exit 1; }
+echo "IMAGE-VERIFY-OK -> $IMG ($(stat -c%s "$IMG" 2>/dev/null) bytes)"
+# OPTIONAL flash: only if $DEV is a present, removable USB. Absent or non-USB -> skip cleanly (the
+# image is the deliverable; 05 packages it; colleagues write it themselves). The guard makes
+# flashing the NVMe impossible regardless of what $DEV is set to.
+if [ "$(lsblk -dno TRAN "$DEV" 2>/dev/null|tr -d '[:space:]')" = usb ] && [ "$(lsblk -dno RM "$DEV" 2>/dev/null|tr -d '[:space:]')" = 1 ]; then
+  echo "=== flashing $IMG -> $DEV ($(lsblk -dno SIZE,MODEL "$DEV" 2>/dev/null)) ==="
+  for p in "$DEV"?*; do umount "$p" 2>/dev/null||true; done
+  dd if="$IMG" of="$DEV" bs=16M oflag=direct status=progress; sync
+  # backup GPT header lands mid-disk on a larger stick; relocate it so a clean reproducer shows no GPT errors.
+  command -v sgdisk >/dev/null 2>&1 || dnf install -y -q gdisk 2>/dev/null || true
+  command -v sgdisk >/dev/null 2>&1 && sgdisk -e "$DEV" >/dev/null 2>&1 && echo "GPT backup header relocated"
+  partprobe "$DEV" 2>/dev/null || true; sync
+  echo "USB-IMAGE-DONE $KVER -> $DEV"
+else
+  echo "no removable USB at $DEV — skipping flash. Image ready at $IMG; package it with scripts/05-package-image.sh."
+fi
