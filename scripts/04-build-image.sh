@@ -56,7 +56,7 @@ set default=0
 insmod all_video
 menuentry 'Rocky $ROCKY_RELEASEVER + $KVER (GB10)' {
   search --no-floppy --fs-uuid --set=root $ROOT_UUID
-  linux /boot/vmlinuz-$KVER root=UUID=$ROOT_UUID ro rootwait quiet loglevel=3 iommu.passthrough=0 init_on_alloc=0 console=tty0 earlycon=uart,mmio32,0x16A00000 selinux=0
+  linux /boot/vmlinuz-$KVER root=UUID=$ROOT_UUID ro rootwait quiet loglevel=3 nvidia-drm.modeset=0 iommu.passthrough=0 init_on_alloc=0 console=tty0 earlycon=uart,mmio32,0x16A00000 selinux=0
   initrd /boot/initramfs-$KVER.img
 }
 EOF
@@ -101,7 +101,7 @@ set default=0
 insmod all_video
 menuentry 'Rocky $ROCKY_RELEASEVER + $KVER (GB10)' {
   search --no-floppy --fs-uuid --set=root $ROOT_UUID
-  linux /boot/vmlinuz-$KVER root=UUID=$ROOT_UUID ro rootwait quiet loglevel=3 iommu.passthrough=0 init_on_alloc=0 console=tty0 earlycon=uart,mmio32,0x16A00000 selinux=0
+  linux /boot/vmlinuz-$KVER root=UUID=$ROOT_UUID ro rootwait quiet loglevel=3 nvidia-drm.modeset=0 iommu.passthrough=0 init_on_alloc=0 console=tty0 earlycon=uart,mmio32,0x16A00000 selinux=0
   initrd /boot/initramfs-$KVER.img
 }
 EOF
