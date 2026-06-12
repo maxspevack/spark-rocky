@@ -64,6 +64,14 @@ systemctl enable sshd NetworkManager getty@tty1.service 2>/dev/null || true
 mkdir -p /etc/NetworkManager/conf.d
 printf '[keyfile]\nunmanaged-devices=driver:mlx5_core\n' > /etc/NetworkManager/conf.d/10-spark-unmanage.conf
 systemctl mask NetworkManager-wait-online.service 2>/dev/null || true   # do not block boot on the network
+# First boot: the uninitialized machine-id (set in 05) flips ConditionFirstBoot, which otherwise runs
+# systemd-firstboot and PROMPTS interactively for a timezone at the console. Set tz + locale and mask it.
+ln -sf /usr/share/zoneinfo/America/Los_Angeles /etc/localtime
+echo 'LANG=C.UTF-8' > /etc/locale.conf
+systemctl mask systemd-firstboot.service 2>/dev/null || true
+# Auto-login root at the console — validation image, nobody should type root/rocky; just run validate.sh.
+mkdir -p /etc/systemd/system/getty@tty1.service.d
+printf '[Service]\nExecStart=\nExecStart=-/sbin/agetty --autologin root --noclear %%I\n' > /etc/systemd/system/getty@tty1.service.d/autologin.conf
 # GB10 unified memory: swap-on-overcommit hangs the box ("zombie" instead of a clean CUDA OOM). Disable swap.
 # (fstab here carries no swap; this mask is belt-and-suspenders so nothing activates swap at runtime.)
 systemctl mask swap.target 2>/dev/null || true
