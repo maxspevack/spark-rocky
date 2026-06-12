@@ -7,11 +7,14 @@ benchmarks. (Exact kernel pinned in [`config/versions.env`](config/versions.env)
 
 **→ The 30-second version: [`PROOF.md`](PROOF.md)** — claim, parity table (5 models), and the three differentiators at a glance.
 
+**→ Get it running without building: [`docs/write-to-usb.md`](docs/write-to-usb.md)** — write the signed image to a USB-C stick, boot, run `validate.sh`. ~15 min, non-destructive. Verify it first: [`docs/verify.md`](docs/verify.md).
+
 **This repo delivers two things:**
 
-1. **A Live USB that jumpstarts the box.** Build it from `scripts/`, boot a DGX Spark off it to get the
-   full Rocky + stock-6.18 + open-driver stack, then install to the internal NVMe with one script.
-   → [`docs/build-and-install.md`](docs/build-and-install.md)
+1. **A ready-to-write Live USB image.** Download the signed image, write it to a USB-C stick, and boot a DGX
+   Spark off it for the full Rocky + stock-6.18 + open-driver stack — **no build required, non-destructive.**
+   Or build it yourself from `scripts/`.
+   → [`docs/write-to-usb.md`](docs/write-to-usb.md) · [`docs/build-and-install.md`](docs/build-and-install.md)
 2. **A benchmark-reproduction mechanism.** Take any published single-host spark-arena.com entry, pull its
    exact recipe, serve it, and reproduce the numbers — from the bare-metal install **or** the USB.
    → [`docs/reproduce-pipeline.md`](docs/reproduce-pipeline.md)
