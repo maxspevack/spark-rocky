@@ -46,14 +46,14 @@ echo "=== harden for vending ==="
 rm -f "$MNT/root/.ssh/authorized_keys"                                    # 1. builder trust
 install -d -m755 "$MNT/etc/ssh/sshd_config.d"                             # 2. close the network root-password race (Bruce CRITICAL)
 cat > "$MNT/etc/ssh/sshd_config.d/99-spark-rocky.conf" <<EOF
-# spark-rocky vended image: the initial root password is CONSOLE-ONLY. No password-based root over
-# the network (an expired-password reset over SSH would otherwise hand root to the first connector).
+# spark-rocky vended image: root password (root/rocky) works at the CONSOLE only. No password auth
+# over the network (closes the "first connector with the default password gets root" race).
 # Key-based root is allowed for headless use once you add your own key to /root/.ssh/authorized_keys.
 PermitRootLogin prohibit-password
 PasswordAuthentication no
 KbdInteractiveAuthentication no
 EOF
-chroot "$MNT" /bin/bash -c "echo 'root:$INIT_PW' | chpasswd && chage -d 0 root"   # 3. forced reset, first login
+chroot "$MNT" /bin/bash -c "echo 'root:$INIT_PW' | chpasswd"                      # 3. documented console password root/rocky (no forced reset — Max: don't annoy validators)
 rm -f "$MNT"/etc/ssh/ssh_host_*                                           # 4. per-box host identity
 : > "$MNT/etc/machine-id"
 rm -f "$MNT/root/.bash_history"; rm -f "$MNT"/home/*/.bash_history 2>/dev/null || true   # 5. build residue
@@ -87,7 +87,7 @@ VERR=0
 chk(){ if eval "$1"; then echo "  ok: $2"; else echo "  VERIFY-FAIL: $2"; VERR=1; fi; }
 chk '[ ! -e "$MNT/root/.ssh/authorized_keys" ]'                          "builder authorized_keys removed"
 chk '[ -f "$MNT/etc/ssh/sshd_config.d/99-spark-rocky.conf" ]'            "sshd network-root lockdown present"
-chk 'chroot "$MNT" chage -l root 2>/dev/null | grep -qi "must be changed"' "root password reset forced"
+chk 'chroot "$MNT" passwd -S root 2>/dev/null | grep -q "^root P "'        "root password set (root/rocky, console-only)"
 chk '! ls "$MNT"/etc/ssh/ssh_host_* >/dev/null 2>&1'                     "ssh host keys cleared"
 chk '[ ! -s "$MNT/etc/machine-id" ]'                                     "machine-id zeroed"
 chk '[ ! -e "$MNT/root/.bash_history" ]'                                 "build-host shell history removed"
@@ -132,7 +132,7 @@ kernel .config      : $([ -f "$CFG" ] && basename "$CFG" || echo unknown)  (sha2
 security posture
 ----------------
 selinux             : DISABLED (kernel cmdline selinux=0 overrides the permissive config file)
-root ssh            : password auth off; key-only (prohibit-password); initial password reset forced at first console login
+root ssh            : no password auth over the network; key-only (prohibit-password). Console login: root / rocky (documented, test image).
 host identity       : ssh host keys + machine-id regenerated per box on first boot
 supply chain        : every dnf repo verifies signatures (gpgcheck=1; repo_gpgcheck=1 for the container-toolkit repo)
 
