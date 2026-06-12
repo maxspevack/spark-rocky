@@ -100,6 +100,7 @@ chk '[ -z "$UNVERIFIED" ]'                                               "every 
 chk '[ -x "$MNT/root/validate.sh" ]'                                     "validate.sh installed"
 chk '[ -x "$MNT/root/proof-of-life.sh" ]'                                "proof-of-life.sh present (validate.sh CUDA check)"
 chk '[ -s "$MNT/etc/spark-rocky-release" ]'                              "provenance stamp written"
+chk '[ ! -e "$MNT/etc/spark-rocky-debug-hatch" ]'                        "no DEBUG hatch marker (a DEBUG build is un-releasable)"
 
 sync; cleanup; trap - EXIT
 [ "$VERR" = 0 ] || { echo "ABORT: hardening verification failed — NOT compressing, NOT emitting a checksum."; rm -f "$WORK"; exit 1; }

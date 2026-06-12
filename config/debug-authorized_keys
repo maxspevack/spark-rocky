@@ -1,0 +1,5 @@
+# spark-rocky DEBUG-ACCESS public keys. Injected ONLY into DEBUG=1 images (scripts/04-build-image.sh).
+# NEVER present in a vended/signed release: 05 aborts if the /etc/spark-rocky-debug-hatch marker is found,
+# so a DEBUG image is structurally un-shippable. These are public keys (safe to commit); no shared private
+# key. Each debugger adds their own line. Revoke by deleting the line and rebuilding. NOT a personal key.
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICAeTkJavnimmNfOGt6vnuKIrqM0eCuQPrnT6rTuBt+0 spark-rocky-debug-maintainer-2026-06-12

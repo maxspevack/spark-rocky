@@ -36,8 +36,19 @@ UUID=$ROOT_UUID / ext4 defaults 0 1
 UUID=$EFI_UUID /boot/efi vfat umask=0077,shortname=winnt 0 2
 EOF
 sed -i 's/^SELINUX=.*/SELINUX=permissive/' "$MNT"/etc/selinux/config 2>/dev/null||true
-mkdir -p "$MNT"/root/.ssh && cp /root/.ssh/authorized_keys "$MNT"/root/.ssh/authorized_keys 2>/dev/null \
-  && chmod 700 "$MNT"/root/.ssh && chmod 600 "$MNT"/root/.ssh/authorized_keys
+# DEBUG-ACCESS hatch (Bruce). NON-debug builds bake NO authorized_keys — that matches release posture
+# (key-only sshd + no keys = no remote access; 05 strips too, belt-and-suspenders). NEVER copy the
+# builder's personal key (it used to: cp /root/.ssh/authorized_keys — baked Max's key into every image).
+# DEBUG=1 injects the DEDICATED debug pubkeys (config/debug-authorized_keys) + a marker that makes the
+# image UN-RELEASABLE: 05's gate aborts the release if /etc/spark-rocky-debug-hatch is present.
+if [ "${DEBUG:-0}" = 1 ]; then
+  DBG="$W/config/debug-authorized_keys"
+  { [ -f "$DBG" ] && grep -q '^ssh-' "$DBG"; } || { echo "FATAL: DEBUG=1 but $DBG missing/empty"; exit 1; }
+  mkdir -p "$MNT"/root/.ssh && grep '^ssh-' "$DBG" > "$MNT"/root/.ssh/authorized_keys
+  chmod 700 "$MNT"/root/.ssh && chmod 600 "$MNT"/root/.ssh/authorized_keys
+  date -u +%Y-%m-%dT%H:%M:%SZ > "$MNT/etc/spark-rocky-debug-hatch"
+  echo "DEBUG-HATCH: injected $(grep -c '^ssh-' "$DBG") dedicated debug key(s) + marker — THIS IMAGE CANNOT BE RELEASED"
+fi
 mkdir -p "$MNT"/boot/grub2
 cat > "$MNT"/boot/grub2/grub.cfg <<EOF
 set timeout=5
@@ -45,7 +56,7 @@ set default=0
 insmod all_video
 menuentry 'Rocky $ROCKY_RELEASEVER + $KVER (GB10)' {
   search --no-floppy --fs-uuid --set=root $ROOT_UUID
-  linux /boot/vmlinuz-$KVER root=UUID=$ROOT_UUID ro rootwait iommu.passthrough=0 init_on_alloc=0 console=tty0 earlycon=uart,mmio32,0x16A00000 selinux=0
+  linux /boot/vmlinuz-$KVER root=UUID=$ROOT_UUID ro rootwait quiet loglevel=3 iommu.passthrough=0 init_on_alloc=0 console=tty0 earlycon=uart,mmio32,0x16A00000 selinux=0
   initrd /boot/initramfs-$KVER.img
 }
 EOF
@@ -90,7 +101,7 @@ set default=0
 insmod all_video
 menuentry 'Rocky $ROCKY_RELEASEVER + $KVER (GB10)' {
   search --no-floppy --fs-uuid --set=root $ROOT_UUID
-  linux /boot/vmlinuz-$KVER root=UUID=$ROOT_UUID ro rootwait iommu.passthrough=0 init_on_alloc=0 console=tty0 earlycon=uart,mmio32,0x16A00000 selinux=0
+  linux /boot/vmlinuz-$KVER root=UUID=$ROOT_UUID ro rootwait quiet loglevel=3 iommu.passthrough=0 init_on_alloc=0 console=tty0 earlycon=uart,mmio32,0x16A00000 selinux=0
   initrd /boot/initramfs-$KVER.img
 }
 EOF
