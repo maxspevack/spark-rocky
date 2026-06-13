@@ -68,7 +68,7 @@ if [ -f "$DBG" ] && grep -q '^ssh-' "$DBG"; then
 fi
 mkdir -p "$MNT"/boot/grub2
 cat > "$MNT"/boot/grub2/grub.cfg <<EOF
-set timeout=5
+set timeout=1
 set default=0
 insmod all_video
 menuentry 'Rocky $ROCKY_RELEASEVER + $KVER (GB10)' {
@@ -113,7 +113,7 @@ CHROOT
 # /EFI/BOOT/BOOTAA64.EFI so the firmware boots the USB as removable media.
 install -D -m644 "$MNT/boot/efi/EFI/rocky/grubaa64.efi" "$MNT/boot/efi/EFI/BOOT/BOOTAA64.EFI" 2>/dev/null || true
 cat > "$MNT/boot/efi/EFI/rocky/grub.cfg" <<EOF
-set timeout=5
+set timeout=1
 set default=0
 insmod all_video
 menuentry 'Rocky $ROCKY_RELEASEVER + $KVER (GB10)' {

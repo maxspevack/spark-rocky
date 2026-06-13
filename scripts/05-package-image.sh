@@ -77,6 +77,12 @@ EOF
 [ "${SBOM:-0}" = 1 ] && rpm -qa --root "$MNT" --qf '%{NEVRA}\n' 2>/dev/null | sort > "$OUTDIR/${STAMP}.packages.txt" \
   && echo "  - SBOM package list written (SBOM=1)"
 
+# 7. pre-build the dynamic linker cache. Without this the FIRST boot runs a COLD ldconfig that scans the
+# whole CUDA tree and serializes the entire boot behind it for ~63s (measured; a warm run is <1s). Build
+# it here so we ship a current /etc/ld.so.cache and first boot is fast.
+echo "=== pre-build linker cache (chroot ldconfig — kills the 63s first-boot cold rebuild) ==="
+chroot "$MNT" /sbin/ldconfig; echo "  - ld.so.cache: $(chroot "$MNT" ldconfig -p 2>/dev/null | wc -l) libs cached"
+
 # --- introspect for the manifest WHILE mounted (generated, never hand-typed -> can't drift) ---
 OS_VER=$(. "$MNT/etc/os-release" 2>/dev/null; echo "${VERSION:-unknown}")
 CUDA_PKGS=$(rpm -qa --root "$MNT" 2>/dev/null | grep -iE '^cuda-' | sort | tr '\n' ' ')
