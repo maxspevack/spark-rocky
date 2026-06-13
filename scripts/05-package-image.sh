@@ -15,7 +15,7 @@ source "$HERE/../config/versions.env"                 # KVER, DRIVER_VER, ROCKY_
 W="${W:-$(dirname "$HERE")}"
 SRC="${SRC:-$W/rocky-img/rocky-gb10.img}"             # derive like 04 derives IMG (was a hardcoded mismatch)
 OUTDIR="${OUTDIR:-$W/vend}"
-INIT_PW="${INIT_PW:-rocky}"                            # documented initial password; reset forced on first login
+INIT_PW="${INIT_PW:-rocky}"                            # documented console password (root/rocky); no forced reset (test image)
 GIT_DESC="${GIT_DESC:-unknown}"                        # passed from the dev box
 GIT_COMMIT="${GIT_COMMIT:-unknown}"
 RELDATE="${RELDATE:-$(date -u +%Y%m%d)}"
@@ -87,7 +87,7 @@ chroot "$MNT" /sbin/ldconfig; echo "  - ld.so.cache: $(chroot "$MNT" ldconfig -p
 OS_VER=$(. "$MNT/etc/os-release" 2>/dev/null; echo "${VERSION:-unknown}")
 CUDA_PKGS=$(rpm -qa --root "$MNT" 2>/dev/null | grep -iE '^cuda-' | sort | tr '\n' ' ')
 KMODS=$(ls "$MNT"/lib/modules/ 2>/dev/null | tr '\n' ' ')
-CFG=$(ls "$HERE"/../config/*-gb10.config 2>/dev/null | head -1)
+CFG="$W/config-$KVER"; [ -f "$CFG" ] || CFG=$(ls "$HERE"/../config/*-gb10.config 2>/dev/null | head -1)   # hash the RESOLVED config 01 built ($W/config-$KVER), not the base glob — the glob named the wrong kver in the manifest
 CFG_SHA=$([ -f "$CFG" ] && sha256sum "$CFG" | cut -d' ' -f1 || echo unknown)
 
 # --- FAIL-CLOSED gate: re-check the REAL image state; abort before compressing if anything failed ---

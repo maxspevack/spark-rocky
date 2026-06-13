@@ -92,6 +92,11 @@ systemctl enable sshd NetworkManager getty@tty1.service 2>/dev/null || true
 mkdir -p /etc/NetworkManager/conf.d
 printf '[keyfile]\nunmanaged-devices=driver:mlx5_core\n' > /etc/NetworkManager/conf.d/10-spark-unmanage.conf
 systemctl mask NetworkManager-wait-online.service 2>/dev/null || true   # do not block boot on the network
+# The ConnectX/mlx5 NIC is the cluster-fabric port (cable-less here; single-host = multi-node out of scope).
+# Don't load its driver — it floods dmesg hunting for firmware we deliberately don't ship in a minimal
+# image (#30). Blacklist covers rootfs AND initramfs (dracut bundles /etc/modprobe.d). Re-enable if you
+# ever cable the ConnectX for multi-node.
+printf 'blacklist mlx5_core\ninstall mlx5_core /bin/true\n' > /etc/modprobe.d/blacklist-mlx5.conf
 # First boot: the uninitialized machine-id (set in 05) flips ConditionFirstBoot, which otherwise runs
 # systemd-firstboot and PROMPTS interactively for a timezone at the console. Set tz + locale and mask it.
 ln -sf /usr/share/zoneinfo/America/Los_Angeles /etc/localtime

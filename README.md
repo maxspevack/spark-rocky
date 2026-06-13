@@ -35,7 +35,9 @@ scripts/03-build-nvidia-open.sh    # the open module, built in rockylinux:10 (el
 scripts/04-build-image.sh          # assemble the bootable image; flash to USB
 ```
 
-Boot the USB on the Spark (wired Ethernet), then install to the NVMe and verify:
+Boot the USB on the Spark (wired Ethernet) and verify. Running it permanently on the internal NVMe is an
+**optional, separate, DESTRUCTIVE** step (it wipes the NVMe / DGX OS) — proven on the reference box but **not
+yet clean-room-validated** on other hardware; see [`docs/build-and-install.md`](docs/build-and-install.md):
 
 ```
 scripts/install-baremetal.sh       # rsync the proven Rocky onto /dev/nvme0n1p2 + install grub
@@ -58,7 +60,7 @@ results: [`receipts/`](receipts/).
 |---|---|---|
 | 1 — Boots | Rocky 10.2 + stock 6.18 boots on the GB10 (6.18.34 on NVMe, 6.18.35 off USB) | **PROVEN** |
 | 2 — GPU + CUDA | open driver builds/loads; GPU computes | **PROVEN** |
-| 2.5 — Bare metal | installed on the NVMe; SSH + console | **PROVEN** |
+| 2.5 — Bare metal | installed on the NVMe (reference box); SSH + console | **PROVEN** — install is destructive + not yet clean-room-validated on other boxes |
 | 3 — Benchmark | reproduce published single-host entries | **5 reproduced** — 3 at **full-matrix-median parity** (Qwen3.5-35B-A3B-FP8 1.01×, Qwen3.5-0.8B 0.96×, gemma-3-1b-it 1.05×); 2 **single-cell** `tg128(c1)` (LFM2.5-350M +10.4%, gpt-oss-120b 1.06× — full matrix running). → [`docs/scoreboard.md`](docs/scoreboard.md) |
 | 4 — Leaderboard | peer-reviewed, third-party-reproduced; then Max submits | NOT STARTED |
 
