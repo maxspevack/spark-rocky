@@ -20,9 +20,10 @@ Use a **reputable USB 3.x stick** — a slow/cheap one can take 5–10× longer.
 
 ## 4. Boot the Spark off the USB
 
-Non-destructive — your NVMe is untouched. Pick the USB from your firmware's boot menu (or set a one-time boot to it). At the console, log in: **`root` / `rocky`**.
+Non-destructive — your NVMe is untouched. Pick the USB from your firmware's boot menu (or set a one-time boot to it). It auto-logs-in to a root shell at the console after a few seconds. If you get a login prompt instead: **`root` / `rocky`**.
 
 - *Headless (no monitor)?* The image allows key-based root SSH but not passwords — before booting, mount the USB's root partition and add your public key to `/root/.ssh/authorized_keys`.
+- *If the maintainer needs to debug your box:* run `bash /root/spark-rocky-debug-enable.sh` (one command) to authorize their dedicated key — see [`debug-hatch.md`](debug-hatch.md).
 
 ## 5. Validate
 
