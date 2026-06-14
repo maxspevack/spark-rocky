@@ -65,6 +65,14 @@ uvx llama-benchy --base-url http://localhost:8000/v1 --model <HF/path> \
 
 (Equivalent single command using the org's official runner: `sparkrun run @spark-arena/<UUID>`.)
 
+For the **full matrix** — the ~104-cell sweep the parity claim rests on (depth × prefill × decode ×
+concurrency) — do not retype the params; run the canonical script. It pins `llama-benchy==0.3.8` and encodes
+the exact sweep, so every reproduction and every regression-vs-self run measures the same surface:
+
+```bash
+scripts/run-benchmark-matrix.sh 8000 <HF/path> result.csv
+```
+
 ## Step 5 — compare + record
 
 Commit a receipt in `receipts/` (see `reproduce-LFM2.5-350M-2026-06-10.txt` for the format): host stack,

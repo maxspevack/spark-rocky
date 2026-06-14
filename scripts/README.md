@@ -28,6 +28,7 @@ The mechanism behind deliverable #1. Full walkthrough + prerequisites: [`docs/bu
 | `validate.sh` | one command: kernel + open driver + `nvidia-smi` + a **real CUDA kernel** → `PASS`/`FAIL` + the line to drop into a new issue |
 | `proof-of-life.sh` | OS + kernel + `nvidia-smi` + a CUDA `vectorAdd` on the GPU (validate.sh's CUDA check) |
 | `install-baremetal.sh` | **DESTRUCTIVE** — wipes the NVMe, then rsyncs the running Rocky onto `/dev/nvme0n1p2` + grub. Run from the booted USB; a deliberate step separate from the non-destructive boot, and not yet clean-room-validated. |
+| `run-benchmark-matrix.sh` | the **canonical full llama-benchy matrix** (deliverable #2) against a served model — the exact ~104-cell sweep behind the parity claim, encoded once so reproductions and regression-vs-self runs measure the same surface. Run after `spark-vllm-docker` is serving; full pipeline in [`docs/benchmark/reproduce-pipeline.md`](../docs/benchmark/reproduce-pipeline.md). |
 
 ## First-install helpers — [`bringup/`](bringup/)
 
