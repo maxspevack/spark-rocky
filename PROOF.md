@@ -25,6 +25,26 @@ Medians spanning **0.96×–1.05×** straddle parity, the signature of a transpa
 
 The benchmark runs in a serving container built from the spark-arena project's **own Dockerfile, unmodified** (vLLM + the model + the spark-arena recipe). We swapped only the **host beneath it** – Rocky 10.2 + a stock 6.18 kernel + the open driver we built – and the host's `libcuda` is injected into that container at runtime. Same Dockerfile, same recipe, same GB10 silicon.
 
+```mermaid
+graph LR
+    subgraph held["HELD CONSTANT — NVIDIA's, unmodified"]
+        direction TB
+        A["GB10 silicon"]
+        B["GSP + platform firmware<br/>610.43.02, via public LVFS"]
+        C["CUDA libraries +<br/>the open driver's source"]
+        D["spark-arena Dockerfile<br/>+ vLLM + recipe + model"]
+    end
+    subgraph swapped["WE SWAPPED — ours, auditable, zero patches"]
+        direction TB
+        E["Rocky Linux 10.2 userspace"]
+        F["stock upstream 6.18 kernel"]
+        G["open module, built from<br/>NVIDIA's source, unmodified"]
+    end
+    swapped --> R["Published spark-arena<br/>numbers reproduced<br/>median 0.96–1.05x"]
+    held --> R
+```
+
+
 One variable still differs between the published run and ours: **the vLLM build, not the host.** spark-arena pins no runtime version, so the published entry and our run compiled vLLM on different dates.
 
 ## Why it holds up
