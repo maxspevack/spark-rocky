@@ -105,6 +105,7 @@ UNVERIFIED=""; for rf in "$MNT"/etc/yum.repos.d/*.repo; do [ -f "$rf" ] || conti
 chk '[ -z "$UNVERIFIED" ]'                                               "every repo verifies signatures (gpgcheck or repo_gpgcheck)${UNVERIFIED:+ — UNVERIFIED:$UNVERIFIED}"
 chk '[ -x "$MNT/root/validate.sh" ]'                                     "validate.sh installed"
 chk '[ -x "$MNT/root/proof-of-life.sh" ]'                                "proof-of-life.sh present (validate.sh CUDA check)"
+chk '[ -x "$MNT/root/thermal-watchdog.sh" ]'                             "thermal-watchdog.sh present (#25 safety primitive — no release without it)"
 chk '[ -s "$MNT/etc/spark-rocky-release" ]'                              "provenance stamp written"
 chk '[ ! -e "$MNT/etc/spark-rocky-debug-hatch" ]'                        "no DEBUG hatch marker (a DEBUG build is un-releasable)"
 chk '[ -f "$W/config-$KVER" ]'                                           "resolved config-$KVER present (manifest hashes the real build config, not a guessed base glob)"
