@@ -30,6 +30,12 @@ The mechanism behind deliverable #1. Full walkthrough + prerequisites: [`docs/bu
 | `install-baremetal.sh` | **DESTRUCTIVE** — wipes the NVMe, then rsyncs the running Rocky onto `/dev/nvme0n1p2` + grub. Run from the booted USB; a deliberate step separate from the non-destructive boot, and not yet clean-room-validated. |
 | `run-benchmark-matrix.sh` | the **canonical full llama-benchy matrix** (deliverable #2) against a served model — the exact ~104-cell sweep behind the parity claim, encoded once so reproductions and regression-vs-self runs measure the same surface. Run after `spark-vllm-docker` is serving; full pipeline in [`docs/benchmark/reproduce-pipeline.md`](../docs/benchmark/reproduce-pipeline.md). |
 
+## Stay current — release-engineering cadence (M4)
+
+| Script | Produces |
+|---|---|
+| `drift-check.sh` | drift sensor (#24): per pin, `current` (`versions.env`) vs `upstream` (kernel.org `releases.json` / NVIDIA open-module releases / Rocky mirror) → MATCH/DRIFT, exit 2 on drift. The [`.github/workflows/drift-check.yml`](../.github/workflows/drift-check.yml) scheduled workflow runs it weekly + on-demand and opens a `pin-drift` tracking issue — the "when do we rebuild?" trigger. Detect-and-signal only; the evidence-backed bump is #26. |
+
 ## First-install helpers — [`bringup/`](bringup/)
 
 One-time bring-up artifacts from this box's first install, moved to [`scripts/bringup/`](bringup/):

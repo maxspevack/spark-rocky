@@ -1,0 +1,49 @@
+name: drift-check
+# #24 — the release-engineering cadence sensor, as code. "We don't build every night" is not "we have no
+# trigger": Greg KH ships 6.18.y stable on a predictable ~weekly cadence, and each new 6.18.y (plus a
+# sporadic DRIVER_VER move) is a definite rebuild trigger. This runs scripts/drift-check.sh weekly and
+# on-demand; on DRIFT it opens/updates ONE 'pin-drift' tracking issue and closes it when the pins match.
+#
+# Detect-and-signal ONLY. It never edits versions.env, never opens a PR, never merges. The evidence-backed
+# pin bump is #26 (built + Tier-A validated on the Spark) — CI can't build aarch64 + GPU, so it doesn't
+# pretend to. Substrate is GitHub Actions, deliberately: always-on, free on a public repo, delegable (it
+# lives in the repo, not on anyone's laptop). A personal-machine systemd timer was the wrong idea.
+
+on:
+  schedule:
+    - cron: '17 15 * * 1'   # Mondays 15:17 UTC — after the weekend stable cut; odd minute dodges the cron stampede
+  workflow_dispatch: {}      # the "Plug Check": run it by hand any time
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}      # drift-check.sh's `gh api` call + the issue steps
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run the drift sensor
+        id: c
+        run: |
+          set +e                          # the script exits 2 on drift; do not let -e abort the step
+          out="$(./scripts/drift-check.sh)"; rc=$?
+          echo "$out"
+          { echo 'report<<EOF'; echo "$out"; echo 'EOF'; } >> "$GITHUB_OUTPUT"
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+      - name: Open or update the drift issue
+        if: steps.c.outputs.rc == '2'
+        env:
+          REPORT: ${{ steps.c.outputs.report }}   # via env, not inline ${{ }}, to avoid shell injection
+        run: |
+          body=$(printf 'Upstream moved past a pinned version. Sensor (#24) output:\n\n```\n%s\n```\n\nTake it through the evidence-backed pin bump (#26): build + Tier-A validate on the Spark, then merge. Auto-updated weekly until the pins match.' "$REPORT")
+          n=$(gh issue list --repo "$GITHUB_REPOSITORY" --label pin-drift --state open --json number --jq '.[0].number // empty')
+          if [ -n "$n" ]; then gh issue comment "$n" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else gh issue create --repo "$GITHUB_REPOSITORY" --title 'Pin drift — upstream moved past our pin' --label pin-drift --body "$body"; fi
+      - name: Close the drift issue when pins match again
+        if: steps.c.outputs.rc == '0'
+        run: |
+          n=$(gh issue list --repo "$GITHUB_REPOSITORY" --label pin-drift --state open --json number --jq '.[0].number // empty')
+          if [ -n "$n" ]; then gh issue close "$n" --repo "$GITHUB_REPOSITORY" --comment 'Pins match upstream again — closing.'; fi
