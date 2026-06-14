@@ -18,6 +18,7 @@
 set -uo pipefail
 MARGIN="${MARGIN:-5}"
 INTERVAL="${INTERVAL:-5}"
+STOP_GRACE="${STOP_GRACE:-10}"   # seconds to let the container exit on SIGTERM before SIGKILL
 CONTAINER="${CONTAINER:-vllm_node}"
 LOG="${LOG:-/root/thermal-watchdog-$(date +%s 2>/dev/null || echo run).log}"
 
@@ -79,9 +80,19 @@ while true; do
   case "$v" in
     TRIP*)
       echo "!! $v"
-      echo "!! SIGTERM $CONTAINER — stopped, safe (NOT rebooting). reason logged: $LOG"
-      docker kill --signal=TERM "$CONTAINER" 2>/dev/null || docker stop "$CONTAINER" 2>/dev/null || true
-      echo "$(date 2>/dev/null || echo NA) STOPPED $CONTAINER: $v" >> "$LOG"
+      echo "!! stopping $CONTAINER (SIGTERM, then SIGKILL after ${STOP_GRACE}s) — stopped-safe, NOT rebooting. log: $LOG"
+      # Graceful first: a clean vLLM exit releases GPU memory; a hard SIGKILL can leak it (the open-610
+      # leak sensor). 'stop' does SIGTERM -> wait STOP_GRACE -> SIGKILL, so it is graceful AND guaranteed.
+      docker stop --time="$STOP_GRACE" "$CONTAINER" >/dev/null 2>&1 || docker kill "$CONTAINER" >/dev/null 2>&1 || true
+      ts="$(date 2>/dev/null || echo NA)"
+      # A safety guard must CONFIRM the container is down — not trust that a signal was sent. PID 1 ignores
+      # un-handled SIGTERM, and 'kill --signal' returns 0 even when the process ignored it.
+      if docker ps --format '{{.Names}}' 2>/dev/null | grep -qx "$CONTAINER"; then
+        echo "!! FATAL: $CONTAINER STILL RUNNING after stop+kill — could not guarantee shutdown"
+        echo "$ts FAILED-TO-STOP $CONTAINER: $v" >> "$LOG"
+        exit 4
+      fi
+      echo "$ts STOPPED $CONTAINER: $v" >> "$LOG"
       exit 3 ;;
   esac
   sleep "$INTERVAL"
