@@ -7,10 +7,9 @@ You need an 8 GB or larger USB stick (the image is 6 GB uncompressed) and a Linu
 ## 1. Flash the stick (one command)
 ```
 git clone https://github.com/maxspevack/spark-rocky && cd spark-rocky
-sudo scripts/flash.sh /dev/sdX <release-url>
+sudo scripts/flash.sh /dev/sdX
 ```
-- `/dev/sdX` — the USB stick. Find it with `lsblk` (Linux) or `diskutil list` (macOS); match it by size and model.
-- `<release-url>` — from your validation invite. The URL is not committed to the repo until public launch (see [`config/release.env`](../config/release.env)).
+`/dev/sdX` is the USB stick; find it with `lsblk` (Linux) or `diskutil list` (macOS) and match it by size and model. `flash.sh` reads the release location from `config/release.env`.
 
 `flash.sh` downloads the release, verifies the GPG signature against the pinned key fingerprint and the sha256 (fail-closed at each step), then writes it through the guarded writer, which refuses any disk that is not a removable USB.
 

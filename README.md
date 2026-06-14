@@ -5,12 +5,14 @@ NVIDIA driver (610.43.02)** — **zero carried patches** — and prove it agains
 benchmarks. (Exact kernel pinned in [`config/versions.env`](config/versions.env); benchmark receipts are on
 6.18.34, and the build is validated on 6.18.35 — the version is a config bump, not load-bearing.)
 
+*Soft-launched and unsupported: a personal-repo release, provided as-is. Not a CIQ product, and no support commitment.*
+
 **→ The 30-second version: [`PROOF.md`](PROOF.md)** — claim, parity table (5 models), and the three differentiators at a glance.
 
 **→ Run it on your Spark: [`docs/running.md`](docs/running.md).** Clone, flash a USB stick with one command, boot, run one check. Non-destructive (your NVMe is untouched):
 ```
 git clone https://github.com/maxspevack/spark-rocky && cd spark-rocky
-sudo scripts/flash.sh /dev/sdX <release-url>    # 8 GB+ stick; release-url from your validation invite
+sudo scripts/flash.sh /dev/sdX     # 8 GB+ stick; find it with lsblk
 ```
 Then boot the Spark from the USB and run `/root/validate.sh`.
 

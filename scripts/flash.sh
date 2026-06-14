@@ -38,12 +38,18 @@ gpg --batch --status-fd=1 --verify CHECKSUM 2>/dev/null | grep -q "VALIDSIG $FPR
   || { echo "FATAL: CHECKSUM is not signed by the pinned fingerprint $FPR. Refusing — do not write this image."; exit 1; }
 echo "  ok: Good signature from $FPR"
 
+# Verify ONLY the image against its line in CHECKSUM. A whole-file `sha256sum -c CHECKSUM` would also try
+# the manifest (which flash.sh does not fetch); under `set -o pipefail` that non-zero exit masks a good
+# image as a failure. So pull the expected sha and compare it directly.
+EXPECT="$(awk -v f="$IMG" '$2==f{print $1; exit}' CHECKSUM)"
+[ -n "$EXPECT" ] || { echo "FATAL: CHECKSUM has no sha256 line for $IMG"; exit 1; }
+img_ok(){ [ -f "$IMG" ] && [ "$(sha256sum "$IMG" 2>/dev/null | cut -d' ' -f1)" = "$EXPECT" ]; }
 echo "=== fetch + verify the image: $IMG ==="
-if [ -f "$IMG" ] && sha256sum -c CHECKSUM 2>/dev/null | grep -q "$IMG: OK"; then
-  echo "  ok: $IMG already present and verified — reusing"
+if img_ok; then
+  echo "  ok: $IMG already present and verified, reusing"
 else
   curl -fLsS -o "$IMG" "$BASE/$IMG" || { echo "FATAL: cannot fetch $IMG"; exit 1; }
-  sha256sum -c CHECKSUM 2>/dev/null | grep -q "$IMG: OK" || { echo "FATAL: $IMG failed its sha256 check. Refusing."; exit 1; }
+  img_ok || { echo "FATAL: $IMG sha256 does not match the signed CHECKSUM. Refusing."; exit 1; }
   echo "  ok: $IMG sha256 verified"
 fi
 
