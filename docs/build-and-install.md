@@ -37,8 +37,10 @@ Flash the image from step 4 to a USB stick (`dd` / your tool of choice).
 
 1. Boot the Spark off the USB. Use **wired Ethernet** — the MT7925 WiFi firmware init is unreliable on the
    stock kernel (platform-level, not a regression; see [`platform-deltas.md`](platform-deltas.md) L6).
-2. From the booted USB Rocky, run `install-baremetal.sh` — it rsyncs the proven Rocky onto `/dev/nvme0n1p2`
-   and installs grub (arm64-efi, explicit `grub.cfg`, no BLS/shim/os-prober).
+2. From the booted USB Rocky, run `install-baremetal.sh` — **DESTRUCTIVE: it wipes the internal NVMe** (DGX OS +
+   all data), then rsyncs the proven Rocky onto `/dev/nvme0n1p2` and installs grub (arm64-efi, explicit
+   `grub.cfg`, no BLS/shim/os-prober). A deliberate, separate step from the non-destructive USB boot — and not
+   yet clean-room-validated (see the honest edge below).
 3. Reboot (USB removed) → the box comes up on the NVMe.
 
 ## Verify

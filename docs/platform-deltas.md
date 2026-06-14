@@ -34,7 +34,7 @@ NVIDIA's release notes. GPU VBIOS `9A.0B.25.00.00` and GSP `610.43.02` ride the 
 | L4 | `NVDA8800:00 device-creation -16` | **BENIGN on current firmware** | 1 of ~30 NVDA Grace platform devices; the only one that fails (resource conflict); non-critical to compute |
 | L5 | `EM: CPUs … same capacity` (×15) | **MEASURE** | Platform ACPI doesn't feed cpu `capacity-dmips-mhz` to the energy model; may change EAS scheduling across X925 vs A725 → possible perf. Quantify with a before/after spark-arena run |
 | L6 | `mt7925` WiFi/BT firmware missing | **DECLINE, with reason** | Wired-only is more deterministic for a benchmark box; thesis-safe to add `linux-firmware` later if WiFi is wanted |
-| L7 | `mlx5` ConnectX-7 "insufficient power (27W)" → down | **OUT OF SCOPE / expected** | Single-host only; on current firmware the unused clustering NICs idle in low power (consistent with the published hot-plug power-saving behavior) |
+| L7 | `mlx5` ConnectX-7 floods dmesg (missing firmware; "insufficient power" → down) | **CARRY (assembly), fixed** | The ConnectX is the cluster-fabric port; multi-node is out of scope, so `04` blacklists `mlx5_core` (rootfs + dracut initramfs). Not loading the unused driver removes the flood (#30). Re-enable + ship the mlx5 firmware if you ever cable it for clustering |
 | L8 | `GICv3 [Firmware Bug] GSI8`, `FF-A IRQ mapping` | **BENIGN on current firmware** | Firmware↔kernel friction the kernel flags and works around; no observed impact |
 | L9 | `PCI: OF: of_root NULL` (×8) | **NO-OP** | PCI host bridges come from ACPI on this hybrid ACPI+DT boot; expected |
 
@@ -44,8 +44,15 @@ Inherited from the proven bare-metal box; each is a deliberate boot parameter, n
   DMA isolated). The GB10 GPU reaches memory over NVLink-C2C coherence, so GPU compute is unaffected either way.
 - `init_on_alloc=0` — disables zero-on-allocation (a small throughput win). This is a single-user benchmark
   host, not a multi-tenant security boundary; revisit if that changes.
-- `console=tty0 console=ttyS0,921600` — console on both the monitor (`tty0`) and serial (`ttyS0` @ 921600), so
-  the box is debuggable over serial and the boot is visible on an attached monitor.
+- `console=tty0` — console on the attached monitor. (The earlier `console=ttyS0,921600` was dropped: `/dev/ttyS0`
+  does not exist on the GB10 and waiting for it hung boot ~90s; `earlycon` below still surfaces early-boot serial.)
+- `nvidia-drm.modeset=0` — the GPU does **compute only** (`nvidia-uvm`); it does not take over the display, so the
+  console stays on the low-res EFI framebuffer. Deliberate: with the nvidia fbdev console on, the open driver's
+  `drm_fb_helper` damage worker flushed the large GPU framebuffer on a bound workqueue every console update
+  (`WQ_UNBOUND` warnings) and the handover blacked the monitor for seconds. A compute box needs no GPU-driven
+  console; this removes both, with zero effect on CUDA.
+- `quiet loglevel=3` — trims the boot console to essentials; paired with `modeset=0` the boot is clean, not a wall
+  of warnings.
 - `earlycon=uart,mmio32,0x16A00000` — early-boot console on the GB10 UART before the full console driver
   initializes (surfaces early panics).
 - `selinux=0` — disabled to keep single-user bring-up simple; revisit for a hardened/multi-tenant target.

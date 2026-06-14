@@ -87,7 +87,7 @@ chroot "$MNT" /sbin/ldconfig; echo "  - ld.so.cache: $(chroot "$MNT" ldconfig -p
 OS_VER=$(. "$MNT/etc/os-release" 2>/dev/null; echo "${VERSION:-unknown}")
 CUDA_PKGS=$(rpm -qa --root "$MNT" 2>/dev/null | grep -iE '^cuda-' | sort | tr '\n' ' ')
 KMODS=$(ls "$MNT"/lib/modules/ 2>/dev/null | tr '\n' ' ')
-CFG="$W/config-$KVER"; [ -f "$CFG" ] || CFG=$(ls "$HERE"/../config/*-gb10.config 2>/dev/null | head -1)   # hash the RESOLVED config 01 built ($W/config-$KVER), not the base glob — the glob named the wrong kver in the manifest
+CFG="$W/config-$KVER"   # the RESOLVED config 01 built (01:45 writes it via the -v "$W":/work mount). NO glob fallback: a 05-only re-run without 01 must FAIL the gate below, never silently sign a guessed .config identity (Gafton)
 CFG_SHA=$([ -f "$CFG" ] && sha256sum "$CFG" | cut -d' ' -f1 || echo unknown)
 
 # --- FAIL-CLOSED gate: re-check the REAL image state; abort before compressing if anything failed ---
@@ -107,6 +107,7 @@ chk '[ -x "$MNT/root/validate.sh" ]'                                     "valida
 chk '[ -x "$MNT/root/proof-of-life.sh" ]'                                "proof-of-life.sh present (validate.sh CUDA check)"
 chk '[ -s "$MNT/etc/spark-rocky-release" ]'                              "provenance stamp written"
 chk '[ ! -e "$MNT/etc/spark-rocky-debug-hatch" ]'                        "no DEBUG hatch marker (a DEBUG build is un-releasable)"
+chk '[ -f "$W/config-$KVER" ]'                                           "resolved config-$KVER present (manifest hashes the real build config, not a guessed base glob)"
 
 sync; cleanup; trap - EXIT
 [ "$VERR" = 0 ] || { echo "ABORT: hardening verification failed — NOT compressing, NOT emitting a checksum."; rm -f "$WORK"; exit 1; }
