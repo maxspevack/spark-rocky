@@ -1,6 +1,6 @@
 # scripts/ — build, package, install, verify
 
-The mechanism behind deliverable #1. Full walkthrough + prerequisites: [`../docs/build-and-install.md`](../docs/build-and-install.md). No-build path (write the signed image): [`../docs/write-to-usb.md`](../docs/write-to-usb.md).
+The mechanism behind deliverable #1. Full walkthrough + prerequisites: [`../docs/build-and-install.md`](../docs/build-and-install.md). No-build path (flash, boot, check): [`../docs/running.md`](../docs/running.md).
 
 ## Build pipeline (run in order — zero patches)
 

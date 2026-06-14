@@ -27,7 +27,7 @@ sha256sum -c CHECKSUM           # the .raw.xz line must say OK
 
 On step 3, `sha256sum` prints `WARNING: N lines are improperly formatted` — those are the PGP armor lines inside the clearsigned file, not checksum lines. Ignore it; what matters is the `.raw.xz: OK` line and a zero exit.
 
-Then write it to a USB and boot: [`write-to-usb.md`](write-to-usb.md). After boot, run `/root/validate.sh`.
+Then flash it and boot: [`running.md`](running.md). After boot, run `/root/validate.sh`.
 
 ## Don't trust a pre-built image at all?
 

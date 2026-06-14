@@ -1,0 +1,29 @@
+# Release process
+
+How a verified spark-rocky release is cut. The invariant this process exists to protect: **the bytes served == the git tag == the commit that built them.** The failure it prevents is the served image drifting behind the code (a stale, broken image being served while the fixes sit in `main`).
+
+## Cut a release
+
+Run on the Spark (aarch64 — `05` chroots into the image):
+
+1. **Build from HEAD.** `01`→`05` (or `04`+`05` when the kernel, rootfs, and driver are unchanged). The `05` packaging gate is fail-closed: it re-verifies every hardening step against the mounted image and the manifest, and aborts without emitting a checksum if anything is wrong.
+2. **Sign**, on the host that holds the release key: `OUTDIR=<vend-dir> scripts/06-sign-release.sh`. Produces the GPG-clearsigned `CHECKSUM` and exports the public key. The passphrase comes from the human via pinentry; it is never scripted.
+3. **Tag the build commit:**
+   ```
+   git tag -f spark-rocky-live-<YYYYMMDD> <commit>
+   git push -f origin spark-rocky-live-<YYYYMMDD>
+   ```
+4. **Upload** the artifacts (`.raw.xz`, `CHECKSUM`, `BUILD-MANIFEST.txt`, public key) to the release bucket.
+5. **Verify, fail-closed:**
+   ```
+   scripts/07-verify-release.sh spark-rocky-live-<YYYYMMDD>
+   ```
+   It must print `RELEASE-INTEGRITY: OK` — served commit == tag, Good signature from the release key, and the served image's sha is the one inside the signed CHECKSUM. **Do not announce a release until this is green.**
+
+## The tag's contract
+
+`spark-rocky-live-<YYYYMMDD>` points at the commit that built the served image. `07-verify-release.sh` is its only consumer and its enforcer: `served == tag`. HEAD advancing past the tag is allowed — you can release tag N and keep committing toward N+1 — so `07-verify` treats that as a warning, not a failure. Re-cut and re-tag deliberately when those commits should ship.
+
+## Rollback
+
+Re-point the tag at the prior commit, re-upload the prior artifacts, and run `07-verify-release.sh` against the tag. It confirms the rollback the same way it confirms a release. Minutes, not hours.
