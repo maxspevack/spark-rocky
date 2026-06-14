@@ -31,6 +31,16 @@ else
   echo "  !! proof-of-life.sh not present in this image — cannot run the GPU CUDA check"; FAIL=1
 fi
 
+echo "--- thermal watchdog self-test (the benchmark safety primitive) ---"
+if [ -x /root/thermal-watchdog.sh ]; then
+  /root/thermal-watchdog.sh --self-test >/tmp/twd.log 2>&1
+  tail -6 /tmp/twd.log
+  # trust the verdict STRING, not the rc — same discipline as the CUDA check above
+  grep -q "SELF-TEST: PASS" /tmp/twd.log || { echo "  !! thermal-watchdog self-test did NOT pass (full log: /tmp/twd.log)"; FAIL=1; }
+else
+  echo "  !! thermal-watchdog.sh not present — the benchmark safety primitive is missing"; FAIL=1
+fi
+
 line
 if [ "$FAIL" = 0 ]; then
   echo " RESULT: PASS"
