@@ -20,4 +20,4 @@ the container tag). Reproducing an entry means running *its* recipe, not one we 
 ```
 
 The `container:` field names which image `build-and-copy.sh` must produce (`vllm-node`, or `vllm-node-tf5`
-for the transformers≥5 build). See [`../docs/reproduce-pipeline.md`](../docs/reproduce-pipeline.md).
+for the transformers≥5 build). See [`docs/benchmark/reproduce-pipeline.md`](../docs/benchmark/reproduce-pipeline.md).

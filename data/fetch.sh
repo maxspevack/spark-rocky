@@ -3,7 +3,7 @@
 #
 # Given a leaderboard entry's submission id (the `benchmarkId` field in the snapshot, e.g. sub1772533296511),
 # this resolves its recipe-permalink UUID via public Firestore, then pulls the full published benchmark
-# matrix and the exact serve recipe. These are the same pulls documented in docs/reproduce-pipeline.md.
+# matrix and the exact serve recipe. These are the same pulls documented in docs/benchmark/reproduce-pipeline.md.
 #
 # Usage:   ./fetch.sh <sub-id>            e.g. ./fetch.sh sub1772533296511   (Qwen3.5-35B-A3B-FP8)
 #                                              ./fetch.sh sub1777989095056   (LFM2.5-350M)

@@ -2,7 +2,7 @@
 
 What a stock upstream kernel + the open NVIDIA driver surface on the DGX Spark (GB10) at boot, each line
 classified and decided. The project starts from a zero-source-patch clean room; every divergence is a
-deliberate, data-justified tweak — **carried** (tracked here + in [`THIRD_PARTY.md`](../THIRD_PARTY.md)) or
+deliberate, data-justified tweak — **carried** (tracked here + in [`THIRD_PARTY.md`](third-party.md)) or
 **upstreamed**. The pitch is auditability: every tweak is named and reasoned, not inherited from an opaque
 vendor image.
 

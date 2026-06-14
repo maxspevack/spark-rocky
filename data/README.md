@@ -19,5 +19,5 @@ The published numbers we reproduce against, captured so the comparison is audita
 ```
 
 The entry→recipe mapping (Firestore `benchmarks/<sub-id>` → `recipePermalinkId` → `/api/{benchmarks,recipes}/<uuid>/raw`)
-is explained in [`../docs/reproduce-pipeline.md`](../docs/reproduce-pipeline.md). The snapshot itself is a
+is explained in [`docs/benchmark/reproduce-pipeline.md`](../docs/benchmark/reproduce-pipeline.md). The snapshot itself is a
 manual capture of the live board; treat its date as authoritative for "the board as we saw it."

@@ -26,4 +26,4 @@ It checks the kernel, the open driver, `nvidia-smi`, and a CUDA kernel on the GP
 
 ---
 - Verify the release yourself, or read the trust model: [`verify.md`](verify.md).
-- Build the image from source instead of downloading it: [`build-and-install.md`](build-and-install.md).
+- Build the image from source instead of downloading it: [`build.md`](../build/build.md).

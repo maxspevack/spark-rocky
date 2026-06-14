@@ -12,7 +12,7 @@ A full `llama-benchy` matrix sweeps the whole performance surface – **decode**
 | Qwen3.5-0.8B | full 104-cell matrix | **0.96× – parity** |
 | gemma-3-1b-it | full 56-cell matrix (context-capped) | **1.05× – parity** |
 
-Medians spanning **0.96×–1.05×** straddle parity, the signature of a transparent host swap. Raw per-cell numbers and the prefill/decode breakdown are committed: [`receipts/`](receipts/) · [`docs/scoreboard.md`](docs/scoreboard.md).
+Medians spanning **0.96×–1.05×** straddle parity, the signature of a transparent host swap. Raw per-cell numbers and the prefill/decode breakdown are committed: [`receipts/`](../../receipts/) · [`scoreboard.md`](scoreboard.md).
 
 <sub>**Also reproduced – single-cell `tg128 (c1)` only; a parity claim requires the full matrix:**</sub>
 
@@ -51,6 +51,6 @@ One variable still differs between the published run and ours: **the vLLM build,
 
 - ✅ **Auditable.** Every host change is a named `.config` symbol or build step – no `.patch`/`.diff` anywhere in the repo, and the open driver is built unmodified (`make … SYSSRC=… modules`, no source edits). Nothing hidden to carry or rot.
 - ✅ **Firmware-current, the standard way.** The box runs the latest platform firmware NVIDIA publishes to the **public LVFS**, applied with stock `fwupd` – no DGX OS, no entitlement, no proprietary tool. The parity result carries no stale-firmware confound.
-- ✅ **Stays current with a one-line change.** Bump the kernel in [`config/versions.env`](config/versions.env) and rebuild – `6.18.35` is validated to boot and bring up the GPU; the parity benchmarks ran on `6.18.34`. A stock-mainline kernel makes a version bump a config change, not a patch-rebase that rots.
+- ✅ **Stays current with a one-line change.** Bump the kernel in [`config/versions.env`](../../config/versions.env) and rebuild – `6.18.35` is validated to boot and bring up the GPU; the parity benchmarks ran on `6.18.34`. A stock-mainline kernel makes a version bump a config change, not a patch-rebase that rots.
 
-→ **Reproduce or refute any entry yourself, credential-free:** [`docs/reproduce-pipeline.md`](docs/reproduce-pipeline.md)
+→ **Reproduce or refute any entry yourself, credential-free:** [`reproduce-pipeline.md`](reproduce-pipeline.md)

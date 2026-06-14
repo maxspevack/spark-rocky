@@ -18,9 +18,9 @@ fork, carried patches, and the upstream-filing plan.
 layer (kernel + driver carry no patches; see the build scripts and `config/rocky-6.18.34-gb10.config`).
 
 **Host/platform side (this table defers to two places, to avoid duplicating the accounting):** the kernel
-`.config` + the DGX baseline live in [`config/`](config/); the boot-time platform deltas — each classified
+`.config` + the DGX baseline live in [`config/`](../../config/); the boot-time platform deltas — each classified
 *carry / upstream / decline / benign* — plus the firmware-currency conclusion live in
-[`docs/platform-deltas.md`](docs/platform-deltas.md). Platform firmware is NVIDIA's, applied **unmodified** via
+[`platform-deltas.md`](platform-deltas.md). Platform firmware is NVIDIA's, applied **unmodified** via
 stock public `fwupd`/LVFS (the box is on the latest published) — adopted, not carried or patched.
 
 ## Fork vs. upstream — why the box runs upstream
@@ -44,7 +44,7 @@ drift — named on every receipt.
 
 Serve configs are pulled **verbatim** from spark-arena's per-entry recipe API (`/api/recipes/<permalink>/raw`)
 and committed under `recipes/`. The entry→recipe mapping (Firestore `benchmarks/<sub-ID>` →
-`recipePermalinkId`) is documented in [`docs/reproduce-pipeline.md`](docs/reproduce-pipeline.md).
+`recipePermalinkId`) is documented in [`../benchmark/reproduce-pipeline.md`](../benchmark/reproduce-pipeline.md).
 
 ## Submitting results to spark-arena (the sparkrun question)
 

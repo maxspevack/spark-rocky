@@ -21,9 +21,9 @@ Verified inventory (2026-06-10, on the bare-metal box):
 ```
 ENV 1 — HOST (ours, the swapped layer)
   OS                       Rocky Linux 10.2 (Red Quartz)
-  kernel                   6.18.34   upstream mainline, ZERO patches   (benchmark kernel; 6.18.35 validated to boot + GPU, not yet benchmarked — see build-and-install.md)
+  kernel                   6.18.34   upstream mainline, ZERO patches   (benchmark kernel; 6.18.35 validated to boot + GPU, not yet benchmarked — see build.md)
   GPU driver               610.43.02 open module, WE built it
-  platform firmware        NVIDIA's latest, via public fwupd/LVFS      (see build-and-install.md → Firmware)
+  platform firmware        NVIDIA's latest, via public fwupd/LVFS      (see build.md → Firmware)
   docker                   29.5.3 ; nvidia-container-toolkit 1.19.1
   CUDA toolkit (host)      13.0      used to BUILD the driver; not used to serve
   python torch?            NOT INSTALLED   ← correct; models don't run on the host
@@ -88,7 +88,7 @@ OS/kernel/driver one. We name it on every receipt and match the recipe's `contai
   patches), NVIDIA-built `580` → self-built open `610` — is **transparent to the workload**. The same
   container + recipe + tool land the published numbers on the community's own scoreboard. Across **three
   full-matrix** models the **median is parity (0.96–1.05×)**; two more (LFM2.5-350M, gpt-oss-120b) reproduced
-  at single-cell `tg128 (c1)` — see [`scoreboard.md`](scoreboard.md).
+  at single-cell `tg128 (c1)` — see [`scoreboard.md`](../benchmark/scoreboard.md).
 - **Does NOT prove "Rocky is faster."** Per-axis deltas (e.g. LFM `tg128` +10.4%) track the vLLM-date drift,
   not the host swap. A clean speed claim would require pinning the entry-date vLLM, which the leaderboard does
   not do.

@@ -4,7 +4,7 @@ Every spark-rocky live image ships with a GPG-clearsigned `CHECKSUM`. Verifying 
 
 ## The signing key
 
-- File: [`../keys/spark-rocky-release-key.asc`](../keys/spark-rocky-release-key.asc)
+- File: [`../keys/spark-rocky-release-key.asc`](../../keys/spark-rocky-release-key.asc)
 - Fingerprint: `71C1 6676 F9D4 0A4C E0C6  EB66 08B1 4BC3 9831 1101`
 - UID: `spark-rocky release signing <max.spevack@gmail.com>`
 

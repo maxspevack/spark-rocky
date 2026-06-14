@@ -1,6 +1,6 @@
 # scripts/ — build, package, install, verify
 
-The mechanism behind deliverable #1. Full walkthrough + prerequisites: [`../docs/build-and-install.md`](../docs/build-and-install.md). No-build path (flash, boot, check): [`../docs/running.md`](../docs/running.md).
+The mechanism behind deliverable #1. Full walkthrough + prerequisites: [`docs/build/build.md`](../docs/build/build.md). No-build path (flash, boot, check): [`docs/use/running.md`](../docs/use/running.md).
 
 ## Build pipeline (run in order — zero patches)
 
@@ -11,7 +11,7 @@ The mechanism behind deliverable #1. Full walkthrough + prerequisites: [`../docs
 | `02b-install-gpu-docker.sh` | CUDA + container runtime in the rootfs |
 | `02c-driver-userspace.sh` | 610.43.02 driver userspace (`.run --no-kernel-modules`) |
 | `03-build-nvidia-open.sh` | the open kernel module, built in `rockylinux:10` (el10 gcc 14.3.1) |
-| `04-build-image.sh` | the bootable image: `nvidia-drm.modeset=0` (compute-only GPU, EFI-fb console), autologin, `mlx5_core` blacklist, masks `swap.target` + `systemd-firstboot`; bakes the one-command debug enabler (see [`../docs/debug-hatch.md`](../docs/debug-hatch.md)). Flash to USB is optional (`DEV=/dev/null` skips it). |
+| `04-build-image.sh` | the bootable image: `nvidia-drm.modeset=0` (compute-only GPU, EFI-fb console), autologin, `mlx5_core` blacklist, masks `swap.target` + `systemd-firstboot`; bakes the one-command debug enabler (see [`docs/build/debug-hatch.md`](../docs/build/debug-hatch.md)). Flash to USB is optional (`DEV=/dev/null` skips it). |
 
 ## Package · sign · write — the vendable release
 
