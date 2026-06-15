@@ -47,6 +47,19 @@ graph LR
 
 One variable still differs between the published run and ours: **the vLLM build, not the host.** spark-arena pins no runtime version, so the published entry and our run compiled vLLM on different dates.
 
+## What the host actually is
+
+Everything swapped in is stock, current, and built from source — the exact coordinates:
+
+| Layer | This stack |
+|---|---|
+| OS | Rocky Linux 10.2 |
+| Kernel | stock mainline **6.18.35** (parity benched on 6.18.34) |
+| Driver | open NVIDIA **610.43.02**, built from source unmodified |
+| CUDA | **13.0** |
+
+**CUDA — the layer that actually moves inference numbers — is held identical to the stack the published entries ran on**, so the reproduced parity is a property of the OS/kernel/driver swap, not a CUDA artifact. Parity is not superiority.
+
 ## Why it holds up
 
 - ✅ **Auditable.** Every host change is a named `.config` symbol or build step – no `.patch`/`.diff` anywhere in the repo, and the open driver is built unmodified (`make … SYSSRC=… modules`, no source edits). Nothing hidden to carry or rot.
