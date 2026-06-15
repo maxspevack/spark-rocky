@@ -7,6 +7,7 @@
 #   make kernel | rootfs | gpu | driver | open-module     run one stage
 #   make proof      proof-of-life (OS + kernel + nvidia-smi + a CUDA vectorAdd)
 #   make install    install the booted USB onto the NVMe (DESTRUCTIVE; run from the USB)
+#   make test       repo test suite (script syntax + watchdog logic; no GB10 needed)
 #   make versions   show the pinned versions
 include config/versions.env
 export
@@ -14,9 +15,9 @@ export
 # (a GitHub zip download or a stray scp strips +x; git clone preserves it).
 R := bash scripts
 
-.PHONY: help all kernel rootfs gpu driver open-module image proof install versions
+.PHONY: help all kernel rootfs gpu driver open-module image proof install test versions
 
-help: ; @echo "make [all|kernel|rootfs|gpu|driver|open-module|image|proof|install|versions]  (versions pinned in config/versions.env)"
+help: ; @echo "make [all|kernel|rootfs|gpu|driver|open-module|image|proof|install|test|versions]  (versions pinned in config/versions.env)"
 
 all: ; $(R)/01-build-kernel.sh && $(R)/02-build-rootfs.sh && $(R)/02b-install-gpu-docker.sh && $(R)/02c-driver-userspace.sh && $(R)/04-build-image.sh
 
@@ -28,4 +29,5 @@ open-module: ; $(R)/03-build-nvidia-open.sh
 image:       ; $(R)/04-build-image.sh
 proof:       ; $(R)/proof-of-life.sh
 install:     ; $(R)/install-baremetal.sh
+test:        ; bash tests/run-tests.sh
 versions:    ; @echo "KVER=$(KVER)  DRIVER_VER=$(DRIVER_VER)  ROCKY_RELEASEVER=$(ROCKY_RELEASEVER)"

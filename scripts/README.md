@@ -25,7 +25,7 @@ The mechanism behind deliverable #1. Full walkthrough + prerequisites: [`docs/bu
 
 | Script | Produces |
 |---|---|
-| `validate.sh` | one command: kernel + open driver + `nvidia-smi` + a **real CUDA kernel** → `PASS`/`FAIL` + the line to drop into a new issue |
+| `validate.sh` | the **box doctor** — one command proving the whole box came up as built: provenance (kernel/driver match the image), the stack (open driver + `nvidia-smi` + a real CUDA kernel), the `thermal-watchdog` self-test, and runtime boot-hygiene (`modeset=0` active, mlx5 not loaded, swap off, dmesg clean) → one `PASS`/`FAIL` + the line to drop into an issue |
 | `proof-of-life.sh` | OS + kernel + `nvidia-smi` + a CUDA `vectorAdd` on the GPU (validate.sh's CUDA check) |
 | `install-baremetal.sh` | **DESTRUCTIVE** — wipes the NVMe, then rsyncs the running Rocky onto `/dev/nvme0n1p2` + grub. Run from the booted USB; a deliberate step separate from the non-destructive boot, and not yet clean-room-validated. |
 | `run-benchmark-matrix.sh` | the **canonical full llama-benchy matrix** (deliverable #2) against a served model — the exact ~104-cell sweep behind the parity claim, encoded once so reproductions and regression-vs-self runs measure the same surface. **Auto-arms `templog` + the `thermal-watchdog`** for the run, so every benchmark is traced and guarded. Run after `spark-vllm-docker` is serving; full pipeline in [`docs/benchmark/reproduce-pipeline.md`](../docs/benchmark/reproduce-pipeline.md). |

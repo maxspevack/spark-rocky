@@ -1,0 +1,15 @@
+name: test
+# Run the repo test suite (syntax + watchdog decision logic) on every push/PR so a script that
+# stops parsing, or a watchdog logic regression, fails before it can reach a build.
+on:
+  push: {}
+  pull_request: {}
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make test
