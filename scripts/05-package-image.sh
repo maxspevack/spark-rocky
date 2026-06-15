@@ -106,6 +106,13 @@ chk '[ -z "$UNVERIFIED" ]'                                               "every 
 chk '[ -x "$MNT/root/validate.sh" ]'                                     "validate.sh installed"
 chk '[ -x "$MNT/root/proof-of-life.sh" ]'                                "proof-of-life.sh present (validate.sh CUDA check)"
 chk '[ -x "$MNT/root/thermal-watchdog.sh" ]'                             "thermal-watchdog.sh present (#25 safety primitive — no release without it)"
+chk '[ -x "$MNT/root/templog.sh" ]'                                      "templog.sh present (forensic thermal/mem trace)"
+# boot-hygiene properties that DEFINE the image (the 2026-06-13 hardening) — a release must carry every one
+chk 'grep -q "nvidia-drm.modeset=0" "$MNT/boot/efi/EFI/rocky/grub.cfg"'   "boot: nvidia-drm.modeset=0 in grub (kills WQ_UNBOUND flood + console blackout)"
+chk 'grep -q "blacklist mlx5_core" "$MNT/etc/modprobe.d/blacklist-mlx5.conf"'  "boot: mlx5_core blacklisted (no missing-firmware dmesg flood, #30)"
+chk '[ "$(readlink "$MNT/etc/systemd/system/swap.target")" = /dev/null ]'      "boot: swap.target masked (GB10 swap-on-overcommit hang)"
+chk '[ "$(readlink "$MNT/etc/systemd/system/systemd-firstboot.service")" = /dev/null ]'  "boot: systemd-firstboot masked (no interactive tz prompt at first boot)"
+chk 'grep -q -- "--autologin root" "$MNT/etc/systemd/system/getty@tty1.service.d/autologin.conf"'  "boot: console autologin configured"
 chk '[ -s "$MNT/etc/spark-rocky-release" ]'                              "provenance stamp written"
 chk '[ ! -e "$MNT/etc/spark-rocky-debug-hatch" ]'                        "no DEBUG hatch marker (a DEBUG build is un-releasable)"
 chk '[ -f "$W/config-$KVER" ]'                                           "resolved config-$KVER present (manifest hashes the real build config, not a guessed base glob)"
