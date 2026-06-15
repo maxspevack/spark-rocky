@@ -36,9 +36,13 @@ chk '[ -n "$DRV" ]' "nvidia kernel module loaded"
 [ -z "$EXP_K" ] || chk '[ "$K" = "$EXP_K" ]'   "running kernel matches the built kernel ($EXP_K)"
 [ -z "$EXP_D" ] || chk '[ "$DRV" = "$EXP_D" ]' "running driver matches the built driver ($EXP_D)"
 
-sect "3. nvidia-smi"
-if nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader 2>/dev/null | sed 's/^/  /'; then :
+sect "3. nvidia-smi + GPU memory"
+if nvidia-smi --query-gpu=name,driver_version --format=csv,noheader 2>/dev/null | sed 's/^/  /'; then :
 else echo "  !! nvidia-smi failed"; FAIL=1; fi
+# GB10 has UNIFIED memory: nvidia-smi reports memory.total as [N/A] (no discrete VRAM) — which looks like a
+# failure but isn't. Report the real GPU budget — the shared system RAM pool — instead of that confusing [N/A].
+MEM=$(free -g 2>/dev/null | awk '/^Mem:/{print $2}')
+echo "  unified memory (GPU budget): ${MEM:-?} GiB"
 
 sect "4. CUDA compute on the GPU"
 if [ -x /root/proof-of-life.sh ]; then
@@ -47,7 +51,7 @@ if [ -x /root/proof-of-life.sh ]; then
   grep -q "CUDA COMPUTE: PASS" /tmp/pol.log || { echo "  !! GPU CUDA check did NOT pass (full log: /tmp/pol.log)"; FAIL=1; }
 else echo "  !! proof-of-life.sh not present — cannot run the GPU CUDA check"; FAIL=1; fi
 
-sect "5. thermal watchdog self-test (#25 safety primitive)"
+sect "5. thermal watchdog self-test (benchmark safety guard)"
 if [ -x /root/thermal-watchdog.sh ]; then
   /root/thermal-watchdog.sh --self-test >/tmp/twd.log 2>&1; tail -6 /tmp/twd.log | sed 's/^/  /'
   grep -q "SELF-TEST: PASS" /tmp/twd.log || { echo "  !! thermal-watchdog self-test did NOT pass (full log: /tmp/twd.log)"; FAIL=1; }
@@ -57,7 +61,7 @@ sect "6. boot hygiene (the properties that make the image clean + fast)"
 chk 'grep -q nvidia-drm.modeset=0 /proc/cmdline' "nvidia-drm.modeset=0 active (no WQ_UNBOUND flood / console blackout)"
 chk '! lsmod | grep -q "^mlx5_core"'             "mlx5_core not loaded (blacklisted — no missing-firmware dmesg flood)"
 SWAP=$(awk '/^SwapTotal/{print $2}' /proc/meminfo 2>/dev/null)
-chk '[ "${SWAP:-1}" = 0 ]'                       "swap is off (was ${SWAP:-?} kB; GB10 swap-on-overcommit hang prevention)"
+chk '[ "${SWAP:-1}" = 0 ]'                       "swap off (SwapTotal=${SWAP:-?} kB; GB10 swap-on-overcommit hang prevention)"
 NOISE=$(dmesg 2>/dev/null | grep -ciE 'mlx5.*(firmware|insufficient power)|WQ_UNBOUND')
 chk '[ "${NOISE:-1}" = 0 ]'                      "dmesg clean of the known regressions (mlx5-firmware / WQ_UNBOUND): ${NOISE:-?} hit(s)"
 
