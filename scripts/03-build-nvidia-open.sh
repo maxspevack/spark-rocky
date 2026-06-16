@@ -6,9 +6,11 @@
 # Parameterized via config/versions.env. Assumes 02b downloaded+extracted the driver to $W/driver-610.
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-source "$HERE/../config/versions.env"          # KVER, DRIVER_VER, ROCKY_RELEASEVER
+source "$HERE/../config/versions.env"          # KVER, DRIVER_VER, ROCKY_RELEASEVER, PAGE_SIZE
+KREL="$KVER"; [ "$PAGE_SIZE" = 64k ] && KREL="$KVER-64k"   # kernel release (uname -r): -64k LOCALVERSION for the 64k build
 W="${W:-$(dirname "$HERE")}"
-LOG="$W/nvbuild.full.log"
+EXPECT_VM="$KREL"; SFX=""; [ "$PAGE_SIZE" = 64k ] && SFX="-64k"   # KREL carries the -64k LOCALVERSION when PAGE_SIZE=64k (from versions.env)
+LOG="$W/nvbuild.full$SFX.log"
 KO="$W/driver-610/NVIDIA-Linux-aarch64-$DRIVER_VER/kernel-open"
 [ -d "$KO" ] || { echo "FATAL: $KO missing — run 02b first (it downloads+extracts the driver)"; exit 1; }
 echo "=== build open module in rockylinux:10 (matching gcc-14 el10) against $KVER ==="
@@ -26,13 +28,13 @@ echo "=== tail ==="; tail -20 "$LOG"
 echo "=== .ko produced? ==="; ls -la "$KO"/*.ko 2>/dev/null || { echo "(no .ko) — FAIL"; exit 1; }
 echo "=== Unknown symbol / hard errors (carried-patch territory) ==="
 grep -iE "unknown symbol|error:|undefined reference" "$LOG" | head -25 || echo "(none)"
-echo "=== vermagic (MUST be exactly $KVER) ==="
+echo "=== vermagic (MUST be exactly $EXPECT_VM) ==="
 FAIL=0
 for m in nvidia.ko nvidia-uvm.ko nvidia-modeset.ko nvidia-drm.ko; do
   if [ -f "$KO/$m" ]; then
     VM=$(modinfo -F vermagic "$KO/$m" 2>/dev/null | awk '{print $1}')
     echo "$m -> $VM"
-    [ "$VM" = "$KVER" ] || FAIL=1
+    [ "$VM" = "$EXPECT_VM" ] || FAIL=1
   fi
 done
-if [ "$RC" = 0 ] && [ "$FAIL" = 0 ]; then echo "BUILD-OPEN-OK $KVER"; else echo "BUILD-OPEN-FAIL rc=$RC vermagic_mismatch=$FAIL"; exit 1; fi
+if [ "$RC" = 0 ] && [ "$FAIL" = 0 ]; then echo "BUILD-OPEN-OK $EXPECT_VM"; else echo "BUILD-OPEN-FAIL rc=$RC vermagic_mismatch=$FAIL"; exit 1; fi

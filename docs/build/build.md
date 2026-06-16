@@ -8,7 +8,7 @@ How deliverable #1 is made, and how to rebuild it yourself. Everything carries *
 - ~40 GB free for the rootfs + image.
 
 ## The pipeline (run in order)
-All versions are pinned in one place, [`../../config/versions.env`](../../config/versions.env) (`KVER`, `DRIVER_VER`, `ROCKY_RELEASEVER`). Every script sources it; bumping a value and rebuilding is the whole "stay current" mechanism (below).
+All versions are pinned in one place, [`../../config/versions.env`](../../config/versions.env) (`KVER`, `DRIVER_VER`, `ROCKY_RELEASEVER`, and **`PAGE_SIZE`** — our opinionated `64k` page-size choice for the GB10 serving workload; see [platform-deltas](platform-deltas.md#page-size--the-opinionated-choice-64k)). Every script sources it; bumping a value and rebuilding is the whole "stay current" mechanism (below). The scripts derive the kernel release `KREL` (`$KVER-64k`) from `PAGE_SIZE`.
 
 | Step | Script | Produces |
 |---|---|---|

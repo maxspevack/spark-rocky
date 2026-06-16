@@ -30,4 +30,4 @@ image:       ; $(R)/04-build-image.sh
 proof:       ; $(R)/proof-of-life.sh
 install:     ; $(R)/install-baremetal.sh
 test:        ; bash tests/run-tests.sh
-versions:    ; @echo "KVER=$(KVER)  DRIVER_VER=$(DRIVER_VER)  ROCKY_RELEASEVER=$(ROCKY_RELEASEVER)"
+versions:    ; @echo "KVER=$(KVER)  DRIVER_VER=$(DRIVER_VER)  ROCKY_RELEASEVER=$(ROCKY_RELEASEVER)  PAGE_SIZE=$(PAGE_SIZE)"

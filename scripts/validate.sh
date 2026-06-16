@@ -18,11 +18,12 @@ chk(){ if eval "$1" >/dev/null 2>&1; then echo "  ok: $2"; else echo "  !! $2"; 
 line; echo " spark-rocky doctor · did this box come up as we built it?"; line
 
 sect "1. provenance (what this image claims to be)"
-EXP_K=""; EXP_D=""
+EXP_K=""; EXP_D=""; EXP_PG=""
 if [ -f "$REL" ]; then
   sed 's/^/  /' "$REL"
   EXP_K=$(awk -F= '/^kernel=/{print $2}' "$REL")
   EXP_D=$(awk -F= '/^driver=/{print $2}' "$REL")
+  EXP_PG=$(awk -F= '/^page_size=/{print $2}' "$REL")
 else
   echo "  !! $REL absent — cannot confirm this is a spark-rocky image"; FAIL=1
 fi
@@ -35,6 +36,10 @@ echo "  nvidia driver: ${DRV:-NOT LOADED}"
 chk '[ -n "$DRV" ]' "nvidia kernel module loaded"
 [ -z "$EXP_K" ] || chk '[ "$K" = "$EXP_K" ]'   "running kernel matches the built kernel ($EXP_K)"
 [ -z "$EXP_D" ] || chk '[ "$DRV" = "$EXP_D" ]' "running driver matches the built driver ($EXP_D)"
+if [ -n "$EXP_PG" ]; then
+  case "$EXP_PG" in 64k) WANT_PG=65536;; 4k) WANT_PG=4096;; *) WANT_PG="";; esac
+  [ -z "$WANT_PG" ] || chk '[ "$(getconf PAGESIZE)" = "$WANT_PG" ]' "page size matches the built kernel ($EXP_PG = $WANT_PG bytes)"
+fi
 
 sect "3. nvidia-smi + GPU memory"
 if nvidia-smi --query-gpu=name,driver_version --format=csv,noheader 2>/dev/null | sed 's/^/  /'; then :

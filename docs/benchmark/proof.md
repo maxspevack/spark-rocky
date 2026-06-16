@@ -37,7 +37,7 @@ graph LR
     subgraph swapped["WE SWAPPED — ours, auditable, zero patches"]
         direction TB
         E["Rocky Linux 10.2 userspace"]
-        F["stock upstream 6.18 kernel"]
+        F["stock upstream 6.18 kernel<br/>(64k pages — our opinionated choice)"]
         G["open module, built from<br/>NVIDIA's source, unmodified"]
     end
     swapped --> R["Published spark-arena<br/>numbers reproduced<br/>median 0.96–1.05x"]

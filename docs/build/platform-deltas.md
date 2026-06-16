@@ -9,6 +9,40 @@ vendor image.
 The load-bearing fact: **GPU compute works** — `proof-of-life` runs `vectorAdd` on the GB10 (compute 12.1,
 130.7 GB) on the LiveUSB boot of 6.18.35. Everything below is peripheral to that.
 
+## Page size — the opinionated choice: 64k
+
+**We build a 64k-page kernel** (`CONFIG_ARM64_64K_PAGES`), pinned as `PAGE_SIZE=64k` in
+[`config/versions.env`](../../config/versions.env). This is a *deliberate, data-backed* divergence from the
+upstream / DGX-OS / Rocky-10 default of 4k — and it is the project's headline opinionated choice, so it is
+threaded and enforced, not left to chance.
+
+**Why.** The GB10 is a concurrent AI-serving box. 64k pages cut TLB misses and page-table walks under large
+memory working sets — exactly the regime that workload lives in (many concurrent sequences over long
+contexts → a big KV cache). 4k is the right default for a *general* host; 64k is the right default for *this*
+one.
+
+**The evidence (2026-06-16).** Full canonical 104-cell matrix, 35B-A3B-FP8, `6.18.35-64k` vs the 4k baseline
+([`receipts/qwen3.5-35b-a3b-fp8-matrix-64k-2026-06-16.csv`](../../receipts/qwen3.5-35b-a3b-fp8-matrix-64k-2026-06-16.csv)
+vs the `-2026-06-10` 4k receipt):
+- median +2.3%, **35 cells win ≥+5% vs only 3 losses** — a directional effect, not scatter.
+- the wins cluster on the **concurrent + deep-context** cells: `tg128@d65535 (c10)` **1.30×**, `(c5)` 1.25×,
+  `ctx_pp@d4096 (c2)` **1.38×**, `pp2048 (c2)` 1.15×. Single-user (`c1`) is flat; a few extreme cells regress.
+
+**Compatibility (Gate 1, verified on the box).** The 64k kernel boots, the open driver builds + loads with
+**zero source patches** (vermagic `6.18.35-64k`), `nvidia-smi` works, a real CUDA matmul runs, and
+`getconf PAGESIZE` reports `65536`.
+
+**Honest caveat.** The matrix above is a strong N=3 signal against a `6.18.34`-4k baseline (a kernel-minor
+rides along) — not yet the formal same-version N≥5 A/B (still owed; `docs/benchmark/`). We judged the effect
+too large, too systematic, and too theory-consistent to be a point-release artifact, and committed to 64k as
+the opinionated default. **To build 4k, flip the one pin in `versions.env`.**
+
+**How it's enforced (the process, not just a flag).** `PAGE_SIZE` is a pinned, reviewable line; the scripts
+derive the kernel release `KREL` (`$KVER-64k`) from it and thread it through `01`→`05`; `05`'s fail-closed gate
+**aborts the release if the resolved `.config` page size does not match the pin** (a 64k pin cannot ship a 4k
+image); the provenance stamp records `page_size=`; `uname -r` shows `-64k` (self-documenting); and the
+`validate.sh` doctor asserts the running page size matches what was built.
+
 ## Grounding (measured 2026-06-11)
 - **Kernel config has the features on:** `ARM_SMMU_V3_SVA`, `IOMMU_SVA`, `PCI_PRI/PASID/ATS`, `ENERGY_MODEL`,
   `SCHED_CLUSTER` are all `=y`. The SMMU and energy-model warnings are therefore **not** config gaps.

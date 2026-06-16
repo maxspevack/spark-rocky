@@ -5,11 +5,12 @@
 # Parameterized via config/versions.env. Non-destructive: writes to $W/rocky-img + $W/driver-610.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-source "$HERE/../config/versions.env"          # KVER, DRIVER_VER, ROCKY_RELEASEVER
+source "$HERE/../config/versions.env"          # KVER, DRIVER_VER, ROCKY_RELEASEVER, PAGE_SIZE
+KREL="$KVER"; [ "$PAGE_SIZE" = 64k ] && KREL="$KVER-64k"   # kernel release (uname -r): -64k LOCALVERSION for the 64k build
 W="${W:-$(dirname "$HERE")}"
 [ -d "$W/rocky-img/rootfs" ] || { echo "FATAL: rootfs missing — run 02-build-rootfs.sh first"; exit 1; }
 
-docker run --rm -v "$W":/host -e KVER="$KVER" -e DRIVER_VER="$DRIVER_VER" -e RV="$ROCKY_RELEASEVER" rockylinux/rockylinux:10 bash -c '
+docker run --rm -v "$W":/host -e KVER="$KVER" -e KREL="$KREL" -e DRIVER_VER="$DRIVER_VER" -e RV="$ROCKY_RELEASEVER" rockylinux/rockylinux:10 bash -c '
 set -euo pipefail
 R=/host/rocky-img/rootfs
 dnf install -y -q make gcc kmod findutils tar xz wget curl >/dev/null 2>&1
@@ -44,28 +45,28 @@ if [ ! -d "$DRV" ]; then
   sh "$RUN" -x >/dev/null 2>&1
 fi
 
-echo "[gpu] building + installing open .ko (against $KVER, el10 gcc-14) into rootfs"
+echo "[gpu] building + installing open .ko (against $KREL, el10 gcc-14) into rootfs"
 cd "$DRV/kernel-open"
 make clean >/dev/null 2>&1 || true
 make modules -j"$(nproc)" SYSSRC=/host/linux-$KVER >/host/ko.log 2>&1
-mkdir -p "$R/lib/modules/$KVER/extra"
-cp *.ko "$R/lib/modules/$KVER/extra/"
-strip --strip-debug "$R/lib/modules/$KVER/extra/"*.ko 2>/dev/null || true   # ~98M unstripped -> ~15M; --strip-debug keeps vermagic
+mkdir -p "$R/lib/modules/$KREL/extra"
+cp *.ko "$R/lib/modules/$KREL/extra/"
+strip --strip-debug "$R/lib/modules/$KREL/extra/"*.ko 2>/dev/null || true   # ~98M unstripped -> ~15M; --strip-debug keeps vermagic
 # depmod so the freshly-copied open modules resolve. WITHOUT this, modprobe cannot find them and nothing
 # loads nvidia at boot -> nvidia-smi fails "couldnt communicate with the driver" even though the .ko is present.
-depmod -b "$R" "$KVER"
+depmod -b "$R" "$KREL"
 # auto-load the stack at boot (systemd-modules-load) so the GPU is up without manual modprobe.
 mkdir -p "$R/etc/modules-load.d"
 printf "nvidia\nnvidia-modeset\nnvidia-uvm\nnvidia-drm\n" > "$R/etc/modules-load.d/nvidia.conf"
-echo "[gpu] open .ko installed: $(ls "$R/lib/modules/$KVER/extra/"*.ko | wc -l) modules ($(du -sh "$R/lib/modules/$KVER/extra" | cut -f1)); depmod + modules-load.d done"
+echo "[gpu] open .ko installed: $(ls "$R/lib/modules/$KREL/extra/"*.ko | wc -l) modules ($(du -sh "$R/lib/modules/$KREL/extra" | cut -f1)); depmod + modules-load.d done"
 '
 # Verify: the open .ko exists in the rootfs AND its vermagic matches $KVER exactly (the whole point).
 R="$W/rocky-img/rootfs"
-KO="$R/lib/modules/$KVER/extra/nvidia.ko"
+KO="$R/lib/modules/$KREL/extra/nvidia.ko"
 [ -f "$KO" ] || { echo "VERIFY-FAIL: nvidia.ko not in rootfs"; exit 1; }
 VM=$(modinfo -F vermagic "$KO" 2>/dev/null | awk '{print $1}')
-[ "$VM" = "$KVER" ] || { echo "VERIFY-FAIL: nvidia.ko vermagic '$VM' != $KVER"; exit 1; }
+[ "$VM" = "$KREL" ] || { echo "VERIFY-FAIL: nvidia.ko vermagic '$VM' != $KREL"; exit 1; }
 # These two would have caught the "nvidia-smi can't talk to the driver" failure at BUILD time:
-grep -q "extra/nvidia.ko" "$R/lib/modules/$KVER/modules.dep" || { echo "VERIFY-FAIL: nvidia not in modules.dep (depmod did not run) — modprobe/boot-load would fail"; exit 1; }
+grep -q "extra/nvidia.ko" "$R/lib/modules/$KREL/modules.dep" || { echo "VERIFY-FAIL: nvidia not in modules.dep (depmod did not run) — modprobe/boot-load would fail"; exit 1; }
 [ -f "$R/etc/modules-load.d/nvidia.conf" ] || { echo "VERIFY-FAIL: no /etc/modules-load.d/nvidia.conf — nvidia would not auto-load at boot"; exit 1; }
 echo "GPU-DOCKER-OK: open .ko vermagic=$VM in rootfs; in modules.dep; modules-load.d set"

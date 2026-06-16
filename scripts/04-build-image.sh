@@ -1,10 +1,11 @@
 #!/bin/bash
-# Build a bootable Rocky + $KVER disk IMAGE on the fast NVMe (fast small-file writes),
+# Build a bootable Rocky + $KREL disk IMAGE on the fast NVMe (fast small-file writes),
 # then stream it to the USB stick in one sequential dd. Runs on the Spark as root.
 # Parameterized via config/versions.env. The dd target is guarded: it MUST be a removable USB.
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-source "$HERE/../config/versions.env"          # KVER, DRIVER_VER, ROCKY_RELEASEVER
+source "$HERE/../config/versions.env"          # KVER, DRIVER_VER, ROCKY_RELEASEVER, PAGE_SIZE
+KREL="$KVER"; [ "$PAGE_SIZE" = 64k ] && KREL="$KVER-64k"   # kernel release (uname -r): -64k LOCALVERSION for the 64k build
 W="${W:-$(dirname "$HERE")}"
 R="$W/rocky-img/rootfs"
 IMG="$W/rocky-img/rocky-gb10.img"
@@ -71,10 +72,10 @@ cat > "$MNT"/boot/grub2/grub.cfg <<EOF
 set timeout=1
 set default=0
 insmod all_video
-menuentry 'Rocky $ROCKY_RELEASEVER + $KVER (GB10)' {
+menuentry 'Rocky $ROCKY_RELEASEVER + $KREL (GB10)' {
   search --no-floppy --fs-uuid --set=root $ROOT_UUID
-  linux /boot/vmlinuz-$KVER root=UUID=$ROOT_UUID ro rootwait quiet loglevel=3 nvidia-drm.modeset=0 iommu.passthrough=0 init_on_alloc=0 console=tty0 earlycon=uart,mmio32,0x16A00000 selinux=0
-  initrd /boot/initramfs-$KVER.img
+  linux /boot/vmlinuz-$KREL root=UUID=$ROOT_UUID ro rootwait quiet loglevel=3 nvidia-drm.modeset=0 iommu.passthrough=0 init_on_alloc=0 console=tty0 earlycon=uart,mmio32,0x16A00000 selinux=0
+  initrd /boot/initramfs-$KREL.img
 }
 EOF
 for m in proc sys dev dev/pts; do mount --bind /$m "$MNT"/$m; done
@@ -109,7 +110,7 @@ printf '[Service]\nExecStart=\nExecStart=-/sbin/agetty --autologin root --noclea
 # (fstab here carries no swap; this mask is belt-and-suspenders so nothing activates swap at runtime.)
 systemctl mask swap.target 2>/dev/null || true
 mkdir -p /var/log/journal   # persistent journald — a thermal/OOM event must survive a power-off for forensics (volatile default lost the 2026-06-11 crash logs)
-dracut --force --no-hostonly --compress zstd --add-drivers "usb_storage uas xhci_pci xhci_hcd ehci_pci ext4 nvme" --kver $KVER /boot/initramfs-$KVER.img $KVER
+dracut --force --no-hostonly --compress zstd --add-drivers "usb_storage uas xhci_pci xhci_hcd ehci_pci ext4 nvme" --kver $KREL /boot/initramfs-$KREL.img $KREL
 CHROOT
 # RHEL ships a PREBUILT grubaa64.efi (grub2-efi-aa64) — grub2-install --target=arm64-efi does NOT work here
 # (no /usr/lib/grub/arm64-efi modules; it errors on modinfo.sh). The prebuilt binary reads its config from
@@ -121,10 +122,10 @@ cat > "$MNT/boot/efi/EFI/rocky/grub.cfg" <<EOF
 set timeout=1
 set default=0
 insmod all_video
-menuentry 'Rocky $ROCKY_RELEASEVER + $KVER (GB10)' {
+menuentry 'Rocky $ROCKY_RELEASEVER + $KREL (GB10)' {
   search --no-floppy --fs-uuid --set=root $ROOT_UUID
-  linux /boot/vmlinuz-$KVER root=UUID=$ROOT_UUID ro rootwait quiet loglevel=3 nvidia-drm.modeset=0 iommu.passthrough=0 init_on_alloc=0 console=tty0 earlycon=uart,mmio32,0x16A00000 selinux=0
-  initrd /boot/initramfs-$KVER.img
+  linux /boot/vmlinuz-$KREL root=UUID=$ROOT_UUID ro rootwait quiet loglevel=3 nvidia-drm.modeset=0 iommu.passthrough=0 init_on_alloc=0 console=tty0 earlycon=uart,mmio32,0x16A00000 selinux=0
+  initrd /boot/initramfs-$KREL.img
 }
 EOF
 # Also place the config at the self-relative path, covering both possible prefixes of the prebuilt binary.
@@ -138,13 +139,13 @@ cp -f "$MNT/boot/efi/EFI/rocky/grub.cfg" "$MNT/boot/efi/EFI/BOOT/grub.cfg" 2>/de
 [ -f "$HERE/thermal-watchdog.sh" ] && install -m755 "$HERE/thermal-watchdog.sh" "$MNT/root/thermal-watchdog.sh"
 # Verify the built image carries kernel + initramfs + grub BEFORE the flash (advisor: artifacts, not banners).
 VERR=0
-[ -f "$MNT/boot/vmlinuz-$KVER" ] || { echo "VERIFY-FAIL: no vmlinuz-$KVER in image"; VERR=1; }
-ISZ=$(stat -c%s "$MNT/boot/initramfs-$KVER.img" 2>/dev/null || echo 0)
-[ "$ISZ" -gt 5000000 ] || { echo "VERIFY-FAIL: initramfs-$KVER.img missing/tiny ($ISZ bytes)"; VERR=1; }
+[ -f "$MNT/boot/vmlinuz-$KREL" ] || { echo "VERIFY-FAIL: no vmlinuz-$KREL in image"; VERR=1; }
+ISZ=$(stat -c%s "$MNT/boot/initramfs-$KREL.img" 2>/dev/null || echo 0)
+[ "$ISZ" -gt 5000000 ] || { echo "VERIFY-FAIL: initramfs-$KREL.img missing/tiny ($ISZ bytes)"; VERR=1; }
 [ -f "$MNT/boot/efi/EFI/BOOT/BOOTAA64.EFI" ] || { echo "VERIFY-FAIL: no /EFI/BOOT/BOOTAA64.EFI — USB would not boot as removable media"; VERR=1; }
 [ -f "$MNT/boot/efi/EFI/rocky/grub.cfg" ] || { echo "VERIFY-FAIL: no /EFI/rocky/grub.cfg (the prebuilt grub's config path)"; VERR=1; }
-grep -q "vmlinuz-$KVER" "$MNT/boot/efi/EFI/rocky/grub.cfg" 2>/dev/null || { echo "VERIFY-FAIL: /EFI/rocky/grub.cfg does not reference vmlinuz-$KVER"; VERR=1; }
-[ "$VERR" = 0 ] && echo "IMAGE-VERIFY-OK: vmlinuz-$KVER + initramfs-$KVER.img ($ISZ bytes) + BOOTAA64.EFI + /EFI/rocky/grub.cfg present"
+grep -q "vmlinuz-$KREL" "$MNT/boot/efi/EFI/rocky/grub.cfg" 2>/dev/null || { echo "VERIFY-FAIL: /EFI/rocky/grub.cfg does not reference vmlinuz-$KREL"; VERR=1; }
+[ "$VERR" = 0 ] && echo "IMAGE-VERIFY-OK: vmlinuz-$KREL + initramfs-$KREL.img ($ISZ bytes) + BOOTAA64.EFI + /EFI/rocky/grub.cfg present"
 for m in var/tmp dev/pts dev sys proc; do umount -l "$MNT"/$m 2>/dev/null||true; done
 umount "$MNT"/boot/efi 2>/dev/null||true; umount "$MNT" 2>/dev/null||true; losetup -d "$LOOP"; sync
 [ "$VERR" = 0 ] || { echo "ABORT: image failed verification"; exit 1; }
@@ -160,7 +161,7 @@ if [ "$(lsblk -dno TRAN "$DEV" 2>/dev/null|tr -d '[:space:]')" = usb ] && [ "$(l
   command -v sgdisk >/dev/null 2>&1 || dnf install -y -q gdisk 2>/dev/null || true
   command -v sgdisk >/dev/null 2>&1 && sgdisk -e "$DEV" >/dev/null 2>&1 && echo "GPT backup header relocated"
   partprobe "$DEV" 2>/dev/null || true; sync
-  echo "USB-IMAGE-DONE $KVER -> $DEV"
+  echo "USB-IMAGE-DONE $KREL -> $DEV"
 else
   echo "no removable USB at $DEV — skipping flash. Image ready at $IMG; package it with scripts/05-package-image.sh."
 fi
