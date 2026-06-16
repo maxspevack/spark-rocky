@@ -21,7 +21,7 @@ Verified inventory (2026-06-10, on the bare-metal box):
 ```
 ENV 1 — HOST (ours, the swapped layer)
   OS                       Rocky Linux 10.2 (Red Quartz)
-  kernel                   6.18.35-64k  upstream mainline + 64k pages, ZERO patches  (the shipped kernel; parity was benched on 6.18.34/4k — see build.md + platform-deltas.md)
+  kernel                   6.18.35      upstream mainline, 64k pages, ZERO patches  (the shipped kernel; parity was benched on 6.18.34/4k — see build.md + platform-deltas.md)
   GPU driver               610.43.02 open module, WE built it
   platform firmware        NVIDIA's latest, via public fwupd/LVFS      (see build.md → Firmware)
   docker                   29.5.3 ; nvidia-container-toolkit 1.19.1

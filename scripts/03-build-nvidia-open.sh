@@ -7,10 +7,9 @@
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 source "$HERE/../config/versions.env"          # KVER, DRIVER_VER, ROCKY_RELEASEVER, PAGE_SIZE
-KREL="$KVER"; [ "$PAGE_SIZE" = 64k ] && KREL="$KVER-64k"   # kernel release (uname -r): -64k LOCALVERSION for the 64k build
 W="${W:-$(dirname "$HERE")}"
-EXPECT_VM="$KREL"; SFX=""; [ "$PAGE_SIZE" = 64k ] && SFX="-64k"   # KREL carries the -64k LOCALVERSION when PAGE_SIZE=64k (from versions.env)
-LOG="$W/nvbuild.full$SFX.log"
+EXPECT_VM="$KVER"   # the open module's vermagic must equal the kernel release, which is plain $KVER (no LOCALVERSION suffix)
+LOG="$W/nvbuild.full.log"
 KO="$W/driver-610/NVIDIA-Linux-aarch64-$DRIVER_VER/kernel-open"
 [ -d "$KO" ] || { echo "FATAL: $KO missing — run 02b first (it downloads+extracts the driver)"; exit 1; }
 echo "=== build open module in rockylinux:10 (matching gcc-14 el10) against $KVER ==="

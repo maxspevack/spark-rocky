@@ -8,34 +8,48 @@ The release invariant is **served == tag == HEAD** (enforced by `scripts/07-veri
 bytes in the bucket match the git tag they were built from. Each release below names the kernel release it
 ships (`uname -r`).
 
-## [spark-rocky-live-20260616] — 2026-06-16 · `6.18.35-64k`
+## [spark-rocky-live-20260616] — 2026-06-16 · `6.18.35` (64k pages)
 
 The 64k-page, state-of-the-art release. Same thesis (Rocky 10.2 + a stock upstream 6.18 kernel + the open
-NVIDIA driver, zero carried patches), now with an opinionated page-size choice and a hardened build process.
+NVIDIA driver, zero carried patches), now with an opinionated page-size choice and a hardened, audited build.
 
 ### Changed
 - **Page size is now 64k** (`CONFIG_ARM64_64K_PAGES`) — the opinionated default for the GB10 concurrent
   AI-serving workload (a measurable win on concurrent + deep-context cells; rationale + data in
   [`docs/build/platform-deltas.md`](docs/build/platform-deltas.md)). Pinned as `PAGE_SIZE=64k` in
-  `config/versions.env`, threaded through `01`→`05` via the derived `KREL`, and **fail-closed gated** in `05`
-  (a 64k pin cannot ship a 4k image). The served image and kernel are now `6.18.35-64k`; `uname -r` shows it.
+  `config/versions.env` and **fail-closed gated** in `05` on the `.config` symbol (a 64k pin cannot ship a 4k
+  image). The page size is a config + provenance-stamp property; `uname -r` stays the plain, standard
+  `6.18.35` (no `-64k` suffix — the kernel carries no `LOCALVERSION`), and `getconf PAGESIZE` reports `65536`.
   Build 4k by flipping the one pin.
+- `validate.sh` is now a **self-contained** box doctor — it compiles + runs its own CUDA proof (no dependency
+  on a sibling script, no misleading "not present" message) and drops the runtime issue-URL.
+- `05` asserts **every** image-defining property (page size, boot-hygiene cmdline, mlx5 blacklist,
+  swap/firstboot masks, baked scripts); `04` now verifies the boot-hygiene + debug hatch in-build too, so a
+  direct-flash is gated, not only the release artifact.
 - Docs reorganized into three stories — [`docs/use`](docs/use), [`docs/build`](docs/build),
   [`docs/benchmark`](docs/benchmark).
-- `05` packaging gate now asserts **every** image-defining property (page size, the boot-hygiene cmdline,
-  mlx5 blacklist, swap/firstboot masks, baked scripts) — not just a subset.
-- `validate.sh` is now the box **doctor**: provenance (running kernel/driver/page size match what was built)
-  + the stack (open driver, `nvidia-smi`, a real CUDA kernel) + runtime boot hygiene.
+
+### Fixed
+- **#44** — the build silently shipped a **gzip** initramfs when `zstd` was missing from the chroot (dracut
+  fell back, exit 0, the size-only check passed). `04` now hard-gates `zstd` before dracut and verifies the
+  initramfs is zstd by its magic bytes.
+- **Debug hatch** — `04` read `config/debug-authorized_keys` via `$W/config` instead of `$HERE/../config`, so
+  any build with `W=` ≠ repo root silently skipped baking `/root/spark-rocky-debug-enable.sh`. Fixed to the
+  script-relative path; `04` now verifies the enabler was baked.
+- `proof-of-life.sh` no longer masks an `nvcc` compile failure behind a `tail` pipe; `install-baremetal.sh`
+  matches the USB by removable-disk (not a hardcoded `/dev/sda2`) and aborts on a failed rsync instead of
+  installing grub onto a half-copied NVMe.
 
 ### Added
+- `tests/run-tests.sh` + `make test` + CI now check **behavioral invariants** (the suffix-drop stays done,
+  the debug-hatch path is script-relative, `zstd` is gated, the doctor is self-contained, `versions.env` is
+  well-formed) — not just `bash -n`. The class of regression that produced this release's bugs now fails CI.
 - `scripts/flash.sh` — one command: download → verify the GPG signature against the pinned key fingerprint →
   guarded write to a USB (refuses any non-removable disk).
 - `scripts/run-benchmark-matrix.sh` — the canonical ~104-cell `llama-benchy` matrix behind the parity claim,
   encoded once; auto-arms `templog` so every sweep is traced.
 - `scripts/drift-check.sh` + `.github/workflows/drift-check.yml` (#24) — the upstream drift sensor: a weekly
-  GitHub Actions job opens a `pin-drift` issue when `KVER`/`DRIVER_VER` fall behind. The "when to rebuild"
-  trigger; detect-and-signal only.
-- `tests/run-tests.sh` + `make test` + a CI workflow — script syntax + machine-independent logic, gating CI.
+  GitHub Actions job opens a `pin-drift` issue when `KVER`/`DRIVER_VER` fall behind. Detect-and-signal only.
 - vLLM serving images pinned by digest (#28); `proof.md` states the stock-host coordinates + the
   CUDA-held-constant rigor.
 
@@ -43,6 +57,8 @@ NVIDIA driver, zero carried patches), now with an opinionated page-size choice a
 - The `#25` fail-closed thermal watchdog — the wrong tool for an attended, single-party, self-throttling box,
   and broken on the GB10 (no absolute slowdown-temp spec). `templog` (passive trace) is kept; the legitimate
   "don't trust a throttled run" requirement is re-filed as post-hoc detection (#43).
+- Garbage-collected dead weight: the 8 one-time `scripts/bringup/` artifacts, the 362 KB stock-DGX
+  `config/dgx-6.17-nvidia.config` baseline, and two orphan `data/` recipe duplicates.
 
 ## [spark-rocky-live-20260612] — 2026-06-12 · `6.18.35` (4k)
 

@@ -7,7 +7,7 @@
 #   make kernel | rootfs | gpu | driver | open-module     run one stage
 #   make proof      proof-of-life (OS + kernel + nvidia-smi + a CUDA vectorAdd)
 #   make install    install the booted USB onto the NVMe (DESTRUCTIVE; run from the USB)
-#   make test       repo test suite (script syntax + watchdog logic; no GB10 needed)
+#   make test       repo test suite (script syntax + behavioral invariants; no GB10 needed)
 #   make versions   show the pinned versions
 include config/versions.env
 export

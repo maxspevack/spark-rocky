@@ -12,7 +12,6 @@
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 source "$HERE/../config/versions.env"                 # KVER, DRIVER_VER, ROCKY_RELEASEVER, KERNEL_SHA256, PAGE_SIZE
-KREL="$KVER"; [ "$PAGE_SIZE" = 64k ] && KREL="$KVER-64k"   # kernel release (uname -r): -64k LOCALVERSION for the 64k build
 W="${W:-$(dirname "$HERE")}"
 SRC="${SRC:-$W/rocky-img/rocky-gb10.img}"             # derive like 04 derives IMG (was a hardcoded mismatch)
 OUTDIR="${OUTDIR:-$W/vend}"
@@ -69,7 +68,7 @@ spark-rocky live image
 build_id=${STAMP}
 git_describe=${GIT_DESC}
 git_commit=${GIT_COMMIT}
-kernel=${KREL}
+kernel=${KVER}
 page_size=${PAGE_SIZE}
 driver=${DRIVER_VER}
 rocky_releasever=${ROCKY_RELEASEVER}
@@ -89,7 +88,7 @@ chroot "$MNT" /sbin/ldconfig; echo "  - ld.so.cache: $(chroot "$MNT" ldconfig -p
 OS_VER=$(. "$MNT/etc/os-release" 2>/dev/null; echo "${VERSION:-unknown}")
 CUDA_PKGS=$(rpm -qa --root "$MNT" 2>/dev/null | grep -iE '^cuda-' | sort | tr '\n' ' ')
 KMODS=$(ls "$MNT"/lib/modules/ 2>/dev/null | tr '\n' ' ')
-CFG="$W/config-$KREL"   # the RESOLVED config 01 built (config-$KREL, e.g. config-6.18.35-64k). NO glob fallback: a 05-only re-run without 01 must FAIL the gate below, never silently sign a guessed .config identity (Gafton)
+CFG="$W/config-$KVER"   # the RESOLVED config 01 built (config-$KVER, e.g. config-6.18.35). NO glob fallback: a 05-only re-run without 01 must FAIL the gate below, never silently sign a guessed .config identity (Gafton)
 WANT_PG=$([ "$PAGE_SIZE" = 64k ] && echo "CONFIG_ARM64_64K_PAGES=y" || echo "CONFIG_ARM64_4K_PAGES=y")   # the page-size symbol the pin demands
 CFG_SHA=$([ -f "$CFG" ] && sha256sum "$CFG" | cut -d' ' -f1 || echo unknown)
 
@@ -117,7 +116,7 @@ chk '[ "$(readlink "$MNT/etc/systemd/system/systemd-firstboot.service")" = /dev/
 chk 'grep -q -- "--autologin root" "$MNT/etc/systemd/system/getty@tty1.service.d/autologin.conf"'  "boot: console autologin configured"
 chk '[ -s "$MNT/etc/spark-rocky-release" ]'                              "provenance stamp written"
 chk '[ ! -e "$MNT/etc/spark-rocky-debug-hatch" ]'                        "no DEBUG hatch marker (a DEBUG build is un-releasable)"
-chk '[ -f "$W/config-$KREL" ]'                                           "resolved config-$KREL present (manifest hashes the real build config, not a guessed base glob)"
+chk '[ -f "$W/config-$KVER" ]'                                           "resolved config-$KVER present (manifest hashes the real build config, not a guessed base glob)"
 chk 'grep -q "$WANT_PG" "$CFG"'                                          "page size matches the pin: $PAGE_SIZE ($WANT_PG) — a 64k pin cannot ship a 4k image"
 
 sync; cleanup; trap - EXIT
@@ -148,7 +147,7 @@ contents (introspected from the image)
 os                  : ${OS_VER}
 kernel modules dir  : ${KMODS}
 kernel pin (KVER)   : ${KVER} (tarball verified against pinned SHA256, versions.env)
-kernel release      : ${KREL}
+kernel release      : ${KVER}
 page size           : ${PAGE_SIZE} (CONFIG_ARM64 page-size choice, pinned in versions.env)
 nvidia driver       : ${DRIVER_VER} (open kernel module, built in rockylinux:10 / gcc 14.3.1)
 cuda packages       : ${CUDA_PKGS:-none}

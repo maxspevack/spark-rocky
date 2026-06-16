@@ -30,5 +30,7 @@ int main(){int n=1<<20; size_t sz=n*sizeof(float); float *a,*b,*c;
  printf("vectorAdd: %d elems, sum-sq-err=%g, status=%s\n", n, err, cudaGetErrorString(e));
  return (e==cudaSuccess && err<1e-6)?0:1;}
 CU
-PATH=/usr/local/cuda/bin:$PATH nvcc -o /tmp/vectoradd /tmp/vectoradd.cu 2>&1 | tail -3 && /tmp/vectoradd && echo "CUDA COMPUTE: PASS" || echo "CUDA COMPUTE: FAIL"
+rm -f /tmp/vectoradd   # so a stale binary can't survive a failed recompile and report a false PASS
+PATH=/usr/local/cuda/bin:$PATH nvcc -o /tmp/vectoradd /tmp/vectoradd.cu 2>&1 | tail -3
+if [ -x /tmp/vectoradd ] && /tmp/vectoradd; then echo "CUDA COMPUTE: PASS"; else echo "CUDA COMPUTE: FAIL"; fi
 echo "=================================================================="

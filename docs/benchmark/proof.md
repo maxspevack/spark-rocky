@@ -1,4 +1,4 @@
-# A standard Rocky Linux stack runs NVIDIA's DGX Spark – at parity, and you can confirm it yourself
+# A standard Rocky Linux stack runs NVIDIA's DGX Spark – at single-host inference parity, and you can confirm it yourself
 
 > Rocky 10.2 + a stock upstream 6.18 kernel + the open NVIDIA driver 610.43.02, on the GB10, reproduces the community's own [spark-arena.com](https://spark-arena.com) single-host benchmarks. Every host change is auditable, the stack stays current through stock public tooling, and the published numbers came back.
 
@@ -54,7 +54,7 @@ Everything swapped in is stock, current, and built from source — the exact coo
 | Layer | This stack |
 |---|---|
 | OS | Rocky Linux 10.2 |
-| Kernel | stock mainline **6.18.35-64k** (64k pages; parity benched on 6.18.34/4k) |
+| Kernel | stock mainline **6.18.35** (64k pages; parity benched on 6.18.34/4k) |
 | Driver | open NVIDIA **610.43.02**, built from source unmodified |
 | CUDA | **13.0** |
 

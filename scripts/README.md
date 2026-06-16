@@ -29,6 +29,7 @@ The mechanism behind deliverable #1. Full walkthrough + prerequisites: [`docs/bu
 | `proof-of-life.sh` | OS + kernel + `nvidia-smi` + a CUDA `vectorAdd` on the GPU (validate.sh's CUDA check) |
 | `install-baremetal.sh` | **DESTRUCTIVE** — wipes the NVMe, then rsyncs the running Rocky onto `/dev/nvme0n1p2` + grub. Run from the booted USB; a deliberate step separate from the non-destructive boot, and not yet clean-room-validated. |
 | `run-benchmark-matrix.sh` | the **canonical full llama-benchy matrix** (deliverable #2) against a served model — the exact ~104-cell sweep behind the parity claim, encoded once so reproductions and regression-vs-self runs measure the same surface. **Auto-arms `templog`** for the run, so every benchmark is traced (a throttled run is caught post-hoc from that trace). Run after `spark-vllm-docker` is serving; full pipeline in [`docs/benchmark/reproduce-pipeline.md`](../docs/benchmark/reproduce-pipeline.md). |
+| `templog.sh` | passive GPU/SoC thermal + memory sampler; auto-armed by `run-benchmark-matrix.sh` so every benchmark carries a forensic trace (logs only — throttles nothing). Shipped in the image. |
 
 ## Stay current — release-engineering cadence (M4)
 
@@ -36,9 +37,3 @@ The mechanism behind deliverable #1. Full walkthrough + prerequisites: [`docs/bu
 |---|---|
 | `drift-check.sh` | drift sensor (#24): per pin, `current` (`versions.env`) vs `upstream` (kernel.org `releases.json` / NVIDIA open-module releases / Rocky mirror) → MATCH/DRIFT, exit 2 on drift. The [`.github/workflows/drift-check.yml`](../.github/workflows/drift-check.yml) scheduled workflow runs it weekly + on-demand and opens a `pin-drift` tracking issue — the "when do we rebuild?" trigger. Detect-and-signal only; the evidence-backed bump is #26. |
 
-## First-install helpers — [`bringup/`](bringup/)
-
-One-time bring-up artifacts from this box's first install, moved to [`scripts/bringup/`](bringup/):
-`arm-boot.sh`, `prep-boot.sh`, `finalize-v2.sh`, `patch-stick-nvidia-fw.sh`, `ssh-ready.sh`,
-`watch-rocky-v2.sh`, `rocky-nvbw.sh`, `cleanup-nvidia.sh`. Plus `templog.sh` (GPU/SoC temperature logging
-during benchmark runs). A clean build uses only the pipelines above; these are kept for reference.

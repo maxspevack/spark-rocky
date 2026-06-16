@@ -21,7 +21,7 @@ memory working sets — exactly the regime that workload lives in (many concurre
 contexts → a big KV cache). 4k is the right default for a *general* host; 64k is the right default for *this*
 one.
 
-**The evidence (2026-06-16).** Full canonical 104-cell matrix, 35B-A3B-FP8, `6.18.35-64k` vs the 4k baseline
+**The evidence (2026-06-16).** Full canonical 104-cell matrix, 35B-A3B-FP8, `6.18.35`/64k vs the 4k baseline
 ([`receipts/qwen3.5-35b-a3b-fp8-matrix-64k-2026-06-16.csv`](../../receipts/qwen3.5-35b-a3b-fp8-matrix-64k-2026-06-16.csv)
 vs the `-2026-06-10` 4k receipt):
 - median +2.3%, **35 cells win ≥+5% vs only 3 losses** — a directional effect, not scatter.
@@ -29,7 +29,7 @@ vs the `-2026-06-10` 4k receipt):
   `ctx_pp@d4096 (c2)` **1.38×**, `pp2048 (c2)` 1.15×. Single-user (`c1`) is flat; a few extreme cells regress.
 
 **Compatibility (Gate 1, verified on the box).** The 64k kernel boots, the open driver builds + loads with
-**zero source patches** (vermagic `6.18.35-64k`), `nvidia-smi` works, a real CUDA matmul runs, and
+**zero source patches** (vermagic `6.18.35`), `nvidia-smi` works, a real CUDA matmul runs, and
 `getconf PAGESIZE` reports `65536`.
 
 **Honest caveat.** The matrix above is a strong N=3 signal against a `6.18.34`-4k baseline (a kernel-minor
@@ -37,11 +37,12 @@ rides along) — not yet the formal same-version N≥5 A/B (still owed; `docs/be
 too large, too systematic, and too theory-consistent to be a point-release artifact, and committed to 64k as
 the opinionated default. **To build 4k, flip the one pin in `versions.env`.**
 
-**How it's enforced (the process, not just a flag).** `PAGE_SIZE` is a pinned, reviewable line; the scripts
-derive the kernel release `KREL` (`$KVER-64k`) from it and thread it through `01`→`05`; `05`'s fail-closed gate
-**aborts the release if the resolved `.config` page size does not match the pin** (a 64k pin cannot ship a 4k
-image); the provenance stamp records `page_size=`; `uname -r` shows `-64k` (self-documenting); and the
-`validate.sh` doctor asserts the running page size matches what was built.
+**How it's enforced (the process, not just a flag).** `PAGE_SIZE` is a pinned, reviewable line; `01` flips
+`CONFIG_ARM64_64K_PAGES` from it (with **no** `LOCALVERSION` suffix — the kernel release stays plain `$KVER`,
+so `uname -r` is `6.18.35`, the standard distro convention); `05`'s fail-closed gate **aborts the release if
+the resolved `.config` page size does not match the pin** (a 64k pin cannot ship a 4k image); the provenance
+stamp records `page_size=64k`; and the `validate.sh` doctor asserts the running `getconf PAGESIZE` (`65536`)
+matches what was built. The page size lives in the `.config` symbol + the stamp, not in a uname tag.
 
 ## Grounding (measured 2026-06-11)
 - **Kernel config has the features on:** `ARM_SMMU_V3_SVA`, `IOMMU_SVA`, `PCI_PRI/PASID/ATS`, `ENERGY_MODEL`,

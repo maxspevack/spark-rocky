@@ -1,11 +1,10 @@
 #!/bin/bash
-# Build a bootable Rocky + $KREL disk IMAGE on the fast NVMe (fast small-file writes),
+# Build a bootable Rocky + $KVER disk IMAGE on the fast NVMe (fast small-file writes),
 # then stream it to the USB stick in one sequential dd. Runs on the Spark as root.
 # Parameterized via config/versions.env. The dd target is guarded: it MUST be a removable USB.
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 source "$HERE/../config/versions.env"          # KVER, DRIVER_VER, ROCKY_RELEASEVER, PAGE_SIZE
-KREL="$KVER"; [ "$PAGE_SIZE" = 64k ] && KREL="$KVER-64k"   # kernel release (uname -r): -64k LOCALVERSION for the 64k build
 W="${W:-$(dirname "$HERE")}"
 R="$W/rocky-img/rootfs"
 IMG="$W/rocky-img/rocky-gb10.img"
@@ -43,7 +42,7 @@ sed -i 's/^SELINUX=.*/SELINUX=permissive/' "$MNT"/etc/selinux/config 2>/dev/null
 # DEBUG=1 injects the DEDICATED debug pubkeys (config/debug-authorized_keys) + a marker that makes the
 # image UN-RELEASABLE: 05's gate aborts the release if /etc/spark-rocky-debug-hatch is present.
 if [ "${DEBUG:-0}" = 1 ]; then
-  DBG="$W/config/debug-authorized_keys"
+  DBG="$HERE/../config/debug-authorized_keys"
   { [ -f "$DBG" ] && grep -q '^ssh-' "$DBG"; } || { echo "FATAL: DEBUG=1 but $DBG missing/empty"; exit 1; }
   mkdir -p "$MNT"/root/.ssh && grep '^ssh-' "$DBG" > "$MNT"/root/.ssh/authorized_keys
   chmod 700 "$MNT"/root/.ssh && chmod 600 "$MNT"/root/.ssh/authorized_keys
@@ -54,7 +53,7 @@ fi
 # DEDICATED maintainer debug key. A stuck validator runs ONE line instead of typing an 80-char key; the
 # release stays locked by default (no authorized_keys) until they choose to run it. Built from the same
 # config/debug-authorized_keys (revoke by editing that file). Not a personal key.
-DBG="$W/config/debug-authorized_keys"
+DBG="$HERE/../config/debug-authorized_keys"
 if [ -f "$DBG" ] && grep -q '^ssh-' "$DBG"; then
   { echo '#!/bin/bash'
     echo '# Run ONLY if the maintainer asks, to let them SSH in and debug this box. Dedicated key, not personal.'
@@ -67,22 +66,24 @@ if [ -f "$DBG" ] && grep -q '^ssh-' "$DBG"; then
   } > "$MNT/root/spark-rocky-debug-enable.sh"
   chmod +x "$MNT/root/spark-rocky-debug-enable.sh"
 fi
-mkdir -p "$MNT"/boot/grub2
-cat > "$MNT"/boot/grub2/grub.cfg <<EOF
-set timeout=1
+# The boot menuentry is generated ONCE and written to BOTH grub.cfg copies (root-partition + the EFI copy
+# the prebuilt grubaa64.efi actually reads) so they cannot drift. Any cmdline change is made here, once.
+GRUBCFG="set timeout=1
 set default=0
 insmod all_video
-menuentry 'Rocky $ROCKY_RELEASEVER + $KREL (GB10)' {
+menuentry 'Rocky $ROCKY_RELEASEVER + $KVER (GB10)' {
   search --no-floppy --fs-uuid --set=root $ROOT_UUID
-  linux /boot/vmlinuz-$KREL root=UUID=$ROOT_UUID ro rootwait quiet loglevel=3 nvidia-drm.modeset=0 iommu.passthrough=0 init_on_alloc=0 console=tty0 earlycon=uart,mmio32,0x16A00000 selinux=0
-  initrd /boot/initramfs-$KREL.img
-}
-EOF
+  linux /boot/vmlinuz-$KVER root=UUID=$ROOT_UUID ro rootwait quiet loglevel=3 nvidia-drm.modeset=0 iommu.passthrough=0 init_on_alloc=0 console=tty0 earlycon=uart,mmio32,0x16A00000 selinux=0
+  initrd /boot/initramfs-$KVER.img
+}"
+mkdir -p "$MNT"/boot/grub2
+printf '%s\n' "$GRUBCFG" > "$MNT"/boot/grub2/grub.cfg
 for m in proc sys dev dev/pts; do mount --bind /$m "$MNT"/$m; done
 mount -t tmpfs -o size=20G tmpfs "$MNT"/var/tmp   # dracut scratch in RAM, not the image root
 chroot "$MNT" /bin/bash <<CHROOT
 set -e
-dnf install -y -q grub2-efi-aa64 grub2-efi-aa64-modules shim-aa64 dracut-network NetworkManager openssh-server zstd 2>/dev/null || true
+dnf install -y -q grub2-efi-aa64 grub2-efi-aa64-modules shim-aa64 dracut-network NetworkManager openssh-server zstd
+command -v zstd >/dev/null || { echo "FATAL: zstd missing in chroot -- dracut would silently fall back to gzip (#44)"; exit 1; }
 echo 'root:rocky' | chpasswd   # DEV-IMAGE default — this box is LAN-only + reinstalled on demand; change before exposing off-LAN
 systemctl enable sshd NetworkManager getty@tty1.service 2>/dev/null || true
 # serial-getty@ttyS0 dropped + console=ttyS0 removed above: /dev/ttyS0 does not exist on the GB10, so
@@ -110,7 +111,7 @@ printf '[Service]\nExecStart=\nExecStart=-/sbin/agetty --autologin root --noclea
 # (fstab here carries no swap; this mask is belt-and-suspenders so nothing activates swap at runtime.)
 systemctl mask swap.target 2>/dev/null || true
 mkdir -p /var/log/journal   # persistent journald — a thermal/OOM event must survive a power-off for forensics (volatile default lost the 2026-06-11 crash logs)
-dracut --force --no-hostonly --compress zstd --add-drivers "usb_storage uas xhci_pci xhci_hcd ehci_pci ext4 nvme" --kver $KREL /boot/initramfs-$KREL.img $KREL
+dracut --force --no-hostonly --compress zstd --add-drivers "usb_storage uas xhci_pci xhci_hcd ehci_pci ext4 nvme" --kver $KVER /boot/initramfs-$KVER.img $KVER
 CHROOT
 # RHEL ships a PREBUILT grubaa64.efi (grub2-efi-aa64) — grub2-install --target=arm64-efi does NOT work here
 # (no /usr/lib/grub/arm64-efi modules; it errors on modinfo.sh). The prebuilt binary reads its config from
@@ -118,16 +119,7 @@ CHROOT
 # self-contained menuentry there, and copy the prebuilt binary to the UEFI removable fallback
 # /EFI/BOOT/BOOTAA64.EFI so the firmware boots the USB as removable media.
 install -D -m644 "$MNT/boot/efi/EFI/rocky/grubaa64.efi" "$MNT/boot/efi/EFI/BOOT/BOOTAA64.EFI" 2>/dev/null || true
-cat > "$MNT/boot/efi/EFI/rocky/grub.cfg" <<EOF
-set timeout=1
-set default=0
-insmod all_video
-menuentry 'Rocky $ROCKY_RELEASEVER + $KREL (GB10)' {
-  search --no-floppy --fs-uuid --set=root $ROOT_UUID
-  linux /boot/vmlinuz-$KREL root=UUID=$ROOT_UUID ro rootwait quiet loglevel=3 nvidia-drm.modeset=0 iommu.passthrough=0 init_on_alloc=0 console=tty0 earlycon=uart,mmio32,0x16A00000 selinux=0
-  initrd /boot/initramfs-$KREL.img
-}
-EOF
+printf '%s\n' "$GRUBCFG" > "$MNT/boot/efi/EFI/rocky/grub.cfg"
 # Also place the config at the self-relative path, covering both possible prefixes of the prebuilt binary.
 cp -f "$MNT/boot/efi/EFI/rocky/grub.cfg" "$MNT/boot/efi/EFI/BOOT/grub.cfg" 2>/dev/null || true
 # Ship the GPU proof-of-life + the passive thermal/mem logger IN the image (run /root/proof-of-life.sh;
@@ -136,13 +128,24 @@ cp -f "$MNT/boot/efi/EFI/rocky/grub.cfg" "$MNT/boot/efi/EFI/BOOT/grub.cfg" 2>/de
 [ -f "$HERE/templog.sh" ] && install -m755 "$HERE/templog.sh" "$MNT/root/templog.sh"
 # Verify the built image carries kernel + initramfs + grub BEFORE the flash (advisor: artifacts, not banners).
 VERR=0
-[ -f "$MNT/boot/vmlinuz-$KREL" ] || { echo "VERIFY-FAIL: no vmlinuz-$KREL in image"; VERR=1; }
-ISZ=$(stat -c%s "$MNT/boot/initramfs-$KREL.img" 2>/dev/null || echo 0)
-[ "$ISZ" -gt 5000000 ] || { echo "VERIFY-FAIL: initramfs-$KREL.img missing/tiny ($ISZ bytes)"; VERR=1; }
+[ -f "$MNT/boot/vmlinuz-$KVER" ] || { echo "VERIFY-FAIL: no vmlinuz-$KVER in image"; VERR=1; }
+ISZ=$(stat -c%s "$MNT/boot/initramfs-$KVER.img" 2>/dev/null || echo 0)
+[ "$ISZ" -gt 5000000 ] || { echo "VERIFY-FAIL: initramfs-$KVER.img missing/tiny ($ISZ bytes)"; VERR=1; }
+# Compression CONTENT, not just size: dracut exits 0 even when it silently falls back from zstd to gzip
+# (#44). Assert the zstd frame magic (28 b5 2f fd) so a fallback fails the build instead of shipping.
+[ "$(od -An -tx1 -N4 "$MNT/boot/initramfs-$KVER.img" 2>/dev/null | tr -d ' ')" = "28b52ffd" ] || { echo "VERIFY-FAIL: initramfs is not zstd-compressed — dracut fell back (#44)"; VERR=1; }
 [ -f "$MNT/boot/efi/EFI/BOOT/BOOTAA64.EFI" ] || { echo "VERIFY-FAIL: no /EFI/BOOT/BOOTAA64.EFI — USB would not boot as removable media"; VERR=1; }
 [ -f "$MNT/boot/efi/EFI/rocky/grub.cfg" ] || { echo "VERIFY-FAIL: no /EFI/rocky/grub.cfg (the prebuilt grub's config path)"; VERR=1; }
-grep -q "vmlinuz-$KREL" "$MNT/boot/efi/EFI/rocky/grub.cfg" 2>/dev/null || { echo "VERIFY-FAIL: /EFI/rocky/grub.cfg does not reference vmlinuz-$KREL"; VERR=1; }
-[ "$VERR" = 0 ] && echo "IMAGE-VERIFY-OK: vmlinuz-$KREL + initramfs-$KREL.img ($ISZ bytes) + BOOTAA64.EFI + /EFI/rocky/grub.cfg present"
+grep -q "vmlinuz-$KVER" "$MNT/boot/efi/EFI/rocky/grub.cfg" 2>/dev/null || { echo "VERIFY-FAIL: /EFI/rocky/grub.cfg does not reference vmlinuz-$KVER"; VERR=1; }
+# Boot-hygiene + the debug hatch: verified HERE too (not only in 05) so a DEV= direct-flash of this image is
+# gated, not just the 05 release artifact. These are the properties that make the image boot clean + fast.
+grep -q "nvidia-drm.modeset=0" "$MNT/boot/grub2/grub.cfg" 2>/dev/null || { echo "VERIFY-FAIL: nvidia-drm.modeset=0 missing from grub.cfg"; VERR=1; }
+grep -q -- "--autologin root" "$MNT/etc/systemd/system/getty@tty1.service.d/autologin.conf" 2>/dev/null || { echo "VERIFY-FAIL: console autologin drop-in missing"; VERR=1; }
+grep -q "blacklist mlx5_core" "$MNT/etc/modprobe.d/blacklist-mlx5.conf" 2>/dev/null || { echo "VERIFY-FAIL: mlx5_core not blacklisted (#30)"; VERR=1; }
+[ "$(readlink "$MNT/etc/systemd/system/swap.target" 2>/dev/null)" = /dev/null ] || { echo "VERIFY-FAIL: swap.target not masked"; VERR=1; }
+[ "$(readlink "$MNT/etc/systemd/system/systemd-firstboot.service" 2>/dev/null)" = /dev/null ] || { echo "VERIFY-FAIL: systemd-firstboot not masked"; VERR=1; }
+[ -x "$MNT/root/spark-rocky-debug-enable.sh" ] || { echo "VERIFY-FAIL: spark-rocky-debug-enable.sh not baked (debug hatch missing — the \$HERE/../config path bug)"; VERR=1; }
+[ "$VERR" = 0 ] && echo "IMAGE-VERIFY-OK: vmlinuz-$KVER + zstd initramfs ($ISZ bytes) + BOOTAA64.EFI + grub + boot-hygiene + debug-hatch present"
 for m in var/tmp dev/pts dev sys proc; do umount -l "$MNT"/$m 2>/dev/null||true; done
 umount "$MNT"/boot/efi 2>/dev/null||true; umount "$MNT" 2>/dev/null||true; losetup -d "$LOOP"; sync
 [ "$VERR" = 0 ] || { echo "ABORT: image failed verification"; exit 1; }
@@ -158,7 +161,7 @@ if [ "$(lsblk -dno TRAN "$DEV" 2>/dev/null|tr -d '[:space:]')" = usb ] && [ "$(l
   command -v sgdisk >/dev/null 2>&1 || dnf install -y -q gdisk 2>/dev/null || true
   command -v sgdisk >/dev/null 2>&1 && sgdisk -e "$DEV" >/dev/null 2>&1 && echo "GPT backup header relocated"
   partprobe "$DEV" 2>/dev/null || true; sync
-  echo "USB-IMAGE-DONE $KREL -> $DEV"
+  echo "USB-IMAGE-DONE $KVER -> $DEV"
 else
   echo "no removable USB at $DEV — skipping flash. Image ready at $IMG; package it with scripts/05-package-image.sh."
 fi

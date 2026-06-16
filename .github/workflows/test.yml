@@ -1,6 +1,6 @@
 name: test
-# Run the repo test suite (syntax + watchdog decision logic) on every push/PR so a script that
-# stops parsing, or a watchdog logic regression, fails before it can reach a build.
+# Run the repo test suite (script syntax + behavioral invariants) on every push/PR so a script that
+# stops parsing, or a regression in a locked-in invariant, fails before it can reach a build.
 on:
   push: {}
   pull_request: {}

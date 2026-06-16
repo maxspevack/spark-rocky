@@ -2,12 +2,11 @@
 # spark-rocky DOCTOR — one command to prove the whole box came up as we built it.
 # Boot the image (USB or installed NVMe), log in, and run:  /root/validate.sh
 #
-# It proves three things and prints one PASS/FAIL plus the text to paste into an issue:
+# It proves three things and prints one PASS/FAIL:
 #   1. provenance  — this IS a spark-rocky image, and it booted the kernel + driver (+ page size) we built
 #   2. the stack   — open NVIDIA driver loaded, nvidia-smi works, a real CUDA kernel runs on the GPU
 #   3. boot hygiene— the properties that make the image clean + fast are actually ACTIVE at runtime
 set -uo pipefail
-ISSUE="https://github.com/maxspevack/spark-rocky/issues/new"
 REL=/etc/spark-rocky-release
 line(){ printf '%s\n' "============================================================"; }
 sect(){ echo; echo "--- $1 ---"; }
@@ -49,11 +48,32 @@ MEM=$(free -g 2>/dev/null | awk '/^Mem:/{print $2}')
 echo "  unified memory (GPU budget): ${MEM:-?} GiB"
 
 sect "4. CUDA compute on the GPU"
-if [ -x /root/proof-of-life.sh ]; then
-  /root/proof-of-life.sh >/tmp/pol.log 2>&1; tail -3 /tmp/pol.log | sed 's/^/  /'
-  # trust the verdict STRING, not the rc — proof-of-life runs `set +e` and always exits 0
-  grep -q "CUDA COMPUTE: PASS" /tmp/pol.log || { echo "  !! GPU CUDA check did NOT pass (full log: /tmp/pol.log)"; FAIL=1; }
-else echo "  !! proof-of-life.sh not present — cannot run the GPU CUDA check"; FAIL=1; fi
+# Self-contained: the doctor compiles + runs a real CUDA kernel ITSELF — no dependency on a sibling script
+# (so it can never falsely report a missing helper script). nvcc-absent on a spark-rocky image is itself a FAIL.
+if command -v nvcc >/dev/null 2>&1 || [ -x /usr/local/cuda/bin/nvcc ]; then
+  cat > /tmp/va.cu <<'CU'
+#include <cstdio>
+__global__ void add(const float*a,const float*b,float*c,int n){int i=blockIdx.x*blockDim.x+threadIdx.x; if(i<n) c[i]=a[i]+b[i];}
+int main(){int n=1<<20; size_t sz=n*sizeof(float); float *a,*b,*c;
+ cudaMallocManaged(&a,sz); cudaMallocManaged(&b,sz); cudaMallocManaged(&c,sz);
+ for(int i=0;i<n;i++){a[i]=1.f; b[i]=2.f;}
+ add<<<(n+255)/256,256>>>(a,b,c,n); cudaDeviceSynchronize();
+ double err=0; for(int i=0;i<n;i++){double d=c[i]-3.0; err+=d*d;}
+ cudaError_t e=cudaGetLastError();
+ int dev; cudaGetDevice(&dev); cudaDeviceProp p; cudaGetDeviceProperties(&p,dev);
+ printf("  device   : %s (compute %d.%d, %.1f GB)\n", p.name, p.major, p.minor, p.totalGlobalMem/1e9);
+ printf("  vectorAdd: %d elems, sum-sq-err=%g, status=%s\n", n, err, cudaGetErrorString(e));
+ return (e==cudaSuccess && err<1e-6)?0:1;}
+CU
+  if PATH=/usr/local/cuda/bin:$PATH nvcc -o /tmp/va /tmp/va.cu >/tmp/va.log 2>&1 && /tmp/va >>/tmp/va.log 2>&1; then
+    grep -E "device|vectorAdd" /tmp/va.log
+    echo "  ok: a real CUDA kernel compiled + ran on the GPU"
+  else
+    echo "  !! CUDA compile/run FAILED (log: /tmp/va.log):"; tail -3 /tmp/va.log | sed 's/^/     /'; FAIL=1
+  fi
+else
+  echo "  !! nvcc not found — cannot run the GPU CUDA check (a spark-rocky image ships CUDA; its absence is a failure)"; FAIL=1
+fi
 
 sect "5. boot hygiene (the properties that make the image clean + fast)"
 chk 'grep -q nvidia-drm.modeset=0 /proc/cmdline' "nvidia-drm.modeset=0 active (no WQ_UNBOUND flood / console blackout)"
@@ -67,11 +87,8 @@ line
 if [ "$FAIL" = 0 ]; then
   echo " RESULT: PASS"
   echo " Rocky + stock kernel $K + open driver $DRV drives the GB10 on this box, and the image is clean."
-  echo " It worked — please open a quick issue to let us know (one line is plenty):"
 else
   echo " RESULT: FAIL"
-  echo " Something above did not come up as expected. This is exactly the bug worth filing —"
-  echo " please paste everything above into a new issue:"
+  echo " Something above did not come up as expected — see the failed checks (!!) above."
 fi
-echo "   $ISSUE"
 line

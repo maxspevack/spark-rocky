@@ -31,8 +31,8 @@ Then flash it and boot: [`running.md`](running.md). After boot, run `/root/valid
 
 ## Don't trust a pre-built image at all?
 
-Then don't use one — rebuild the whole thing from source and compare. Everything that produced the image is in this repo: `scripts/01`→`06`, `config/`, and the pinned versions in `config/versions.env`. The build is reproducible-in-principle (same commit + same pins → an equivalent image — not bit-for-bit, since `xz -T0` and live `dnf` repos vary). Each image's `BUILD-MANIFEST.txt` records the exact commit, kernel, driver, and `.config` identity so you can tie a download back to a repo state.
+Then don't use one — rebuild the whole thing from source and compare. Everything that produced the image is in this repo: `scripts/01`→`07`, `config/`, and the pinned versions in `config/versions.env`. The build is reproducible-in-principle (same commit + same pins → an equivalent image — not bit-for-bit, since `xz -T0` and live `dnf` repos vary). Each image's `BUILD-MANIFEST.txt` records the exact commit, kernel, driver, and `.config` identity so you can tie a download back to a repo state.
 
 ## Where the release lives
 
-During the internal validation phase the release directory is shared with validators directly. The public release location follows the launch decision ([#29](https://github.com/maxspevack/spark-rocky/issues/29)).
+The release lives at the public location pinned in [`config/release.env`](../../config/release.env) — `flash.sh` reads it automatically, no validator hand-off. (A public *currency commitment* — promising to track upstream within a stated window — remains a separate launch decision, [#29](https://github.com/maxspevack/spark-rocky/issues/29).)

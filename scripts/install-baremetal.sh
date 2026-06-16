@@ -8,7 +8,9 @@ source "$HERE/../config/versions.env"          # KVER, DRIVER_VER, ROCKY_RELEASE
 TGT=/dev/nvme0n1
 echo "=== Rocky $ROCKY_RELEASEVER + $KVER -> bare metal on $TGT ==="
 SRC=$(findmnt -no SOURCE /); echo "running root: $SRC"
-[ "$SRC" = "/dev/sda2" ] || { echo "ABORT: not running from USB /dev/sda2 (got $SRC)"; exit 1; }
+PSRC=$(lsblk -no pkname "$SRC" 2>/dev/null | head -1)   # parent disk of the running root (e.g. sda from /dev/sda2)
+{ [ -n "$PSRC" ] && [ "$(lsblk -dno TRAN /dev/$PSRC 2>/dev/null)" = usb ] && [ "$(lsblk -dno RM /dev/$PSRC 2>/dev/null)" = 1 ]; } \
+  || { echo "ABORT: not running from a removable USB (root=$SRC parent=${PSRC:-?}) — refusing to wipe the NVMe from a non-USB boot"; exit 1; }
 [ -b "$TGT" ] && [ "$(lsblk -dno TRAN "$TGT" 2>/dev/null)" != usb ] || { echo "ABORT: $TGT not a safe internal target"; exit 1; }
 echo "=== ensure format/copy tools (parted already present) ==="
 dnf -y install dosfstools rsync 2>&1 | tail -2 || true
@@ -31,7 +33,8 @@ mkfs.ext4 -F -L rocky-root ${TGT}p2 >/dev/null
 mkdir -p /mnt/tgt; mount ${TGT}p2 /mnt/tgt; mkdir -p /mnt/tgt/boot/efi; mount ${TGT}p1 /mnt/tgt/boot/efi
 echo "=== copy proven system -> nvme (slow part: USB read) ==="
 if [ "$USE_RSYNC" = 1 ]; then
-  rsync -aHAXx --exclude='/tmp/*' --exclude='/var/tmp/*' / /mnt/tgt/; echo "rsync rc=$?"
+  rsync -aHAXx --exclude='/tmp/*' --exclude='/var/tmp/*' / /mnt/tgt/; rc=$?
+  [ "$rc" = 0 ] || { echo "ABORT: rsync to the NVMe failed (rc=$rc) — partial copy onto a wiped disk; stopping before grub (USB remains as recovery)"; exit 1; }
 else
   for d in /*; do case "$d" in /proc|/sys|/dev|/run|/tmp|/mnt|/media|/boot) continue;; esac; cp -ax "$d" /mnt/tgt/; done
   mkdir -p /mnt/tgt/boot; for b in /boot/*; do [ "$b" = /boot/efi ] && continue; cp -ax "$b" /mnt/tgt/boot/; done
