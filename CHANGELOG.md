@@ -30,9 +30,11 @@ NVIDIA driver, zero carried patches), now with an opinionated page-size choice a
   [`docs/benchmark`](docs/benchmark).
 
 ### Fixed
-- **#44** — the build silently shipped a **gzip** initramfs when `zstd` was missing from the chroot (dracut
-  fell back, exit 0, the size-only check passed). `04` now hard-gates `zstd` before dracut and verifies the
-  initramfs is zstd by its magic bytes.
+- **#44** — the build silently shipped a **gzip** initramfs. Root cause: `04`'s chroot had no working
+  `/etc/resolv.conf` (a `--installroot` rootfs ships none), so the chroot `dnf` couldn't resolve the Rocky
+  mirror and failed silently under the old `|| true` — `zstd` was never installed and dracut fell back to gzip
+  (exit 0; the size-only check passed). Fixed three ways: `04` copies the host resolv.conf into the chroot,
+  hard-gates `zstd` presence before dracut, and verifies the initramfs is zstd by its magic bytes.
 - **Debug hatch** — `04` read `config/debug-authorized_keys` via `$W/config` instead of `$HERE/../config`, so
   any build with `W=` ≠ repo root silently skipped baking `/root/spark-rocky-debug-enable.sh`. Fixed to the
   script-relative path; `04` now verifies the enabler was baked.

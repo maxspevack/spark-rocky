@@ -80,6 +80,12 @@ mkdir -p "$MNT"/boot/grub2
 printf '%s\n' "$GRUBCFG" > "$MNT"/boot/grub2/grub.cfg
 for m in proc sys dev dev/pts; do mount --bind /$m "$MNT"/$m; done
 mount -t tmpfs -o size=20G tmpfs "$MNT"/var/tmp   # dracut scratch in RAM, not the image root
+# The chroot dnf below needs working DNS. A --installroot rootfs ships no usable /etc/resolv.conf, so without
+# this the chroot cannot resolve the Rocky mirror and the dnf fails — THE root cause of #44: the old
+# `|| true` masked that failure, zstd was never installed, and dracut silently fell back to gzip. NM
+# regenerates resolv.conf on the target at first boot, so the copied file is transient. (install-baremetal
+# does the same for its chroot.)
+cp -fL /etc/resolv.conf "$MNT/etc/resolv.conf"
 chroot "$MNT" /bin/bash <<CHROOT
 set -e
 dnf install -y -q grub2-efi-aa64 grub2-efi-aa64-modules shim-aa64 dracut-network NetworkManager openssh-server zstd
