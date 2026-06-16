@@ -25,11 +25,10 @@ The mechanism behind deliverable #1. Full walkthrough + prerequisites: [`docs/bu
 
 | Script | Produces |
 |---|---|
-| `validate.sh` | the **box doctor** — one command proving the whole box came up as built: provenance (kernel/driver match the image), the stack (open driver + `nvidia-smi` + a real CUDA kernel), the `thermal-watchdog` self-test, and runtime boot-hygiene (`modeset=0` active, mlx5 not loaded, swap off, dmesg clean) → one `PASS`/`FAIL` + the line to drop into an issue |
+| `validate.sh` | the **box doctor** — one command proving the whole box came up as built: provenance (kernel/driver match the image), the stack (open driver + `nvidia-smi` + a real CUDA kernel) and runtime boot-hygiene (`modeset=0` active, mlx5 not loaded, swap off, dmesg clean) → one `PASS`/`FAIL` + the line to drop into an issue |
 | `proof-of-life.sh` | OS + kernel + `nvidia-smi` + a CUDA `vectorAdd` on the GPU (validate.sh's CUDA check) |
 | `install-baremetal.sh` | **DESTRUCTIVE** — wipes the NVMe, then rsyncs the running Rocky onto `/dev/nvme0n1p2` + grub. Run from the booted USB; a deliberate step separate from the non-destructive boot, and not yet clean-room-validated. |
-| `run-benchmark-matrix.sh` | the **canonical full llama-benchy matrix** (deliverable #2) against a served model — the exact ~104-cell sweep behind the parity claim, encoded once so reproductions and regression-vs-self runs measure the same surface. **Auto-arms `templog` + the `thermal-watchdog`** for the run, so every benchmark is traced and guarded. Run after `spark-vllm-docker` is serving; full pipeline in [`docs/benchmark/reproduce-pipeline.md`](../docs/benchmark/reproduce-pipeline.md). |
-| `thermal-watchdog.sh` | **fail-closed** thermal guard (#25) — run alongside a serve; SIGTERMs the container if the GPU or hottest zone crosses a *self-calibrated* ceiling (hardware slowdown/critical temp − `MARGIN`), or if the sensors can't be read. Never reboots. `--self-test` (run by `validate.sh`) verifies the read path + trip logic on every rebuild, so a kernel/driver bump that breaks it fails validation instead of failing open. Baked into the image at `/root/`. |
+| `run-benchmark-matrix.sh` | the **canonical full llama-benchy matrix** (deliverable #2) against a served model — the exact ~104-cell sweep behind the parity claim, encoded once so reproductions and regression-vs-self runs measure the same surface. **Auto-arms `templog`** for the run, so every benchmark is traced (a throttled run is caught post-hoc from that trace). Run after `spark-vllm-docker` is serving; full pipeline in [`docs/benchmark/reproduce-pipeline.md`](../docs/benchmark/reproduce-pipeline.md). |
 
 ## Stay current — release-engineering cadence (M4)
 

@@ -85,9 +85,6 @@ a real runtime-version difference. Match the recipe's `container:` tag to minimi
 
 - **Driver leaks GPU memory on container stop/crash** (open 610). Reboot to a clean pool before each serve
   series; `free -g` should read ~3u/118a before serving.
-- **Run the thermal watchdog alongside a serve** — `/root/thermal-watchdog.sh &`. It fail-closed SIGTERMs the
-  container if the GPU/zone crosses the hardware slowdown temp − `MARGIN`, so a thermally-throttled (invalid)
-  run is stopped, not silently recorded. `templog.sh` only observes; the watchdog acts. (#25)
 - **HuggingFace token: not required** for public models (verify `curl -s -o /dev/null -w '%{http_code}'
   https://huggingface.co/api/models/<repo>` → 200). Gated models would need a token; none of our targets are.
 - **gpu-memory-utilization is the total unified-memory budget** (fraction × 121 GB = model + KV). Too low →

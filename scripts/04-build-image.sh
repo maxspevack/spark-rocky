@@ -130,13 +130,10 @@ menuentry 'Rocky $ROCKY_RELEASEVER + $KREL (GB10)' {
 EOF
 # Also place the config at the self-relative path, covering both possible prefixes of the prebuilt binary.
 cp -f "$MNT/boot/efi/EFI/rocky/grub.cfg" "$MNT/boot/efi/EFI/BOOT/grub.cfg" 2>/dev/null || true
-# Ship the GPU proof-of-life + the thermal tooling IN the image. proof-of-life.sh = the GPU CUDA check;
-# templog.sh = passive forensic trace (logs only, throttles nothing); thermal-watchdog.sh = the ACTIVE
-# fail-closed guard (#25) that SIGTERMs a serve on over-temp / unreadable sensors. validate.sh runs the
-# watchdog's --self-test, so a rebuild that breaks its read path fails validation instead of failing open.
+# Ship the GPU proof-of-life + the passive thermal/mem logger IN the image (run /root/proof-of-life.sh;
+# run /root/templog.sh alongside a benchmark for a forensic trace — logging only, it throttles nothing).
 [ -f "$HERE/proof-of-life.sh" ] && install -m755 "$HERE/proof-of-life.sh" "$MNT/root/proof-of-life.sh"
 [ -f "$HERE/templog.sh" ] && install -m755 "$HERE/templog.sh" "$MNT/root/templog.sh"
-[ -f "$HERE/thermal-watchdog.sh" ] && install -m755 "$HERE/thermal-watchdog.sh" "$MNT/root/thermal-watchdog.sh"
 # Verify the built image carries kernel + initramfs + grub BEFORE the flash (advisor: artifacts, not banners).
 VERR=0
 [ -f "$MNT/boot/vmlinuz-$KREL" ] || { echo "VERIFY-FAIL: no vmlinuz-$KREL in image"; VERR=1; }

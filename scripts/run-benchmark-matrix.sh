@@ -18,16 +18,13 @@ for i in $(seq 1 60); do
   echo "poll $i: loading"; sleep 10
 done
 
-# Auto-arm the forensic logger (templog) + the fail-closed thermal guard (#25) for the whole sweep, and
-# stop both however we exit. A benchmark must never run untraced or unguarded: the 2026-06-11 crash had no
-# thermal trace, and an over-temp run records throttled (invalid) numbers. The tools are absent only OFF the
-# box, so warn loudly rather than silently running bare.
-TLOG="${OUT%.csv}-templog.csv"; TPID=""; WPID=""
-trap '[ -n "$TPID" ] && kill "$TPID" 2>/dev/null; [ -n "$WPID" ] && kill "$WPID" 2>/dev/null' EXIT
+# Auto-arm the forensic logger (templog) for the whole sweep, stopped on any exit. A benchmark must never run
+# untraced: the 2026-06-11 crash had no thermal trace. (templog only observes; if a run thermally throttles,
+# that is caught post-hoc from this trace -- the benchmark-integrity path -- not by a mid-run kill.)
+TLOG="${OUT%.csv}-templog.csv"; TPID=""
+trap '[ -n "$TPID" ] && kill "$TPID" 2>/dev/null' EXIT
 if [ -x /root/templog.sh ]; then /root/templog.sh 5 "$TLOG" & TPID=$!; echo "templog armed -> $TLOG (pid $TPID)"
 else echo "WARNING: /root/templog.sh absent -- no forensic thermal trace for this run"; fi
-if [ -x /root/thermal-watchdog.sh ]; then /root/thermal-watchdog.sh & WPID=$!; echo "thermal-watchdog armed (pid $WPID)"
-else echo "WARNING: /root/thermal-watchdog.sh absent -- running UNGUARDED (no over-temp protection)"; fi
 
 echo "running the full canonical matrix for $MODEL ..."
 # Canonical matrix: depth sweep 0..100000, prefill pp2048, decode tg128, concurrency 1/2/5/10, prefix caching.
@@ -38,7 +35,7 @@ echo "running the full canonical matrix for $MODEL ..."
 rc=$?
 
 # Fail closed (#42): a partial/aborted sweep must NOT pass as a clean matrix. A non-zero llama-benchy exit
-# -- OOM, GPU Xid 119, the serving container dying, or the #25 thermal watchdog SIGTERMing it mid-run -- or a
+# -- OOM, GPU Xid 119, or the serving container dying -- or a
 # missing/header-only CSV, is a dead run. Discard it so the number never reaches a median or a receipt.
 # (We keep `set +e` so the serve-ready poll loop above is unaffected; the actual bug was that the original
 # never checked the exit code.) An exact per-model cell-count assertion is a follow-up: the expected row count

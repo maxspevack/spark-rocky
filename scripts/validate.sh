@@ -2,11 +2,10 @@
 # spark-rocky DOCTOR — one command to prove the whole box came up as we built it.
 # Boot the image (USB or installed NVMe), log in, and run:  /root/validate.sh
 #
-# It proves four things and prints one PASS/FAIL plus the text to paste into an issue:
-#   1. provenance  — this IS a spark-rocky image, and it booted the kernel + driver we built
+# It proves three things and prints one PASS/FAIL plus the text to paste into an issue:
+#   1. provenance  — this IS a spark-rocky image, and it booted the kernel + driver (+ page size) we built
 #   2. the stack   — open NVIDIA driver loaded, nvidia-smi works, a real CUDA kernel runs on the GPU
-#   3. the guard   — the #25 thermal-watchdog self-test passes (read path + trip logic + fail-closed)
-#   4. boot hygiene— the properties that make the image clean + fast are actually ACTIVE at runtime
+#   3. boot hygiene— the properties that make the image clean + fast are actually ACTIVE at runtime
 set -uo pipefail
 ISSUE="https://github.com/maxspevack/spark-rocky/issues/new"
 REL=/etc/spark-rocky-release
@@ -56,13 +55,7 @@ if [ -x /root/proof-of-life.sh ]; then
   grep -q "CUDA COMPUTE: PASS" /tmp/pol.log || { echo "  !! GPU CUDA check did NOT pass (full log: /tmp/pol.log)"; FAIL=1; }
 else echo "  !! proof-of-life.sh not present — cannot run the GPU CUDA check"; FAIL=1; fi
 
-sect "5. thermal watchdog self-test (benchmark safety guard)"
-if [ -x /root/thermal-watchdog.sh ]; then
-  /root/thermal-watchdog.sh --self-test >/tmp/twd.log 2>&1; tail -6 /tmp/twd.log | sed 's/^/  /'
-  grep -q "SELF-TEST: PASS" /tmp/twd.log || { echo "  !! thermal-watchdog self-test did NOT pass (full log: /tmp/twd.log)"; FAIL=1; }
-else echo "  !! thermal-watchdog.sh not present — the benchmark safety primitive is missing"; FAIL=1; fi
-
-sect "6. boot hygiene (the properties that make the image clean + fast)"
+sect "5. boot hygiene (the properties that make the image clean + fast)"
 chk 'grep -q nvidia-drm.modeset=0 /proc/cmdline' "nvidia-drm.modeset=0 active (no WQ_UNBOUND flood / console blackout)"
 chk '! lsmod | grep -q "^mlx5_core"'             "mlx5_core not loaded (blacklisted — no missing-firmware dmesg flood)"
 SWAP=$(awk '/^SwapTotal/{print $2}' /proc/meminfo 2>/dev/null)
