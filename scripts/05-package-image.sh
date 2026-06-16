@@ -110,7 +110,7 @@ chk '[ -x "$MNT/root/validate.sh" ]'                                     "valida
 chk '[ -x "$MNT/root/proof-of-life.sh" ]'                                "proof-of-life.sh present (validate.sh CUDA check)"
 chk '[ -x "$MNT/root/templog.sh" ]'                                      "templog.sh present (forensic thermal/mem trace)"
 # boot-hygiene properties that DEFINE the image (the 2026-06-13 hardening) — a release must carry every one
-chk 'grep -q "nvidia-drm.modeset=0" "$MNT/boot/efi/EFI/rocky/grub.cfg"'   "boot: nvidia-drm.modeset=0 in grub (kills WQ_UNBOUND flood + console blackout)"
+chk 'grep -q "nvidia-drm.modeset=0" "$MNT/boot/grub2/grub.cfg"'           "boot: nvidia-drm.modeset=0 in grub (kills WQ_UNBOUND flood + console blackout) — checks the root-partition grub.cfg (05 mounts only p2); 04 verifies the identical EFI copy references the kernel"
 chk 'grep -q "blacklist mlx5_core" "$MNT/etc/modprobe.d/blacklist-mlx5.conf"'  "boot: mlx5_core blacklisted (no missing-firmware dmesg flood, #30)"
 chk '[ "$(readlink "$MNT/etc/systemd/system/swap.target")" = /dev/null ]'      "boot: swap.target masked (GB10 swap-on-overcommit hang)"
 chk '[ "$(readlink "$MNT/etc/systemd/system/systemd-firstboot.service")" = /dev/null ]'  "boot: systemd-firstboot masked (no interactive tz prompt at first boot)"
