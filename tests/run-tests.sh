@@ -37,6 +37,21 @@ if grep -qF 'proof-of-life' scripts/validate.sh; then no "validate.sh still depe
 # Page-size -> config-symbol mapping (what 05's fail-closed page-size gate keys on).
 pgsym(){ [ "$1" = 64k ] && echo CONFIG_ARM64_64K_PAGES=y || echo CONFIG_ARM64_4K_PAGES=y; }
 if [ "$(pgsym 64k)" = CONFIG_ARM64_64K_PAGES=y ] && [ "$(pgsym 4k)" = CONFIG_ARM64_4K_PAGES=y ]; then ok "page-size->config-symbol mapping correct"; else no "page-size->config-symbol mapping wrong"; fi
+# Doctor has no hardcoded issue URL (S1).
+if grep -qF 'issues/new' scripts/validate.sh; then no "validate.sh still prints a hardcoded issue URL (S1)"; else ok "validate.sh has no hardcoded issue URL (S1)"; fi
+# 04 grub menuentry is generated ONCE (S2) — guards against the two-copies divergence returning.
+if [ "$(grep -cF "menuentry 'Rocky" scripts/04-build-image.sh)" = 1 ]; then ok "04 grub menuentry single-sourced (S2)"; else no "04 grub menuentry duplicated again (S2)"; fi
+# 04 verifies the debug hatch was actually baked, in-build (S4/B2).
+if grep -qF 'debug-enable.sh not baked' scripts/04-build-image.sh; then ok "04 verifies the debug hatch was baked (S4)"; else no "04 does not verify the debug hatch was baked (S4)"; fi
+# install-baremetal: match removable USB (not a hardcoded device), and abort on a failed rsync (S5).
+if grep -qF '"/dev/sda2"' scripts/install-baremetal.sh; then no "install-baremetal hardcodes /dev/sda2 (S5)"; else ok "install-baremetal matches removable USB, not /dev/sda2 (S5)"; fi
+if grep -qF 'rsync to the NVMe failed' scripts/install-baremetal.sh; then ok "install-baremetal aborts on a failed rsync (S5)"; else no "install-baremetal does not act on the rsync rc (S5)"; fi
+# proof-of-life clears the stale binary so a failed recompile cannot report a false PASS.
+if grep -qF 'rm -f /tmp/vectoradd' scripts/proof-of-life.sh; then ok "proof-of-life clears the stale binary (no false PASS)"; else no "proof-of-life can report a stale-binary false PASS"; fi
+# No stale "watchdog" coverage claim in CI/Makefile (#25 was removed, S7).
+if grep -riq watchdog .github/ Makefile; then no "stale watchdog claim in CI/Makefile (#25 removed, S7)"; else ok "no stale watchdog claim in CI/Makefile (S7)"; fi
+# Garbage-collected cruft stays gone (the bringup scripts + the 362 KB stock-DGX config).
+if [ -e scripts/bringup ] || [ -e config/dgx-6.17-nvidia.config ]; then no "GC'd cruft reappeared (bringup/ or dgx-6.17 config)"; else ok "GC'd cruft stays gone (bringup, dgx-6.17 config)"; fi
 
 echo
 echo "RESULT: $pass passed, $fail failed"
