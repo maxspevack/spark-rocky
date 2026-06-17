@@ -8,7 +8,7 @@ The release invariant is **served == tag == HEAD** (enforced by `scripts/07-veri
 bytes in the bucket match the git tag they were built from. Each release below names the kernel release it
 ships (`uname -r`).
 
-## [spark-rocky-live-20260616] — 2026-06-16 · `6.18.35` (64k pages)
+## [spark-rocky-live-20260617] — 2026-06-17 · `6.18.35` (64k pages)
 
 The 64k-page, state-of-the-art release. Same thesis (Rocky 10.2 + a stock upstream 6.18 kernel + the open
 NVIDIA driver, zero carried patches), now with an opinionated page-size choice and a hardened, audited build.
@@ -88,5 +88,5 @@ spark-arena.com benchmarks at parity.
 - Release integrity: GPG-signed `CHECKSUM` (ed25519, fp `71C1 6676 F9D4 0A4C E0C6 EB66 08B1 4BC3 9831 1101`),
   served at `gs://spark-rocky`, with the `served == tag == HEAD` gate (#35).
 
-[spark-rocky-live-20260616]: https://github.com/maxspevack/spark-rocky/releases/tag/spark-rocky-live-20260616
+[spark-rocky-live-20260617]: https://github.com/maxspevack/spark-rocky/releases/tag/spark-rocky-live-20260617
 [spark-rocky-live-20260612]: https://github.com/maxspevack/spark-rocky/releases/tag/spark-rocky-live-20260612
