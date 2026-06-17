@@ -21,6 +21,11 @@ source config/versions.env
 [[ "$KVER" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]     && ok "versions.env: KVER is x.y.z ($KVER)"            || no "versions.env: KVER malformed ($KVER)"
 [[ "$PAGE_SIZE" == 4k || "$PAGE_SIZE" == 64k ]] && ok "versions.env: PAGE_SIZE is 4k|64k ($PAGE_SIZE)" || no "versions.env: PAGE_SIZE invalid ($PAGE_SIZE)"
 [[ "$KERNEL_SHA256" =~ ^[0-9a-f]{64}$ ]]      && ok "versions.env: KERNEL_SHA256 is 64 hex"          || no "versions.env: KERNEL_SHA256 malformed"
+[[ "$KERNEL_SOURCE" == kernelorg || "$KERNEL_SOURCE" == clk ]] && ok "versions.env: KERNEL_SOURCE is kernelorg|clk ($KERNEL_SOURCE)" || no "versions.env: KERNEL_SOURCE invalid ($KERNEL_SOURCE)"
+[ -f "$KCONFIG" ]                             && ok "versions.env: KCONFIG points at a real base config" || no "versions.env: KCONFIG missing ($KCONFIG)"
+vmaj(){ echo "v${1%%.*}.x"; }; if [ "$(vmaj 6.18.35)" = v6.x ] && [ "$(vmaj 7.0.0)" = v7.x ]; then ok "kernel.org v-major derivation (6.18->v6.x, 7.0->v7.x)"; else no "v-major derivation wrong"; fi
+# 01 dispatches the kernel source + derives the v-major path (no hardcoded v6.x) -- the "move kernels" pre-work.
+if grep -qF 'KERNEL_SOURCE' scripts/01-build-kernel.sh && grep -qF 'v${KVER%%.*}.x' scripts/01-build-kernel.sh; then ok "01 has the kernel-source dispatch + derived v-major path"; else no "01 missing the kernel-source dispatch / v-major derivation"; fi
 # Suffix-drop stays done: kernel release is plain $KVER — no LOCALVERSION suffix, no KREL variable anywhere.
 if grep -rqF -- '--set-str LOCALVERSION' scripts/; then no "LOCALVERSION suffix reintroduced (uname must stay plain KVER)"; else ok "no LOCALVERSION suffix in any script"; fi
 if grep -qw 'KREL' scripts/*.sh;             then no "KREL variable reintroduced (kernel release must be plain KVER)"; else ok "no KREL variable in any build script"; fi

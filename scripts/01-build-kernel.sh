@@ -1,5 +1,6 @@
 #!/bin/bash
-# Build vanilla $KVER aarch64 with the GB10-enabled config, in a Rocky 10 container.
+# Build the kernel selected by KERNEL_SOURCE (kernelorg tarball today; CLK planned -- #52) for aarch64
+# with the GB10 config, in a Rocky 10 container. The which-kernel knob makes A/B builds trivial.
 # Side benefit: olddefconfig drops any GB10 symbol absent from vanilla $KVER — that readout
 # tells us exactly what's NVIDIA-carried vs Tier-1 config. Non-destructive (container build).
 # Parameterized via config/versions.env (KVER). The base config carries forward across point
@@ -8,20 +9,36 @@ set -e
 HERE="$(cd "$(dirname "$0")" && pwd)"
 source "$HERE/../config/versions.env"          # KVER, DRIVER_VER, ROCKY_RELEASEVER, PAGE_SIZE
 W="${W:-$(dirname "$HERE")}"
-CONFIG="${CONFIG:-$HERE/../config/rocky-6.18.34-gb10.config}"   # base GB10 .config (olddefconfig adapts it to $KVER)
+CONFIG="${CONFIG:-$HERE/../$KCONFIG}"   # base .config from versions.env KCONFIG (olddefconfig adapts it to $KVER)
 [ -f "$CONFIG" ] || { echo "FATAL: base config $CONFIG missing"; exit 1; }
 mkdir -p "$W"; cp "$CONFIG" "$W/dgx-config"
-docker run --rm -v "$W":/work -e KVER="$KVER" -e KERNEL_SHA256="$KERNEL_SHA256" -e PAGE_SIZE="$PAGE_SIZE" rockylinux/rockylinux:10 bash -c '
+docker run --rm -v "$W":/work -e KERNEL_SOURCE="$KERNEL_SOURCE" -e KVER="$KVER" -e KERNEL_SHA256="$KERNEL_SHA256" -e PAGE_SIZE="$PAGE_SIZE" rockylinux/rockylinux:10 bash -c '
 set -e
 echo "[build] installing toolchain..."
 dnf install -y -q gcc make flex bison bc openssl-devel elfutils-libelf-devel elfutils-devel \
   ncurses-devel dwarves perl diffutils xz wget tar gawk findutils rsync which python3 zlib-devel >/dev/null 2>&1
 cd /work
-[ -f linux-$KVER.tar.xz ] || wget -q https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-$KVER.tar.xz
-# Verify against the kernel.org-published SHA256 (pinned in versions.env) before trusting a byte
-# of it — a compromised CDN/MITM otherwise gets compiled and later GPG-signed in our name.
-[ -n "$KERNEL_SHA256" ] && { echo "$KERNEL_SHA256  linux-$KVER.tar.xz" | sha256sum -c - || { echo "FATAL: kernel tarball SHA256 mismatch"; exit 1; }; }
-rm -rf linux-$KVER && tar xf linux-$KVER.tar.xz
+# Kernel SOURCE dispatch (the which-kernel knob). Each source produces a ./linux-$KVER tree.
+case "$KERNEL_SOURCE" in
+  kernelorg)
+    # Stock kernel.org tarball. The v-major path is DERIVED from KVER (6.x, 7.x, ...) so a major bump
+    # (6.18 -> 7.0) needs no script change -- only the KVER + KERNEL_SHA256 pins.
+    MAJ="v${KVER%%.*}.x"
+    [ -f linux-$KVER.tar.xz ] || wget -q "https://cdn.kernel.org/pub/linux/kernel/$MAJ/linux-$KVER.tar.xz"
+    # Verify against the kernel.org-published SHA256 (pinned in versions.env) before trusting a byte:
+    # a compromised CDN/MITM otherwise gets compiled and later GPG-signed in our name.
+    [ -n "$KERNEL_SHA256" ] && { echo "$KERNEL_SHA256  linux-$KVER.tar.xz" | sha256sum -c - || { echo "FATAL: kernel tarball SHA256 mismatch"; exit 1; }; }
+    rm -rf linux-$KVER && tar xf linux-$KVER.tar.xz
+    ;;
+  clk)
+    # CIQ CLK source (GPL; CIQ redistributes it). NOT wired yet: needs the source fetch (git ref or
+    # src.rpm) + kernel-release discovery, since the CLK release differs from KVER. Tracked in #52.
+    echo "FATAL: KERNEL_SOURCE=clk is not wired yet (CIQ CLK fetch + release discovery -- #52)"; exit 1
+    ;;
+  *)
+    echo "FATAL: unknown KERNEL_SOURCE=$KERNEL_SOURCE (expected: kernelorg | clk)"; exit 1
+    ;;
+esac
 cd linux-$KVER
 cp /work/dgx-config .config
 # neutralize distro signing/cert baggage that breaks out-of-distro builds
