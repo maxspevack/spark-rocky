@@ -30,6 +30,8 @@ if grep -qF 'HERE/../config/debug-authorized_keys' scripts/04-build-image.sh && 
 if grep -qF 'command -v zstd' scripts/04-build-image.sh; then ok "04 gates zstd presence before dracut (#44)"; else no "04 missing the zstd presence gate (#44)"; fi
 if grep -qF '28b52ffd' scripts/04-build-image.sh;          then ok "04 verifies initramfs is zstd by magic bytes (#44)"; else no "04 missing the zstd compression content-check (#44)"; fi
 if grep -qF 'resolv.conf' scripts/04-build-image.sh;       then ok "04 gives the chroot DNS (resolv.conf — #44 root cause)"; else no "04 chroot has no resolv.conf — chroot dnf will fail (#44)"; fi
+if grep -qF 'omit-drivers "mlx5' scripts/04-build-image.sh; then ok "04 omits mlx5 from the initramfs (no early coldplug load, #30)"; else no "04 does not omit mlx5 — it coldplug-loads in the initramfs (#30)"; fi
+if grep -qF 'fbcon=nodefer' scripts/04-build-image.sh;      then ok "04 cmdline has fbcon=nodefer (no late console-takeover glitch)"; else no "04 missing fbcon=nodefer (autologin/console blank glitch)"; fi
 # The doctor is self-contained: no dependency on a sibling proof-of-life.sh.
 if grep -qF 'proof-of-life' scripts/validate.sh; then no "validate.sh still depends on proof-of-life.sh (must be self-contained)"; else ok "validate.sh is self-contained (inlines its own CUDA proof)"; fi
 # Page-size -> config-symbol mapping (what 05's fail-closed page-size gate keys on).

@@ -41,6 +41,12 @@ NVIDIA driver, zero carried patches), now with an opinionated page-size choice a
 - `proof-of-life.sh` no longer masks an `nvcc` compile failure behind a `tail` pipe; `install-baremetal.sh`
   matches the USB by removable-disk (not a hardcoded `/dev/sda2`) and aborts on a failed rsync instead of
   installing grub onto a half-copied NVMe.
+- **mlx5 / boot hygiene (#30)** — the unused ConnectX driver coldplug-loaded at ~2 s in the `--no-hostonly`
+  initramfs, *before* the rootfs blacklist applied (so the doctor flagged it and dmesg carried its init).
+  `04` now omits mlx5 from the initramfs (`--omit-drivers`); the rootfs blacklist keeps it off afterward.
+- **#45 autologin** — the console blanked and autologin restarted once before holding, because fbcon deferred
+  taking the console until ~1 min in (after getty started). `fbcon=nodefer` makes fbcon take the console
+  immediately, before getty — no mid-session switch.
 
 ### Added
 - `tests/run-tests.sh` + `make test` + CI now check **behavioral invariants** (the suffix-drop stays done,

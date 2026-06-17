@@ -69,7 +69,7 @@ NVIDIA's release notes. GPU VBIOS `9A.0B.25.00.00` and GSP `610.43.02` ride the 
 | L4 | `NVDA8800:00 device-creation -16` | **BENIGN on current firmware** | 1 of ~30 NVDA Grace platform devices; the only one that fails (resource conflict); non-critical to compute |
 | L5 | `EM: CPUs … same capacity` (×15) | **MEASURE** | Platform ACPI doesn't feed cpu `capacity-dmips-mhz` to the energy model; may change EAS scheduling across X925 vs A725 → possible perf. Quantify with a before/after spark-arena run |
 | L6 | `mt7925` WiFi/BT firmware missing | **DECLINE, with reason** | Wired-only is more deterministic for a benchmark box; thesis-safe to add `linux-firmware` later if WiFi is wanted |
-| L7 | `mlx5` ConnectX-7 floods dmesg (missing firmware; "insufficient power" → down) | **CARRY (assembly), fixed** | The ConnectX is the cluster-fabric port; multi-node is out of scope, so `04` blacklists `mlx5_core` (rootfs + dracut initramfs). Not loading the unused driver removes the flood (#30). Re-enable + ship the mlx5 firmware if you ever cable it for clustering |
+| L7 | `mlx5` ConnectX-7 loads unwanted (unused cluster NIC; on bare hardware it can flood dmesg / "insufficient power") | **CARRY (assembly), fixed** | Multi-node is out of scope, so we don't want the driver loaded. A rootfs blacklist alone is **insufficient**: in a `--no-hostonly` initramfs mlx5 coldplug-loads at ~2s, *before* the blacklist applies. `04` **omits mlx5 from the initramfs** (`--omit-drivers`) so it cannot load early; the rootfs blacklist keeps it off post-switch-root (#30). Re-enable + ship the mlx5 firmware if you ever cable it for clustering |
 | L8 | `GICv3 [Firmware Bug] GSI8`, `FF-A IRQ mapping` | **BENIGN on current firmware** | Firmware↔kernel friction the kernel flags and works around; no observed impact |
 | L9 | `PCI: OF: of_root NULL` (×8) | **NO-OP** | PCI host bridges come from ACPI on this hybrid ACPI+DT boot; expected |
 
@@ -86,6 +86,10 @@ Inherited from the proven bare-metal box; each is a deliberate boot parameter, n
   `drm_fb_helper` damage worker flushed the large GPU framebuffer on a bound workqueue every console update
   (`WQ_UNBOUND` warnings) and the handover blacked the monitor for seconds. A compute box needs no GPU-driven
   console; this removes both, with zero effect on CUDA.
+- `fbcon=nodefer` — take the framebuffer console over immediately instead of deferring. With `modeset=0` the
+  deferral never resolves to a GPU console, so fbcon would otherwise take the simpledrm console ~1 min in,
+  *after* getty has started — switching the console under the running autologin and forcing a one-time getty
+  restart (a visible screen-blank before login holds). Taking over early keeps the console stable (#45).
 - `quiet loglevel=3` — trims the boot console to essentials; paired with `modeset=0` the boot is clean, not a wall
   of warnings.
 - `earlycon=uart,mmio32,0x16A00000` — early-boot console on the GB10 UART before the full console driver

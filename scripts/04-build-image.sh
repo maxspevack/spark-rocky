@@ -73,7 +73,7 @@ set default=0
 insmod all_video
 menuentry 'Rocky $ROCKY_RELEASEVER + $KVER (GB10)' {
   search --no-floppy --fs-uuid --set=root $ROOT_UUID
-  linux /boot/vmlinuz-$KVER root=UUID=$ROOT_UUID ro rootwait quiet loglevel=3 nvidia-drm.modeset=0 iommu.passthrough=0 init_on_alloc=0 console=tty0 earlycon=uart,mmio32,0x16A00000 selinux=0
+  linux /boot/vmlinuz-$KVER root=UUID=$ROOT_UUID ro rootwait quiet loglevel=3 nvidia-drm.modeset=0 fbcon=nodefer iommu.passthrough=0 init_on_alloc=0 console=tty0 earlycon=uart,mmio32,0x16A00000 selinux=0
   initrd /boot/initramfs-$KVER.img
 }"
 mkdir -p "$MNT"/boot/grub2
@@ -117,7 +117,10 @@ printf '[Service]\nExecStart=\nExecStart=-/sbin/agetty --autologin root --noclea
 # (fstab here carries no swap; this mask is belt-and-suspenders so nothing activates swap at runtime.)
 systemctl mask swap.target 2>/dev/null || true
 mkdir -p /var/log/journal   # persistent journald — a thermal/OOM event must survive a power-off for forensics (volatile default lost the 2026-06-11 crash logs)
-dracut --force --no-hostonly --compress zstd --add-drivers "usb_storage uas xhci_pci xhci_hcd ehci_pci ext4 nvme" --kver $KVER /boot/initramfs-$KVER.img $KVER
+# --omit-drivers mlx5*: the unused ConnectX cluster NIC. In a --no-hostonly initramfs mlx5 is present and
+# coldplug-loads at ~2s (before the rootfs blacklist applies), defeating the blacklist. Omitting it from the
+# initramfs means it cannot load early; the rootfs blacklist then keeps it off post-switch-root (#30).
+dracut --force --no-hostonly --compress zstd --omit-drivers "mlx5_core mlx5_ib mlx5_fwctl" --add-drivers "usb_storage uas xhci_pci xhci_hcd ehci_pci ext4 nvme" --kver $KVER /boot/initramfs-$KVER.img $KVER
 CHROOT
 # RHEL ships a PREBUILT grubaa64.efi (grub2-efi-aa64) — grub2-install --target=arm64-efi does NOT work here
 # (no /usr/lib/grub/arm64-efi modules; it errors on modinfo.sh). The prebuilt binary reads its config from
