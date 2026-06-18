@@ -6,6 +6,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 source "$HERE/../config/versions.env"          # KVER, DRIVER_VER, ROCKY_RELEASEVER, PAGE_SIZE
 W="${W:-$(dirname "$HERE")}"
+[ -f "$W/build.env" ] && source "$W/build.env" # override KVER with resolved value from 01
 R="$W/rocky-img/rootfs"
 IMG="$W/rocky-img/rocky-gb10.img"
 DEV="${DEV:-/dev/sda}"

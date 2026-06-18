@@ -8,6 +8,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 source "$HERE/../config/versions.env"          # KVER, DRIVER_VER, ROCKY_RELEASEVER, PAGE_SIZE
 W="${W:-$(dirname "$HERE")}"
+[ -f "$W/build.env" ] && source "$W/build.env" # override KVER with resolved value from 01
 EXPECT_VM="$KVER"   # the open module's vermagic must equal the kernel release, which is plain $KVER (no LOCALVERSION suffix)
 LOG="$W/nvbuild.full.log"
 KO="$W/driver-610/NVIDIA-Linux-aarch64-$DRIVER_VER/kernel-open"

@@ -7,6 +7,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 source "$HERE/../config/versions.env"          # KVER, DRIVER_VER, ROCKY_RELEASEVER, PAGE_SIZE
 W="${W:-$(dirname "$HERE")}"
+[ -f "$W/build.env" ] && source "$W/build.env" # override KVER with resolved value from 01
 [ -d "$W/rocky-img/rootfs" ] || { echo "FATAL: rootfs missing — run 02-build-rootfs.sh first"; exit 1; }
 
 docker run --rm -v "$W":/host -e KVER="$KVER" -e DRIVER_VER="$DRIVER_VER" -e DRIVER_SHA256="$DRIVER_SHA256" -e RV="$ROCKY_RELEASEVER" rockylinux/rockylinux:10 bash -c '
