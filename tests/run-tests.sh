@@ -57,6 +57,13 @@ if grep -qF 'rm -f /tmp/vectoradd' scripts/proof-of-life.sh; then ok "proof-of-l
 if grep -riq watchdog .github/ Makefile; then no "stale watchdog claim in CI/Makefile (#25 removed, S7)"; else ok "no stale watchdog claim in CI/Makefile (S7)"; fi
 # Garbage-collected cruft stays gone (the bringup scripts + the 362 KB stock-DGX config).
 if [ -e scripts/bringup ] || [ -e config/dgx-6.17-nvidia.config ]; then no "GC'd cruft reappeared (bringup/ or dgx-6.17 config)"; else ok "GC'd cruft stays gone (bringup, dgx-6.17 config)"; fi
+# Benchmark runner fails closed on a ragged/partial sweep (#42); the grid-check concurrency set must mirror the --concurrency arg.
+if grep -qF 'ragged concurrency grid' scripts/run-benchmark-matrix.sh; then ok "run-benchmark-matrix fails closed on an incomplete grid (#42)"; else no "run-benchmark-matrix missing the grid-completeness check (#42)"; fi
+arg_c=$(grep -oE -- '--concurrency [0-9 ]+' scripts/run-benchmark-matrix.sh | grep -oE '[0-9]+' | sort -n | tr '\n' ' ')
+want_c=$(grep -oE 'want\["[0-9]+"\]' scripts/run-benchmark-matrix.sh | grep -oE '[0-9]+' | sort -n | tr '\n' ' ')
+if [ -n "$arg_c" ] && [ "$arg_c" = "$want_c" ]; then ok "#42 grid-check want{} matches --concurrency arg ($arg_c)"; else no "#42 grid-check want{} ($want_c) != --concurrency ($arg_c)"; fi
+# 04 pins a FIXED ESP partition GUID so a USB-first firmware boot entry survives re-flashes (#47).
+if grep -qF 'sgdisk -u 1:A84952EE-452B-44B3-ACB5-B036BA8E6B0D' scripts/04-build-image.sh; then ok "04 pins the fixed ESP GUID (#47)"; else no "04 missing the fixed ESP GUID — USB-first won't survive re-flash (#47)"; fi
 
 echo
 echo "RESULT: $pass passed, $fail failed"

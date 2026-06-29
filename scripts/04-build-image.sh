@@ -23,6 +23,12 @@ parted -s "$IMG" mklabel gpt
 parted -s "$IMG" mkpart EFI fat32 1MiB 1025MiB
 parted -s "$IMG" set 1 esp on
 parted -s "$IMG" mkpart root ext4 1025MiB 100%
+# Pin the ESP (partition 1) GUID to a FIXED value (#47). A USB-first firmware boot entry keys on
+# HD(1,GPT,<part-guid>); parted assigns a RANDOM GUID per build, so re-flashing a newer image orphans the
+# entry and the box falls through to the NVMe. A fixed GUID gives every spark-rocky USB one boot identity, so
+# a single firmware entry stays valid across re-flashes (two USBs at once would collide -- two-USB is OOS).
+command -v sgdisk >/dev/null 2>&1 || dnf install -y -q gdisk 2>/dev/null || true
+sgdisk -u 1:A84952EE-452B-44B3-ACB5-B036BA8E6B0D "$IMG" >/dev/null
 LOOP=$(losetup --find --show -P "$IMG"); sleep 1; echo "loop=$LOOP"
 mkfs.fat -F32 -n ROCKYEFI ${LOOP}p1 >/dev/null
 mkfs.ext4 -F -q -L rocky-root ${LOOP}p2

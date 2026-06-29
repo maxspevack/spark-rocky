@@ -49,3 +49,14 @@ a release).
 
 **Gate result: PASS** — `err/crit(6.18.37) ⊆ err/crit(6.18.35)` plus three explained, benign firmware lines;
 the mlx5 missing-firmware flood (#30/#40) is absent on both.
+
+## Reboot messages (benign)
+
+`watchdog: watchdog0: watchdog did not stop!` on reboot (#49) — **kept deliberately, cosmetic.** `watchdog0`
+is the SBSA Generic Watchdog (`sbsa-gwdt`, ACPI GTDT-described — a platform device, not ours). It is
+runtime-inactive (`RuntimeWatchdogUSec=0`); systemd's `RebootWatchdogUSec=10min` (the distro default) arms it
+during reboot as a hung-shutdown safety net. The SBSA watchdog is `WDOG_HW_RUNNING` — once armed it cannot be
+cleanly disarmed — so the shutdown's stop attempt logs "did not stop!". The reboot completes in seconds, long
+before the 10-min timeout, so it **never fires destructively** (`bootstatus=0`). Present on metal and USB alike
+(platform + systemd default). We keep it — the RebootWatchdog is a real hung-shutdown safety net.
+**Watch:** a non-zero `bootstatus`, or an unexpected mid-run reset, means it actually fired — revisit then.

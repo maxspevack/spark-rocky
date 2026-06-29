@@ -34,17 +34,33 @@ echo "running the full canonical matrix for $MODEL ..."
   --enable-prefix-caching --concurrency 1 2 5 10 --save-result "$OUT" --format csv
 rc=$?
 
-# Fail closed (#42): a partial/aborted sweep must NOT pass as a clean matrix. A non-zero llama-benchy exit
-# -- OOM, GPU Xid 119, or the serving container dying -- or a
-# missing/header-only CSV, is a dead run. Discard it so the number never reaches a median or a receipt.
-# (We keep `set +e` so the serve-ready poll loop above is unaffected; the actual bug was that the original
-# never checked the exit code.) An exact per-model cell-count assertion is a follow-up: the expected row count
-# is model-dependent -- depth cells past a model's context are dropped (gemma=56 vs qwen=104 rows) -- so it
-# must be derived from the args + model context, never a hardcoded literal.
+# Fail closed (#42), part 1 -- command-level failure: a non-zero llama-benchy exit (OOM, GPU Xid 119, or the
+# serving container dying) or a missing/header-only CSV is a dead run. (We keep `set +e` so the serve-ready
+# poll loop above is unaffected; the bug was that the original never checked the exit code.) Discard it so the
+# number never reaches a median or a receipt.
 rows=$(wc -l < "$OUT" 2>/dev/null || echo 0)
 if [ "$rc" -ne 0 ] || [ "${rows:-0}" -lt 2 ]; then
   [ -f "$OUT" ] && mv "$OUT" "$OUT.INVALIDATED"
   echo "MATRIX-INVALID: llama-benchy rc=$rc, $rows csv line(s) -> ${OUT}.INVALIDATED (run discarded)"
   exit 1
 fi
-echo "MATRIX-DONE: $rows lines -> $OUT"
+# Fail closed (#42), part 2 -- completeness: the matrix is a rectangular depth x concurrency grid. A COMPLETE
+# sweep has every requested concurrency level (the `--concurrency` arg above) present with the SAME cell
+# count; a partial sweep that still exited 0 leaves a RAGGED grid -- a missing level, or unequal per-level
+# counts. Model-INDEPENDENT: a model legitimately drops whole depths past its context (gemma 56 rows vs qwen
+# 104), but a complete run is ALWAYS rectangular -- so no hardcoded row count and no model-context guess (which
+# would fail-closed on good data). The concurrency level is the `(cN)` suffix on each test_name (col 2).
+# NOTE: the want{1,2,5,10} set below MUST mirror the --concurrency arg above (a test invariant guards this).
+read -r grid_ok cells_per < <(awk -F, '
+  NR==1{next}
+  match($2,/\(c[0-9]+\)/){ c=substr($2,RSTART+2,RLENGTH-3); cnt[c]++ }
+  END{ want["1"]=want["2"]=want["5"]=want["10"]=1; ok=1; base=-1
+       for(c in want){ if(!(c in cnt)) ok=0; else if(base<0) base=cnt[c]; else if(cnt[c]!=base) ok=0 }
+       for(c in cnt){ if(!(c in want)) ok=0 }
+       print ok, (base<0?0:base) }' "$OUT")
+if [ "$grid_ok" != 1 ]; then
+  mv "$OUT" "$OUT.INVALIDATED"
+  echo "MATRIX-INVALID: ragged concurrency grid (need equal cells across c1,c2,c5,c10) -> ${OUT}.INVALIDATED (run discarded)"
+  exit 1
+fi
+echo "MATRIX-DONE: $rows lines, ${cells_per} cells x c{1,2,5,10} -> $OUT"
