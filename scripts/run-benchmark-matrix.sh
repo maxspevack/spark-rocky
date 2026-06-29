@@ -63,4 +63,17 @@ if [ "$grid_ok" != 1 ]; then
   echo "MATRIX-INVALID: ragged concurrency grid (need equal cells across c1,c2,c5,c10) -> ${OUT}.INVALIDATED (run discarded)"
   exit 1
 fi
+# Fail closed (#43) — thermal integrity: stop the templog trace, then scan it post-hoc. A thermally-throttled
+# sweep's numbers are polluted; discard so they never reach a median/receipt. Post-hoc (not a mid-run kill) so
+# it CANNOT false-trip a good run. Composes with the grid check above. check-throttle exit: 0 clean/warn,
+# 1 throttled→discard, 3 indeterminate (no signal in trace)→keep+warn.
+[ -n "$TPID" ] && { kill "$TPID" 2>/dev/null; TPID=""; sleep 1; }
+if [ -x /root/check-throttle.sh ] && [ -f "$TLOG" ]; then
+  /root/check-throttle.sh "$TLOG"; thr=$?
+  if [ "$thr" = 1 ]; then
+    mv "$OUT" "$OUT.THROTTLED"
+    echo "MATRIX-INVALID: GPU thermally throttled during the sweep -> ${OUT}.THROTTLED (run discarded, #43)"
+    exit 1
+  fi
+fi
 echo "MATRIX-DONE: $rows lines, ${cells_per} cells x c{1,2,5,10} -> $OUT"

@@ -141,6 +141,7 @@ cp -f "$MNT/boot/efi/EFI/rocky/grub.cfg" "$MNT/boot/efi/EFI/BOOT/grub.cfg" 2>/de
 # run /root/templog.sh alongside a benchmark for a forensic trace — logging only, it throttles nothing).
 [ -f "$HERE/proof-of-life.sh" ] && install -m755 "$HERE/proof-of-life.sh" "$MNT/root/proof-of-life.sh"
 [ -f "$HERE/templog.sh" ] && install -m755 "$HERE/templog.sh" "$MNT/root/templog.sh"
+[ -f "$HERE/check-throttle.sh" ] && install -m755 "$HERE/check-throttle.sh" "$MNT/root/check-throttle.sh"   # #43 post-hoc throttle gate (run-benchmark-matrix calls /root/check-throttle.sh)
 # Verify the built image carries kernel + initramfs + grub BEFORE the flash (advisor: artifacts, not banners).
 VERR=0
 [ -f "$MNT/boot/vmlinuz-$KVER" ] || { echo "VERIFY-FAIL: no vmlinuz-$KVER in image"; VERR=1; }

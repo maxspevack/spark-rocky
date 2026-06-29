@@ -64,6 +64,11 @@ want_c=$(grep -oE 'want\["[0-9]+"\]' scripts/run-benchmark-matrix.sh | grep -oE 
 if [ -n "$arg_c" ] && [ "$arg_c" = "$want_c" ]; then ok "#42 grid-check want{} matches --concurrency arg ($arg_c)"; else no "#42 grid-check want{} ($want_c) != --concurrency ($arg_c)"; fi
 # 04 pins a FIXED ESP partition GUID so a USB-first firmware boot entry survives re-flashes (#47).
 if grep -qF 'sgdisk -u 1:A84952EE-452B-44B3-ACB5-B036BA8E6B0D' scripts/04-build-image.sh; then ok "04 pins the fixed ESP GUID (#47)"; else no "04 missing the fixed ESP GUID — USB-first won't survive re-flash (#47)"; fi
+# Post-hoc throttle integrity (#43): templog captures the signal, the detector fails closed, the runner consumes it, the image bakes it.
+if grep -qF 'thermal_slowdown' scripts/templog.sh; then ok "templog captures the throttle signal (thermal_slowdown, #43)"; else no "templog missing the throttle signal (#43)"; fi
+if [ -f scripts/check-throttle.sh ] && grep -qF 'THROTTLED' scripts/check-throttle.sh; then ok "check-throttle.sh present + fails closed on a throttled run (#43)"; else no "check-throttle.sh missing or not fail-closed (#43)"; fi
+if grep -qF 'check-throttle.sh' scripts/run-benchmark-matrix.sh; then ok "run-benchmark-matrix consumes the throttle check (#43, composes with #42)"; else no "run-benchmark-matrix does not call check-throttle (#43)"; fi
+if grep -qF 'check-throttle.sh' scripts/04-build-image.sh; then ok "04 bakes check-throttle.sh into the image (#43)"; else no "04 does not bake check-throttle.sh (#43)"; fi
 
 echo
 echo "RESULT: $pass passed, $fail failed"
