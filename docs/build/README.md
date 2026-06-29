@@ -8,4 +8,5 @@ How deliverable #1 was built and how to reproduce it from source. This is the OS
 - [`software-stack.md`](software-stack.md) — the layer-by-layer stack and the delta vs DGX OS.
 - [`third-party.md`](third-party.md) — adopted upstreams, version pins, and the zero-patch accounting.
 - [`release.md`](release.md) — the maintainer release runbook: package, sign, tag, verify.
+- [`downstream.md`](downstream.md) — building **on** spark-rocky as a downstream: the signed-release consumption contract (pin + verify + extend) + the `01`→`07` divergence seams (kernel / packages / validation). The M6 enablement.
 - [`debug-hatch.md`](debug-hatch.md) — the locked-image debug-access model.
