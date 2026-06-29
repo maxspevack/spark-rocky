@@ -8,8 +8,10 @@
 #   DRIVER  NVIDIA/open-gpu-kernel-modules GitHub releases    (via gh, authenticated -> no rate limit)
 #   ROCKY   Rocky mirror directory listing                    (INFORMATIONAL: a new 10.x notifies, never triggers)
 #
-# Two real pins only. CUDA / container-toolkit / docker are NOT pinned (they float from the gpgcheck'd repos,
-# a rebuild picks up current for free) — no pin to diff means no scraper to rot, so they are deliberately absent.
+# CUDA is PINNED (config/versions.env CUDA_VER) — a deliberate hold at the serving-container version (#28),
+# NOT a drift-tracked feed: bumping it is a reviewable #26 diff, never an auto-pickup, so there is no DRIFT
+# row to fire. container-toolkit + docker DO float from the gpgcheck'd repos (a rebuild picks up current for
+# free — no pin, no scraper to rot), so they are deliberately absent here.
 # Runs on a dev box (needs curl + python3 + gh); it is a sensor for the human who authors the #26 pin-bump PR.
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"

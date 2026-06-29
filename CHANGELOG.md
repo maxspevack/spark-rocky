@@ -8,6 +8,36 @@ The release invariant is **served == tag == HEAD** (enforced by `scripts/07-veri
 bytes in the bucket match the git tag they were built from. Each release below names the kernel release it
 ships (`uname -r`).
 
+## [spark-rocky-live-20260629] — 2026-06-29 · `6.18.37` (64k pages)
+
+A stay-current release (#55/#26): same thesis — Rocky 10.2 + a stock upstream 6.18 kernel + the open NVIDIA
+driver 610.43.02, **zero carried patches**, 64k pages — moved forward to the latest upstream point release,
+with the build's CUDA pin made explicit and the boot `dmesg` baseline documented.
+
+### Changed
+- **Kernel → upstream `6.18.37`** (from `6.18.35`), via the documented stay-current mechanism: bump `KVER` + a
+  `KERNEL_SHA256` taken from kernel.org's **GPG-signed `sha256sums.asc`** (verified against the kernel.org
+  autosigner key `B886 8C80 BA62 A1FF FAF5 FDA9 632D 3A06 589D A6B1`), then rebuild. `olddefconfig` carried the
+  GB10 `.config` forward; the `01` SIGNAL-READOUT was diffed symbol-for-symbol against `6.18.35` — **every GB10
+  enablement symbol holds the same value, nothing dropped** — and `CONFIG_ARM64_64K_PAGES=y` is preserved
+  (`uname -r` stays the plain `6.18.37`, `getconf PAGESIZE` = `65536`).
+- **Rocky 10.2 userspace refreshed** to the current package set (it floats — `02` installs current packages at
+  `ROCKY_RELEASEVER=10`). The NVIDIA open driver stays at `610.43.02` (verified upstream-latest).
+- **CUDA pinned explicitly.** The image's proof-of-life CUDA compiler (`02`'s `nvcc` + `cudart`) is now a
+  reviewable `CUDA_VER=13-0` pin in `config/versions.env` instead of a package-name hardcode that silently
+  rotted. The value is held at `13.0` — identical to the digest-pinned serving-container CUDA (#28), so the
+  parity narrative is unchanged. (This is *not* the parity CUDA; that lives in the serving containers and is out
+  of scope for a Live-USB release.) `drift-check.sh`'s header is corrected to state CUDA is pinned, not floating.
+
+### Added
+- [`docs/build/dmesg-baseline.md`](docs/build/dmesg-baseline.md) — the GB10 boot `err/crit` census, each line
+  root-caused and marked benign, so future builds diff against it instead of re-litigating. It records the
+  `6.18.35 → 6.18.37` baseline-diff gate: identical except three WiFi/BT firmware-missing lines, which are a
+  `linux-firmware` subpackage-split artifact (unused radios on a wired box), **not** a kernel regression.
+
+### Notes
+- Supersedes [spark-rocky-live-20260617]. Same `served == tag == HEAD` integrity gate (`07-verify`, #35).
+
 ## [spark-rocky-live-20260617] — 2026-06-17 · `6.18.35` (64k pages)
 
 The 64k-page, state-of-the-art release. Same thesis (Rocky 10.2 + a stock upstream 6.18 kernel + the open
@@ -88,5 +118,6 @@ spark-arena.com benchmarks at parity.
 - Release integrity: GPG-signed `CHECKSUM` (ed25519, fp `71C1 6676 F9D4 0A4C E0C6 EB66 08B1 4BC3 9831 1101`),
   served at `gs://spark-rocky`, with the `served == tag == HEAD` gate (#35).
 
+[spark-rocky-live-20260629]: https://github.com/maxspevack/spark-rocky/releases/tag/spark-rocky-live-20260629
 [spark-rocky-live-20260617]: https://github.com/maxspevack/spark-rocky/releases/tag/spark-rocky-live-20260617
 [spark-rocky-live-20260612]: https://github.com/maxspevack/spark-rocky/releases/tag/spark-rocky-live-20260612

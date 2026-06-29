@@ -9,7 +9,7 @@ source "$HERE/../config/versions.env"          # KVER, DRIVER_VER, ROCKY_RELEASE
 W="${W:-$(dirname "$HERE")}"                    # workdir: kernel tree + rootfs + image live here
 [ -d "$W/linux-$KVER" ] || { echo "FATAL: kernel tree $W/linux-$KVER missing — run 01-build-kernel.sh first"; exit 1; }
 
-docker run --rm -v "$W":/host -e KVER="$KVER" -e RV="$ROCKY_RELEASEVER" rockylinux/rockylinux:10 bash -c '
+docker run --rm -v "$W":/host -e KVER="$KVER" -e RV="$ROCKY_RELEASEVER" -e CUDA_VER="$CUDA_VER" rockylinux/rockylinux:10 bash -c '
 set -euo pipefail
 dnf install -y -q make kmod findutils >/dev/null 2>&1   # base image lacks these; needed for modules_install/depmod
 R=/host/rocky-img/rootfs; rm -rf "$R"; mkdir -p "$R" /host/rocky-img
@@ -36,7 +36,7 @@ cp /etc/yum.repos.d/cuda.repo "$R/etc/yum.repos.d/cuda.repo"
 # toolkit + container stack post-install (the cuda.repo is configured here for exactly that).
 echo "[rootfs] installing minimal CUDA (nvcc + cudart) ..."
 dnf -y --installroot="$R" --releasever="$RV" --setopt=install_weak_deps=False install \
-  cuda-nvcc-13-0 cuda-cudart-devel-13-0 >>/host/rocky-img/rootfs.log 2>&1
+  cuda-nvcc-${CUDA_VER} cuda-cudart-devel-${CUDA_VER} >>/host/rocky-img/rootfs.log 2>&1
 echo "[rootfs] installing our $KVER kernel + modules (stripped) ..."
 cp /host/linux-$KVER/arch/arm64/boot/Image "$R/boot/vmlinuz-$KVER"
 # INSTALL_MOD_STRIP=1: strip debug symbols on install. Without it the modules tree is ~8.9G of debug-laden
