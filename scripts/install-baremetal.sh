@@ -20,6 +20,14 @@ command -v mkfs.ext4>/dev/null || { echo "ABORT: mkfs.ext4 missing"; exit 1; }
 USE_RSYNC=0; command -v rsync >/dev/null && USE_RSYNC=1
 echo "rsync available: $USE_RSYNC (0 = use cp -ax)"
 umount -R /mnt/dgx 2>/dev/null; umount ${TGT}p1 ${TGT}p2 2>/dev/null; true
+# Typed confirmation (#34): this WIPES $TGT — no one-command default. Require an explicit typed phrase.
+# (ASSUME_YES=1 only for unattended automation that has confirmed out-of-band. For staying current on an
+# existing install, prefer the non-destructive scripts/upgrade-metal.sh instead of this wipe.)
+if [ "${ASSUME_YES:-0}" != 1 ]; then
+  echo "About to ERASE $TGT ($(lsblk -dno SIZE,MODEL "$TGT" 2>/dev/null)) and install Rocky $ROCKY_RELEASEVER + $KVER. ALL DATA ON IT IS DESTROYED."
+  read -r -p "Type 'WIPE $TGT' exactly to proceed: " ans
+  [ "$ans" = "WIPE $TGT" ] || { echo "ABORT: confirmation not matched — nothing was wiped."; exit 1; }
+fi
 echo ">>> WIPING $TGT <<<"
 wipefs -a "$TGT" 2>/dev/null || true
 parted -s "$TGT" mklabel gpt
