@@ -32,10 +32,12 @@ vs the `-2026-06-10` 4k receipt):
 **zero source patches** (vermagic `6.18.35`), `nvidia-smi` works, a real CUDA matmul runs, and
 `getconf PAGESIZE` reports `65536`.
 
-**Honest caveat.** The matrix above is a strong N=3 signal against a `6.18.34`-4k baseline (a kernel-minor
-rides along) — not yet the formal same-version N≥5 A/B (still owed; `docs/benchmark/`). We judged the effect
-too large, too systematic, and too theory-consistent to be a point-release artifact, and committed to 64k as
-the opinionated default. **To build 4k, flip the one pin in `versions.env`.**
+**A settled opinionated default.** The matrix above is a directional signal against a `6.18.34`-4k baseline
+(a kernel-minor rides along, so it is not a controlled same-version A/B). We judged the effect too large, too
+systematic, and too theory-consistent to be a point-release artifact, and **treat 64k as a settled design
+choice for this box** — we are not pursuing a formal same-version A/B to prove it further; the theory plus this
+directional evidence are the basis. It is an opinion, held deliberately, not a claim of proof. **If your
+workload differs, 4k is one pin-flip away in `versions.env`.**
 
 **How it's enforced (the process, not just a flag).** `PAGE_SIZE` is a pinned, reviewable line; `01` flips
 `CONFIG_ARM64_64K_PAGES` from it (with **no** `LOCALVERSION` suffix — the kernel release stays plain `$KVER`,
