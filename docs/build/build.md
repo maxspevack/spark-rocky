@@ -8,7 +8,7 @@ How deliverable #1 is made, and how to rebuild it yourself. Everything carries *
 - ~40 GB free for the rootfs + image.
 
 ## The pipeline (run in order)
-All versions are pinned in one place, [`../../config/versions.env`](../../config/versions.env) (`KVER`, `DRIVER_VER`, `ROCKY_RELEASEVER`, and **`PAGE_SIZE`** — our opinionated `64k` page-size choice for the GB10 serving workload; see [platform-deltas](platform-deltas.md#page-size--the-opinionated-choice-64k)). Every script sources it; bumping a value and rebuilding is the whole "stay current" mechanism (below). `PAGE_SIZE` only flips `CONFIG_ARM64_64K_PAGES` in `01`; the kernel release stays plain `$KVER` (no `LOCALVERSION` suffix, so `uname -r` = `6.18.37`).
+All versions are pinned in one place, [`../../config/versions.env`](../../config/versions.env) (`KVER`, `DRIVER_VER`, `ROCKY_RELEASEVER`, and **`PAGE_SIZE`** — our opinionated `64k` page-size choice for the GB10 serving workload; see [platform-deltas](platform-deltas.md#page-size--the-opinionated-choice-64k)). Every script sources it; bumping a value and rebuilding is the whole "stay current" mechanism (below). `PAGE_SIZE` only flips `CONFIG_ARM64_64K_PAGES` in `01`; the kernel release stays plain `$KVER` (no `LOCALVERSION` suffix, so `uname -r` = `6.18.38`).
 
 | Step | Script | Produces |
 |---|---|---|
@@ -32,7 +32,7 @@ sudo fwupdmgr upgrade
 As of 2026-06-11 the box reports the latest LVFS publishes (UEFI `0x0200980f`, EC `0x03000302`, USB-C PD `0x00000516`); the GPU VBIOS and GSP ride the driver. Benchmarks therefore run on the **same firmware a DGX OS box would** — no firmware confound. The per-delta analysis is in [`platform-deltas.md`](platform-deltas.md).
 
 ## Staying current
-To pick up a new kernel (e.g. `6.18.35` → `6.18.37`) or Rocky updates:
+To pick up a new kernel (e.g. `6.18.37` → `6.18.38`) or Rocky updates:
 1. Bump the version(s) in [`../../config/versions.env`](../../config/versions.env). One file; nothing else hardcodes a version. The base GB10 `.config` carries forward — `01`'s `olddefconfig` adapts it and prints the carried-vs-upstream symbol readout.
 2. Rocky userspace updates come for free: `02` installs current packages at `ROCKY_RELEASEVER`.
 3. Rebuild `01`→`04`. The open module is rebuilt against the new kernel — `02b`/`03` assert `vermagic == KVER` and fail otherwise.

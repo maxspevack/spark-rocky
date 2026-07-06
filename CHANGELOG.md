@@ -8,6 +8,31 @@ The release invariant is **served == tag == HEAD** (enforced by `scripts/07-veri
 bytes in the bucket match the git tag they were built from. Each release below names the kernel release it
 ships (`uname -r`).
 
+## [spark-rocky-live-20260706] — 2026-07-06 · `6.18.38` (64k pages)
+
+A stay-current release (#57/#26): same thesis — Rocky 10.2 + a stock upstream 6.18 kernel + the open NVIDIA
+driver 610.43.02, **zero carried patches**, 64k pages — moved to the latest upstream point release, and the
+Rocky 10.2 userspace refreshed.
+
+### Changed
+- **Kernel → upstream `6.18.38`** (from `6.18.37`), via the documented stay-current mechanism: bump `KVER` + a
+  `KERNEL_SHA256` taken from kernel.org's **GPG-signed `sha256sums.asc`** (verified against the kernel.org
+  autosigner key `B886 8C80 BA62 A1FF FAF5 FDA9 632D 3A06 589D A6B1`; sha `ac26e508…`), then rebuild.
+  `olddefconfig` carried the GB10 `.config` forward; the `01` SIGNAL-READOUT diffed **symbol-for-symbol
+  identical to `6.18.37`** — every GB10 enablement symbol unchanged, `CONFIG_ARM64_64K_PAGES=y` preserved
+  (`uname -r` = `6.18.38`, `getconf PAGESIZE` = `65536`).
+- **Rocky 10.2 userspace refreshed** to the current package set (it floats — `02` installs current packages at
+  `ROCKY_RELEASEVER=10`). Driver stays `610.43.02`, CUDA pin stays `13-0` (both upstream-current).
+
+### Validated
+- Boot-validated on the GB10: the NVMe metal was upgraded in place to 6.18.38 (`upgrade-metal.sh`, non-destructive,
+  6.18.37 kept as the GRUB fallback) + a userspace `dnf update`, rebooted, and `proof-of-life` PASS (open driver
+  auto-loads, `nvidia-smi`, CUDA `vectorAdd`). The `6.18.37 → 6.18.38` `dmesg` baseline-diff gate was clean — no
+  new `err/crit` line beyond the documented platform baseline ([`docs/build/dmesg-baseline.md`](docs/build/dmesg-baseline.md)).
+
+### Notes
+- Supersedes [spark-rocky-live-20260629]. Same `served == tag == HEAD` integrity gate (`07-verify`, #35).
+
 ## [spark-rocky-live-20260629] — 2026-06-29 · `6.18.37` (64k pages)
 
 A stay-current release (#55/#26): same thesis — Rocky 10.2 + a stock upstream 6.18 kernel + the open NVIDIA
@@ -118,6 +143,7 @@ spark-arena.com benchmarks at parity.
 - Release integrity: GPG-signed `CHECKSUM` (ed25519, fp `71C1 6676 F9D4 0A4C E0C6 EB66 08B1 4BC3 9831 1101`),
   served at `gs://spark-rocky`, with the `served == tag == HEAD` gate (#35).
 
+[spark-rocky-live-20260706]: https://github.com/maxspevack/spark-rocky/releases/tag/spark-rocky-live-20260706
 [spark-rocky-live-20260629]: https://github.com/maxspevack/spark-rocky/releases/tag/spark-rocky-live-20260629
 [spark-rocky-live-20260617]: https://github.com/maxspevack/spark-rocky/releases/tag/spark-rocky-live-20260617
 [spark-rocky-live-20260612]: https://github.com/maxspevack/spark-rocky/releases/tag/spark-rocky-live-20260612

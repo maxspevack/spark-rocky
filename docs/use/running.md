@@ -1,6 +1,6 @@
 # Run spark-rocky on your DGX Spark
 
-A signed Live USB image runs Rocky Linux 10.2, the stock upstream **6.18.37 kernel with 64k pages** (`uname -r` → `6.18.37`; `getconf PAGESIZE` → `65536`), and the open NVIDIA driver 610.43.02 on the GB10. **Non-destructive: it boots from the USB only; your internal NVMe (DGX OS, models, data) is not mounted or written.** Three steps: flash, boot, check.
+A signed Live USB image runs Rocky Linux 10.2, the stock upstream **6.18.38 kernel with 64k pages** (`uname -r` → `6.18.38`; `getconf PAGESIZE` → `65536`), and the open NVIDIA driver 610.43.02 on the GB10. **Non-destructive: it boots from the USB only; your internal NVMe (DGX OS, models, data) is not mounted or written.** Three steps: flash, boot, check.
 
 You need an 8 GB or larger USB stick (the image is 6 GB uncompressed) and a Linux or macOS host to write it.
 

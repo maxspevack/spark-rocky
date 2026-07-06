@@ -1,9 +1,10 @@
-# dmesg err/crit baseline (GB10, 6.18.37)
+# dmesg err/crit baseline (GB10, 6.18.38)
 
 A durable census of the kernel `err`/`crit` lines a healthy spark-rocky box emits at boot, each root-caused
 and marked benign, so a future build's `dmesg -t -l err,crit,alert,emerg` can be diffed against this instead
-of re-litigated. **None of these affect the GPU/CUDA path** (proof-of-life passes). Captured 2026-06-29 on the
-GB10 booting the 6.18.37 image.
+of re-litigated. **None of these affect the GPU/CUDA path** (proof-of-life passes). The census below was
+captured on the GB10; the stay-current gate re-confirms it each release (see the release-diff sections at the
+end). Steady since 6.18.35 — the platform baseline does not move across 6.18.y point releases.
 
 ## The baseline (benign — GB10 platform + minimal-image artifacts)
 
@@ -49,6 +50,17 @@ a release).
 
 **Gate result: PASS** — `err/crit(6.18.37) ⊆ err/crit(6.18.35)` plus three explained, benign firmware lines;
 the mlx5 missing-firmware flood (#30/#40) is absent on both.
+
+## 6.18.37 → 6.18.38 baseline diff (the stay-current gate, 2026-07-06)
+
+Diffed the running 6.18.37 metal's `err/crit` set (captured before the in-place upgrade) against the 6.18.38
+metal's (captured after reboot). **Identical — 22 distinct / 29 total on both, zero new lines.** The `01`
+SIGNAL-READOUT was also symbol-for-symbol identical 6.18.37→6.18.38 (no GB10 symbol changed). A clean
+point-bump: nothing new to explain. (Both are the metal, which carries the MediaTek firmware, so neither shows
+the three benign WiFi/BT lines the minimal *image* logs — that delta is the packaging split documented above,
+unchanged.)
+
+**Gate result: PASS** — `err/crit(6.18.38) == err/crit(6.18.37)`.
 
 ## Reboot messages (benign)
 

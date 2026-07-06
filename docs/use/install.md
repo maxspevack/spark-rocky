@@ -18,7 +18,7 @@ sudo scripts/upgrade-metal.sh
 It installs the freshly-built `$KVER` (kernel + modules + open `.ko` + a zstd initramfs) **alongside** the
 running kernel, makes it the GRUB default, and **keeps the currently-running kernel as a labeled fallback**.
 Your data, docker, and SSH keys are untouched. Reboot; if anything is off, pick the previous kernel at the 5-second
-menu. *Validated on the GB10 (2026-06-29): 6.18.35-64k → 6.18.37 in place — booted, `proof-of-life` CUDA PASS,
+menu. *Validated on the GB10 (2026-07-06): 6.18.37 → 6.18.38 in place — booted, `proof-of-life` CUDA PASS,
 fallback retained.*
 
 ## Clean install (destructive wipe)
