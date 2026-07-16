@@ -93,8 +93,13 @@ fi
 # auto-generate an EPHEMERAL signing key and embed its cert in the kernel Image — nondeterministic
 # bytes that break build reproducibility — while the out-of-tree open nvidia module stays unsigned
 # regardless. Same reasoning as the kernelorg path; a .config choice, not a source patch.
+# MODULE_SIG_ALL must be disabled EXPLICITLY: CLK'"'"'s RHEL-lineage patches decouple it from MODULE_SIG
+# (it survives =y with MODULE_SIG off — a state upstream cannot express) and key the modules_install
+# SIGN step on it, so an emptied key path dies in sign-file with an SSL DECODER error (hit on the
+# GB10, 2026-07-16, CLK ciq-6.18.y @ b1a607d).
 scripts/config --set-str SYSTEM_TRUSTED_KEYS "" --set-str SYSTEM_REVOCATION_KEYS "" \
-  --set-str MODULE_SIG_KEY "" --disable MODULE_SIG --disable SECURITY_LOCKDOWN_LSM 2>/dev/null || true
+  --set-str MODULE_SIG_KEY "" --disable MODULE_SIG --disable MODULE_SIG_ALL \
+  --disable SECURITY_LOCKDOWN_LSM 2>/dev/null || true
 # Page-size variant (default 4k). 64k flips the ARM64 page-size choice; olddefconfig recomputes
 # PAGE_SHIFT/PGTABLE_LEVELS. NOTE: no LOCALVERSION suffix -- the kernel release stays plain $KVER
 # (uname -r = $KVER); the 64k choice lives in the .config symbol + the provenance stamp, not in uname.

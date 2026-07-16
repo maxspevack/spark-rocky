@@ -42,6 +42,7 @@ done
 # The signing/cert neutralization applies to BOTH kernel sources (the CLK configs carry MODULE_SIG=y +
 # the default key path — a tarball build would embed an ephemeral cert = nondeterministic Image bytes).
 if grep -qF 'Neutralize distro signing/cert baggage on BOTH paths' scripts/01-build-kernel.sh; then ok "01 neutralizes signing baggage on both kernel sources"; else no "01 signing neutralization is not both-paths"; fi
+if grep -qF -- '--disable MODULE_SIG_ALL' scripts/01-build-kernel.sh; then ok "01 disables MODULE_SIG_ALL explicitly (CLK decouples it from MODULE_SIG)"; else no "01 missing the MODULE_SIG_ALL disable — CLK modules_install SIGN step dies on the empty key"; fi
 # Suffix-drop stays done: kernel release is plain $KVER — no LOCALVERSION suffix, no KREL variable anywhere.
 if grep -rqF -- '--set-str LOCALVERSION' scripts/; then no "LOCALVERSION suffix reintroduced (uname must stay plain KVER)"; else ok "no LOCALVERSION suffix in any script"; fi
 if grep -qw 'KREL' scripts/*.sh;             then no "KREL variable reintroduced (kernel release must be plain KVER)"; else ok "no KREL variable in any build script"; fi
