@@ -8,6 +8,36 @@ The release invariant is **served == tag == HEAD** (enforced by `scripts/07-veri
 bytes in the bucket match the git tag they were built from. Each release below names the kernel release it
 ships (`uname -r`).
 
+## [spark-rocky-live-20260716] — 2026-07-16 · `6.18.38` (64k pages)
+
+A stay-current release (#58): same thesis — Rocky 10.2 + a stock upstream 6.18 kernel + the open NVIDIA
+driver, **zero carried patches**, 64k pages — with the driver moved to the latest upstream point release and
+the `.run` brought under the same pinned-hash discipline as the kernel tarball.
+
+### Changed
+- **NVIDIA open driver → `610.43.03`** (from `610.43.02`; upstream published 2026-07-07). The open-module
+  source delta is one upstream commit: version headers + a DisplayPort connector fix (`dp_connectorimpl.cpp`),
+  dormant on this compute-only image (`nvidia-drm.modeset=0`). GSP firmware rides the driver → `610.43.03`.
+  Kernel stays `6.18.38` (still the latest 6.18.y longterm at cut time); Rocky `10.2` + `CUDA_VER=13-0`
+  unchanged.
+- **The driver `.run` is now hash-pinned** (`DRIVER_SHA256` in `versions.env`), closing the asymmetry with
+  `KERNEL_SHA256`: NVIDIA publishes no signed checksums for the `.run`, so the pin is trust-on-first-download
+  (TLS + the `.run`'s embedded `--check` self-test, both verified at bump time) — and `02b`/`02c` fail closed
+  on any mismatch, so every rebuild consumes byte-identical driver input. `make test` grows 56 → 60 (pin
+  format + both consumer gates).
+- Parity receipts remain benched on `610.43.02` — a driver point bump does not re-run the matrix; the
+  receipt-vs-shipped coordinates are qualified in `proof.md` / `software-stack.md` (the same treatment as
+  "benched on 6.18.34").
+
+### Validated
+- On the GB10 metal: the new `.ko` set (vermagic `6.18.38`) + `.run` userspace + a rebuilt initramfs were
+  installed in place (the `610.43.02` modules + `.run` staged as an offline rollback), rebooted; `nvidia-smi`
+  reports driver + GSP `610.43.03`, CUDA `vectorAdd` PASS. The `610.43.02 → 610.43.03` `dmesg` baseline-diff
+  gate was clean — identical `err/crit` set, zero new lines ([`docs/build/dmesg-baseline.md`](docs/build/dmesg-baseline.md)).
+
+### Notes
+- Supersedes [spark-rocky-live-20260706]. Same `served == tag == HEAD` integrity gate (`07-verify`, #35).
+
 ## [spark-rocky-live-20260706] — 2026-07-06 · `6.18.38` (64k pages)
 
 A stay-current release (#57/#26): same thesis — Rocky 10.2 + a stock upstream 6.18 kernel + the open NVIDIA
@@ -143,6 +173,7 @@ spark-arena.com benchmarks at parity.
 - Release integrity: GPG-signed `CHECKSUM` (ed25519, fp `71C1 6676 F9D4 0A4C E0C6 EB66 08B1 4BC3 9831 1101`),
   served at `gs://spark-rocky`, with the `served == tag == HEAD` gate (#35).
 
+[spark-rocky-live-20260716]: https://github.com/maxspevack/spark-rocky/releases/tag/spark-rocky-live-20260716
 [spark-rocky-live-20260706]: https://github.com/maxspevack/spark-rocky/releases/tag/spark-rocky-live-20260706
 [spark-rocky-live-20260629]: https://github.com/maxspevack/spark-rocky/releases/tag/spark-rocky-live-20260629
 [spark-rocky-live-20260617]: https://github.com/maxspevack/spark-rocky/releases/tag/spark-rocky-live-20260617

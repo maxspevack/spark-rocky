@@ -59,7 +59,7 @@ NVIDIA publishes the GB10 platform firmware (system UEFI, Embedded Controller, U
 stock `fwupd` applies it — no DGX OS, no Enterprise entitlement, no proprietary tool (`fwupdmgr enable-remote
 lvfs && fwupdmgr refresh && fwupdmgr upgrade`). As of 2026-06-11 this box is on the **latest published**: UEFI
 `0x0200980f` (2026-04-02), EC `0x03000302`, USB-C PD `0x00000516`, confirmed against LVFS (stable + testing) and
-NVIDIA's release notes. GPU VBIOS `9A.0B.25.00.00` and GSP `610.43.02` ride the driver and are current with it.
+NVIDIA's release notes. GPU VBIOS `9A.0B.25.00.00` and GSP `610.43.03` ride the driver and are current with it.
 **Consequence:** parity benchmarks run on the same latest firmware a DGX OS box runs — no firmware confound.
 
 ## Ledger

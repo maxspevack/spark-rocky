@@ -62,6 +62,17 @@ unchanged.)
 
 **Gate result: PASS** — `err/crit(6.18.38) == err/crit(6.18.37)`.
 
+## Driver 610.43.02 → 610.43.03 baseline diff (the stay-current gate, 2026-07-16)
+
+Diffed the 6.18.38 metal's `err/crit` set on driver 610.43.02 (the 2026-07-06 baseline) against the same
+metal after the in-place driver bump to 610.43.03 (new open `.ko` set + `.run` userspace + rebuilt
+initramfs; kernel unchanged). **Identical — 22 distinct lines on both, zero new.** The open-module source
+delta for the bump is one upstream commit: version headers + a DisplayPort connector fix
+(`dp_connectorimpl.cpp`), dormant on this compute-only image (`nvidia-drm.modeset=0`). GSP firmware rides
+the driver — `610.43.03` after the bump, loaded clean.
+
+**Gate result: PASS** — `err/crit(610.43.03) == err/crit(610.43.02)`, same kernel `6.18.38`.
+
 ## Reboot messages (benign)
 
 `watchdog: watchdog0: watchdog did not stop!` on reboot (#49) — **kept deliberately, cosmetic.** `watchdog0`

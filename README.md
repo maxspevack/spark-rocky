@@ -1,6 +1,6 @@
 # spark-rocky
 
-Run the **NVIDIA DGX Spark (GB10)** on **Rocky Linux 10.2 + a stock upstream 6.18 kernel + the open NVIDIA driver 610.43.02** — **zero carried patches** — and reproduce published [spark-arena.com](https://spark-arena.com) single-host benchmarks at parity.
+Run the **NVIDIA DGX Spark (GB10)** on **Rocky Linux 10.2 + a stock upstream 6.18 kernel + the open NVIDIA driver 610.43.03** — **zero carried patches** — and reproduce published [spark-arena.com](https://spark-arena.com) single-host benchmarks at parity.
 
 *Soft-launched and unsupported: a personal-repo release, provided as-is. Not a CIQ product, and no support commitment.*
 

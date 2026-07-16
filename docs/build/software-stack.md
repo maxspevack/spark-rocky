@@ -16,15 +16,15 @@ Conflating them is what makes `PyTorch not found` look alarming. They exist on p
 | **2** | **Serving container** (`vllm-node*`) | Docker, on the host | the **AI stack** that runs the model on the GPU (**held constant**) | **Yes — torch 2.11.0+cu130** |
 | **3** | **Benchmark client** `llama-benchy` | host, ephemeral `uvx` venv | sends HTTP, counts tokens/sec | **No — and shouldn't** |
 
-Verified inventory (2026-06-10, on the bare-metal box):
+Verified inventory (2026-07-16, on the bare-metal box):
 
 ```
 ENV 1 — HOST (ours, the swapped layer)
   OS                       Rocky Linux 10.2 (Red Quartz)
   kernel                   6.18.38      upstream mainline, 64k pages, ZERO patches  (the shipped kernel; parity was benched on 6.18.34/4k — see build.md + platform-deltas.md)
-  GPU driver               610.43.02 open module, WE built it
+  GPU driver               610.43.03 open module, WE built it            (the shipped driver; parity was benched on 610.43.02)
   platform firmware        NVIDIA's latest, via public fwupd/LVFS      (see build.md → Firmware)
-  docker                   29.5.3 ; nvidia-container-toolkit 1.19.1
+  docker                   29.6.1 ; nvidia-container-toolkit 1.19.1
   CUDA toolkit (host)      13.0      used to BUILD the driver; not used to serve
   python torch?            NOT INSTALLED   ← correct; models don't run on the host
 
@@ -47,13 +47,13 @@ would be the actual mistake.
 ```
   [ENV 3 host]  llama-benchy ──HTTP /v1──► [ENV 2 container] vLLM ─► flashinfer ─► torch ─► libcudart(13.0)
   ════════ container boundary; nvidia-container-toolkit injects the HOST libcuda ════════
-                                          libcuda.so 610.43.02   (driver API — [ENV 1 host])
-                                          nvidia.ko  610.43.02   (open kernel module — [ENV 1 host])
+                                          libcuda.so 610.43.03   (driver API — [ENV 1 host])
+                                          nvidia.ko  610.43.03   (open kernel module — [ENV 1 host])
                                                   GB10 Grace Blackwell (silicon)
 ```
 
 The seam that matters: the container ships the CUDA **runtime** (13.0) + PyTorch, but uses **our host driver's**
-`libcuda.so` (610.43.02), injected at container start. A driver API is forward-compatible with equal-or-older
+`libcuda.so` (610.43.03), injected at container start. A driver API is forward-compatible with equal-or-older
 CUDA runtimes — 610 supports CUDA 13.0 — so the container runs unmodified on our self-built driver. Stock DGX
 OS shipped driver 580.159.03 (also CUDA 13.0); both satisfy the container, which is why the swap is invisible
 to the workload.
@@ -68,8 +68,8 @@ Everything we changed is **below** the container boundary (the host). Everything
 | **GPU silicon** | GB10 (sm_121), 121 GB unified | *same* | **CONSTANT** — the leaderboard is keyed to "DGX Spark" |
 | **OS userspace** | Ubuntu 24.04.4 LTS | **Rocky Linux 10.2** | **OURS** |
 | **Kernel** | `6.17.0-1021-nvidia` (vendored, NVIDIA-patched, gcc 13.3.0) | **stock upstream 6.18.38, ZERO patches, 64k pages** (gcc 14.3.1) — parity benched on `6.18.34`/4k | **OURS** — vendor kernel → stock mainline + our 64k page-size choice |
-| **GPU kernel driver** | open `580.159.03` (NVIDIA-built) | **open `610.43.02`, WE built** (in `rockylinux:10`, against the stock tree, zero source patches) | **OURS** — both *open*; our delta is version + that we built it against a stock kernel |
-| **Driver userspace** (`libcuda.so`) | 580.159.03 | **610.43.02** (host; injected into the container) | **OURS** |
+| **GPU kernel driver** | open `580.159.03` (NVIDIA-built) | **open `610.43.03`, WE built** (in `rockylinux:10`, against the stock tree, zero source patches) — parity benched on `610.43.02` | **OURS** — both *open*; our delta is version + that we built it against a stock kernel |
+| **Driver userspace** (`libcuda.so`) | 580.159.03 | **610.43.03** (host; injected into the container) | **OURS** |
 | **Platform firmware** | NVIDIA, via DGX OS OTA | **NVIDIA's latest, via public fwupd/LVFS** | **CONSTANT** — same firmware, different delivery path (no DGX OS needed) |
 | **Container runtime** | docker + toolkit (Ubuntu pkgs) | docker + toolkit (Rocky pkgs) | **OURS, functionally equivalent** |
 | ═══ container boundary ═══ | | | |

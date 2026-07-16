@@ -21,6 +21,8 @@ source config/versions.env
 [[ "$KVER" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]     && ok "versions.env: KVER is x.y.z ($KVER)"            || no "versions.env: KVER malformed ($KVER)"
 [[ "$PAGE_SIZE" == 4k || "$PAGE_SIZE" == 64k ]] && ok "versions.env: PAGE_SIZE is 4k|64k ($PAGE_SIZE)" || no "versions.env: PAGE_SIZE invalid ($PAGE_SIZE)"
 [[ "$KERNEL_SHA256" =~ ^[0-9a-f]{64}$ ]]      && ok "versions.env: KERNEL_SHA256 is 64 hex"          || no "versions.env: KERNEL_SHA256 malformed"
+[[ "$DRIVER_VER" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] && ok "versions.env: DRIVER_VER is x.y.z ($DRIVER_VER)" || no "versions.env: DRIVER_VER malformed ($DRIVER_VER)"
+[[ "$DRIVER_SHA256" =~ ^[0-9a-f]{64}$ ]]      && ok "versions.env: DRIVER_SHA256 is 64 hex"          || no "versions.env: DRIVER_SHA256 malformed"
 [[ "$KERNEL_SOURCE" == kernelorg || "$KERNEL_SOURCE" == clk ]] && ok "versions.env: KERNEL_SOURCE is kernelorg|clk ($KERNEL_SOURCE)" || no "versions.env: KERNEL_SOURCE invalid ($KERNEL_SOURCE)"
 [ -f "$KCONFIG" ]                             && ok "versions.env: KCONFIG points at a real base config" || no "versions.env: KCONFIG missing ($KCONFIG)"
 vmaj(){ echo "v${1%%.*}.x"; }; if [ "$(vmaj 6.18.35)" = v6.x ] && [ "$(vmaj 7.0.0)" = v7.x ]; then ok "kernel.org v-major derivation (6.18->v6.x, 7.0->v7.x)"; else no "v-major derivation wrong"; fi
@@ -37,6 +39,9 @@ if grep -qF '28b52ffd' scripts/04-build-image.sh;          then ok "04 verifies 
 if grep -qF 'resolv.conf' scripts/04-build-image.sh;       then ok "04 gives the chroot DNS (resolv.conf — #44 root cause)"; else no "04 chroot has no resolv.conf — chroot dnf will fail (#44)"; fi
 if grep -qF 'omit-drivers "mlx5' scripts/04-build-image.sh; then ok "04 omits mlx5 from the initramfs (no early coldplug load, #30)"; else no "04 does not omit mlx5 — it coldplug-loads in the initramfs (#30)"; fi
 if grep -qF 'fbcon=nodefer' scripts/04-build-image.sh;      then ok "04 cmdline has fbcon=nodefer (no late console-takeover glitch)"; else no "04 missing fbcon=nodefer (autologin/console blank glitch)"; fi
+# Driver .run supply-chain gate: both consumers verify against the pinned DRIVER_SHA256, fail-closed (#58).
+if grep -qF 'DRIVER_SHA256' scripts/02b-install-gpu-docker.sh && grep -qF 'refusing to extract' scripts/02b-install-gpu-docker.sh; then ok "02b verifies the .run against pinned DRIVER_SHA256 before extract"; else no "02b missing the .run sha256 gate"; fi
+if grep -qF 'DRIVER_SHA256' scripts/02c-driver-userspace.sh && grep -qF 'refusing to install' scripts/02c-driver-userspace.sh; then ok "02c verifies the .run against pinned DRIVER_SHA256 before install"; else no "02c missing the .run sha256 gate"; fi
 # The doctor is self-contained: no dependency on a sibling proof-of-life.sh.
 if grep -qF 'proof-of-life' scripts/validate.sh; then no "validate.sh still depends on proof-of-life.sh (must be self-contained)"; else ok "validate.sh is self-contained (inlines its own CUDA proof)"; fi
 # Page-size -> config-symbol mapping (what 05's fail-closed page-size gate keys on).

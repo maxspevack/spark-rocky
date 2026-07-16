@@ -1,6 +1,6 @@
 # A standard Rocky Linux stack runs NVIDIA's DGX Spark – at single-host inference parity, and you can confirm it yourself
 
-> Rocky 10.2 + a stock upstream 6.18 kernel + the open NVIDIA driver 610.43.02, on the GB10, reproduces the community's own [spark-arena.com](https://spark-arena.com) single-host benchmarks. Every host change is auditable, the stack stays current through stock public tooling, and the published numbers came back.
+> Rocky 10.2 + a stock upstream 6.18 kernel + the open NVIDIA 610 driver, on the GB10, reproduces the community's own [spark-arena.com](https://spark-arena.com) single-host benchmarks. Every host change is auditable, the stack stays current through stock public tooling, and the published numbers came back.
 
 ## The proof
 
@@ -55,7 +55,7 @@ Everything swapped in is stock, current, and built from source — the exact coo
 |---|---|
 | OS | Rocky Linux 10.2 |
 | Kernel | stock mainline **6.18.38** (64k pages; parity benched on 6.18.34/4k) |
-| Driver | open NVIDIA **610.43.02**, built from source unmodified |
+| Driver | open NVIDIA **610.43.03**, built from source unmodified (parity benched on 610.43.02) |
 | CUDA | **13.0** |
 
 **CUDA — the layer that actually moves inference numbers — is held identical to the stack the published entries ran on**, so the reproduced parity is a property of the OS/kernel/driver swap, not a CUDA artifact. Parity is not superiority.

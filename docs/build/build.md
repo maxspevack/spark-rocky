@@ -4,7 +4,7 @@ How deliverable #1 is made, and how to rebuild it yourself. Everything carries *
 
 ## Prerequisites (build host)
 - An **aarch64** Linux host with **Docker** — the kernel and the open module build in `rockylinux:10` containers, so the host toolchain doesn't matter. A second DGX Spark, or any ARM box, works.
-- The NVIDIA driver `.run` (610.43.02) for the userspace stage. Network access for Rocky packages + CUDA.
+- The NVIDIA driver `.run` (the `DRIVER_VER` pinned in `versions.env`, verified against `DRIVER_SHA256`) for the userspace stage. Network access for Rocky packages + CUDA.
 - ~40 GB free for the rootfs + image.
 
 ## The pipeline (run in order)

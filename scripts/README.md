@@ -9,7 +9,7 @@ The mechanism behind deliverable #1. Full walkthrough + prerequisites: [`docs/bu
 | `01-build-kernel.sh` | stock upstream `$KVER` (from `versions.env`; currently 6.18.38) + `config/rocky-6.18.34-gb10.config` (base config — carries forward to newer `$KVER` via `olddefconfig`; the resolved `config-$KVER` is what the manifest hashes), built in `rockylinux:10` |
 | `02-build-rootfs.sh` | Rocky 10.2 rootfs with that kernel |
 | `02b-install-gpu-docker.sh` | CUDA + container runtime in the rootfs |
-| `02c-driver-userspace.sh` | 610.43.02 driver userspace (`.run --no-kernel-modules`) |
+| `02c-driver-userspace.sh` | pinned `DRIVER_VER` driver userspace, sha256-gated (`.run --no-kernel-modules`) |
 | `03-build-nvidia-open.sh` | the open kernel module, built in `rockylinux:10` (el10 gcc 14.3.1) |
 | `04-build-image.sh` | the bootable image: `nvidia-drm.modeset=0` (compute-only GPU, EFI-fb console), autologin, `mlx5_core` blacklist, masks `swap.target` + `systemd-firstboot`; bakes the one-command debug enabler (see [`docs/build/debug-hatch.md`](../docs/build/debug-hatch.md)). Flash to USB is optional (`DEV=/dev/null` skips it). |
 

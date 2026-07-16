@@ -9,7 +9,7 @@ source "$HERE/../config/versions.env"          # KVER, DRIVER_VER, ROCKY_RELEASE
 W="${W:-$(dirname "$HERE")}"
 [ -d "$W/rocky-img/rootfs" ] || { echo "FATAL: rootfs missing — run 02-build-rootfs.sh first"; exit 1; }
 
-docker run --rm -v "$W":/host -e KVER="$KVER" -e DRIVER_VER="$DRIVER_VER" -e RV="$ROCKY_RELEASEVER" rockylinux/rockylinux:10 bash -c '
+docker run --rm -v "$W":/host -e KVER="$KVER" -e DRIVER_VER="$DRIVER_VER" -e DRIVER_SHA256="$DRIVER_SHA256" -e RV="$ROCKY_RELEASEVER" rockylinux/rockylinux:10 bash -c '
 set -euo pipefail
 R=/host/rocky-img/rootfs
 dnf install -y -q make gcc kmod findutils tar xz wget curl >/dev/null 2>&1
@@ -38,11 +38,13 @@ dnf -y --installroot="$R" --releasever="$RV" --setopt=install_weak_deps=False in
 echo "[gpu] ensure driver .run downloaded + extracted at /host/driver-610 (shared with 02c/03)"
 RUN=NVIDIA-Linux-aarch64-$DRIVER_VER.run
 DRV=/host/driver-610/NVIDIA-Linux-aarch64-$DRIVER_VER
-if [ ! -d "$DRV" ]; then
-  mkdir -p /host/driver-610; cd /host/driver-610
-  [ -f "$RUN" ] || curl -fsSL -m300 -o "$RUN" "https://us.download.nvidia.com/XFree86/aarch64/$DRIVER_VER/$RUN"
-  sh "$RUN" -x >/dev/null 2>&1
-fi
+mkdir -p /host/driver-610; cd /host/driver-610
+[ -f "$RUN" ] || curl -fsSL -m300 -o "$RUN" "https://us.download.nvidia.com/XFree86/aarch64/$DRIVER_VER/$RUN"
+# Fail-closed: the .run must match the pinned DRIVER_SHA256 (versions.env) before anything consumes it.
+echo "$DRIVER_SHA256  $RUN" | sha256sum -c - >/dev/null 2>&1 \
+  || { echo "FATAL: $RUN sha256 != pinned DRIVER_SHA256 (versions.env) — refusing to extract"; exit 1; }
+echo "[gpu] .run verified against pinned DRIVER_SHA256"
+[ -d "$DRV" ] || sh "$RUN" -x >/dev/null 2>&1
 
 echo "[gpu] building + installing open .ko (against $KVER, el10 gcc-14) into rootfs"
 cd "$DRV/kernel-open"

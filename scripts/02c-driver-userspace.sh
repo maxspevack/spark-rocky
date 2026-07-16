@@ -8,12 +8,15 @@ source "$HERE/../config/versions.env"          # KVER, DRIVER_VER, ROCKY_RELEASE
 W="${W:-$(dirname "$HERE")}"
 [ -d "$W/rocky-img/rootfs" ] || { echo "FATAL: rootfs missing — run 02-build-rootfs.sh first"; exit 1; }
 
-docker run --rm --privileged -v "$W":/host -e DRIVER_VER="$DRIVER_VER" rockylinux/rockylinux:10 bash -c '
+docker run --rm --privileged -v "$W":/host -e DRIVER_VER="$DRIVER_VER" -e DRIVER_SHA256="$DRIVER_SHA256" rockylinux/rockylinux:10 bash -c '
 set -euo pipefail
 R=/host/rocky-img/rootfs
 RUN=NVIDIA-Linux-aarch64-$DRIVER_VER.run
 SRC=/host/driver-610/$RUN
 [ -f "$SRC" ] || { echo "FATAL: $SRC missing — run 02b first (it downloads the .run)"; exit 1; }
+# Fail-closed: same pinned-hash gate as 02b (each stage is standalone-runnable; verify at point of use).
+echo "$DRIVER_SHA256  $SRC" | sha256sum -c - >/dev/null 2>&1 \
+  || { echo "FATAL: $SRC sha256 != pinned DRIVER_SHA256 (versions.env) — refusing to install"; exit 1; }
 cp "$SRC" "$R/tmp/"
 for m in proc sys dev dev/pts; do mkdir -p "$R/$m"; mount --bind "/$m" "$R/$m" 2>/dev/null || true; done
 echo "=== running .run userspace-only inside the rootfs chroot ==="
