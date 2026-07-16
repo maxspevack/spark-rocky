@@ -34,6 +34,14 @@ if grep -qF 'build.env' scripts/01-build-kernel.sh; then ok "01 writes build.env
 for s in 02-build-rootfs.sh 02b-install-gpu-docker.sh 03-build-nvidia-open.sh 04-build-image.sh; do
   if grep -qF 'build.env' "scripts/$s"; then ok "$s sources build.env"; else no "$s missing build.env source (CLK KVER would not propagate)"; fi
 done
+# build.env is stale-gated: 01 stamps source+commit; every downstream consumer fails closed on a mismatch.
+if grep -qF 'BUILD_KERNEL_SOURCE=$KERNEL_SOURCE' scripts/01-build-kernel.sh && grep -qF 'BUILD_CLK_COMMIT' scripts/01-build-kernel.sh; then ok "01 stamps build.env with source + CLK commit"; else no "01 build.env missing the source/commit stamps"; fi
+for s in 02-build-rootfs.sh 02b-install-gpu-docker.sh 03-build-nvidia-open.sh 04-build-image.sh; do
+  if grep -qF 'stale build.env' "scripts/$s"; then ok "$s fails closed on a stale build.env"; else no "$s does not gate build.env staleness"; fi
+done
+# The signing/cert neutralization applies to BOTH kernel sources (the CLK configs carry MODULE_SIG=y +
+# the default key path — a tarball build would embed an ephemeral cert = nondeterministic Image bytes).
+if grep -qF 'Neutralize distro signing/cert baggage on BOTH paths' scripts/01-build-kernel.sh; then ok "01 neutralizes signing baggage on both kernel sources"; else no "01 signing neutralization is not both-paths"; fi
 # Suffix-drop stays done: kernel release is plain $KVER — no LOCALVERSION suffix, no KREL variable anywhere.
 if grep -rqF -- '--set-str LOCALVERSION' scripts/; then no "LOCALVERSION suffix reintroduced (uname must stay plain KVER)"; else ok "no LOCALVERSION suffix in any script"; fi
 if grep -qw 'KREL' scripts/*.sh;             then no "KREL variable reintroduced (kernel release must be plain KVER)"; else ok "no KREL variable in any build script"; fi

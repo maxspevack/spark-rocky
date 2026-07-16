@@ -80,7 +80,6 @@ cd linux-$KVER
 # --- Select config ---
 if [ "$KERNEL_SOURCE" = clk ]; then
   # Use the CLK tree'"'"'s own aarch64 config (64k or 4k based on PAGE_SIZE).
-  # No signing key neutralization needed — CLK configs already handle this.
   if [ "$PAGE_SIZE" = 64k ]; then
     cp ciq/configs/kernel-aarch64-64k.config .config
   else
@@ -88,10 +87,14 @@ if [ "$KERNEL_SOURCE" = clk ]; then
   fi
 else
   cp /work/dgx-config .config
-  # neutralize distro signing/cert baggage that breaks out-of-distro builds
-  scripts/config --set-str SYSTEM_TRUSTED_KEYS "" --set-str SYSTEM_REVOCATION_KEYS "" \
-    --set-str MODULE_SIG_KEY "" --disable MODULE_SIG --disable SECURITY_LOCKDOWN_LSM 2>/dev/null || true
 fi
+# Neutralize distro signing/cert baggage on BOTH paths. The CLK configs carry MODULE_SIG=y with the
+# default certs/signing_key.pem key path (verified at the pinned commit), so a tarball build would
+# auto-generate an EPHEMERAL signing key and embed its cert in the kernel Image — nondeterministic
+# bytes that break build reproducibility — while the out-of-tree open nvidia module stays unsigned
+# regardless. Same reasoning as the kernelorg path; a .config choice, not a source patch.
+scripts/config --set-str SYSTEM_TRUSTED_KEYS "" --set-str SYSTEM_REVOCATION_KEYS "" \
+  --set-str MODULE_SIG_KEY "" --disable MODULE_SIG --disable SECURITY_LOCKDOWN_LSM 2>/dev/null || true
 # Page-size variant (default 4k). 64k flips the ARM64 page-size choice; olddefconfig recomputes
 # PAGE_SHIFT/PGTABLE_LEVELS. NOTE: no LOCALVERSION suffix -- the kernel release stays plain $KVER
 # (uname -r = $KVER); the 64k choice lives in the .config symbol + the provenance stamp, not in uname.
@@ -115,9 +118,10 @@ make -j"$(nproc)" Image modules >/work/build-$KVER.log 2>&1
 echo "BUILD-RC=$?"
 [ -f arch/arm64/boot/Image ] && echo "KERNEL-BUILT $KVER ($(ls -la arch/arm64/boot/Image | awk "{print \$5}") bytes)"
 cp .config /work/config-$KVER
-# Write resolved KVER so the host and downstream scripts (02/03/04) use the right version.
-# For kernelorg this equals the pinned KVER; for CLK it is derived from the source Makefile.
-echo "KVER=$KVER" > /work/build.env
+# Write the resolved-KVER handoff for the host + downstream scripts (02/02b/03/04). For kernelorg
+# KVER equals the pin; for CLK it is derived from the source Makefile. The source + commit stamps
+# let downstream fail closed on a STALE build.env (mode or pin moved since this build ran).
+{ echo "KVER=$KVER"; echo "BUILD_KERNEL_SOURCE=$KERNEL_SOURCE"; echo "BUILD_CLK_COMMIT=${CLK_COMMIT:-}"; } > /work/build.env
 '
 # Source the resolved KVER from the container (may differ from versions.env for CLK builds)
 [ -f "$W/build.env" ] && source "$W/build.env"

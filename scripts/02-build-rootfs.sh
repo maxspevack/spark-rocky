@@ -7,7 +7,14 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 source "$HERE/../config/versions.env"          # KVER, DRIVER_VER, ROCKY_RELEASEVER, PAGE_SIZE
 W="${W:-$(dirname "$HERE")}"                    # workdir: kernel tree + rootfs + image live here
-[ -f "$W/build.env" ] && source "$W/build.env" # override KVER with resolved value from 01
+# build.env: 01's resolved-KVER handoff (clk derives KVER from the source Makefile). Fail closed on
+# staleness — a leftover build.env from a different source/pin must not silently steer this build.
+if [ -f "$W/build.env" ]; then
+  PIN_KVER=$KVER; source "$W/build.env"
+  [ "${BUILD_KERNEL_SOURCE:-}" = "$KERNEL_SOURCE" ] || { echo "FATAL: stale build.env (built from '${BUILD_KERNEL_SOURCE:-?}', pin is '$KERNEL_SOURCE') — rerun 01-build-kernel.sh"; exit 1; }
+  [ "$KERNEL_SOURCE" != kernelorg ] || [ "$KVER" = "$PIN_KVER" ] || { echo "FATAL: stale build.env (KVER $KVER != pinned $PIN_KVER) — rerun 01-build-kernel.sh"; exit 1; }
+  [ "$KERNEL_SOURCE" != clk ] || [ "${BUILD_CLK_COMMIT:-}" = "$CLK_COMMIT" ] || { echo "FATAL: stale build.env (CLK_COMMIT moved) — rerun 01-build-kernel.sh"; exit 1; }
+fi
 [ -d "$W/linux-$KVER" ] || { echo "FATAL: kernel tree $W/linux-$KVER missing — run 01-build-kernel.sh first"; exit 1; }
 
 docker run --rm -v "$W":/host -e KVER="$KVER" -e RV="$ROCKY_RELEASEVER" -e CUDA_VER="$CUDA_VER" rockylinux/rockylinux:10 bash -c '
