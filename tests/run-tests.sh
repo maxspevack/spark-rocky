@@ -76,6 +76,9 @@ if grep -qF 'check-throttle.sh' scripts/run-benchmark-matrix.sh; then ok "run-be
 if grep -qF 'check-throttle.sh' scripts/04-build-image.sh; then ok "04 bakes check-throttle.sh into the image (#43)"; else no "04 does not bake check-throttle.sh (#43)"; fi
 # Install-to-metal paths (#34): a NON-destructive in-place upgrade + a typed-confirm-guarded wipe; the wiper is NOT baked into the image.
 if [ -f scripts/upgrade-metal.sh ] && ! grep -qE 'wipefs|mklabel|mkfs\.' scripts/upgrade-metal.sh; then ok "upgrade-metal.sh present + non-destructive (no wipe/format, #34)"; else no "upgrade-metal.sh missing or it wipes/formats (#34)"; fi
+# upgrade-metal dispatches on what differs — kernel, driver-only, or refuses when both are current.
+if grep -qF 'driver-only' scripts/upgrade-metal.sh && grep -qF 'nothing to upgrade' scripts/upgrade-metal.sh; then ok "upgrade-metal dispatches kernel/driver-only/nothing"; else no "upgrade-metal missing the driver-only dispatch"; fi
+if grep -qF 'DRIVER_SHA256' scripts/upgrade-metal.sh && grep -qF 'refusing to install' scripts/upgrade-metal.sh; then ok "upgrade-metal sha256-gates the .run userspace install"; else no "upgrade-metal does not gate the .run against DRIVER_SHA256"; fi
 if grep -q 'nvidia-drm.modeset=0' scripts/upgrade-metal.sh && grep -q 'fbcon=nodefer' scripts/upgrade-metal.sh; then ok "upgrade-metal carries the 04 boot-hygiene cmdline (#34)"; else no "upgrade-metal missing the boot-hygiene cmdline (#34)"; fi
 if grep -qF 'WIPE $TGT' scripts/install-baremetal.sh; then ok "install-baremetal requires a typed WIPE confirmation (#34)"; else no "install-baremetal has no typed-confirmation guard (#34)"; fi
 if grep -qF 'install-baremetal.sh' scripts/04-build-image.sh; then no "the NVMe wiper is baked into the image — must stay a separate path (#34)"; else ok "the NVMe wiper is NOT baked into the image (#34)"; fi

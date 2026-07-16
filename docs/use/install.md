@@ -15,11 +15,16 @@ On the running metal (which is also the build host), after a successful `01`→`
 ```
 sudo scripts/upgrade-metal.sh
 ```
-It installs the freshly-built `$KVER` (kernel + modules + open `.ko` + a zstd initramfs) **alongside** the
-running kernel, makes it the GRUB default, and **keeps the currently-running kernel as a labeled fallback**.
-Your data, docker, and SSH keys are untouched. Reboot; if anything is off, pick the previous kernel at the 5-second
-menu. *Validated on the GB10 (2026-07-06): 6.18.37 → 6.18.38 in place — booted, `proof-of-life` CUDA PASS,
-fallback retained.*
+It converges the metal on the freshly-built tree, dispatching on what differs. A **kernel bump** installs the
+freshly-built `$KVER` (kernel + modules + open `.ko` + a zstd initramfs) **alongside** the running kernel,
+makes it the GRUB default, and **keeps the currently-running kernel as a labeled fallback**. A **driver-only
+bump** (same kernel) swaps the open `.ko` set, installs the matched `.run` userspace (sha256-gated against
+`DRIVER_SHA256`), and rebuilds the initramfs — GRUB untouched, the replaced `.ko` set staged under
+`/root/driver-rollback-<old-ver>/`. Your data, docker, and SSH keys are untouched either way. Reboot; for a
+kernel bump, if anything is off, pick the previous kernel at the 5-second menu. *Kernel path validated on the
+GB10 (2026-07-06): 6.18.37 → 6.18.38 in place — booted, `proof-of-life` CUDA PASS, fallback retained.
+Driver-only path encodes the sequence hardware-validated 2026-07-16: 610.43.02 → 610.43.03 — rebooted,
+driver+GSP `610.43.03`, CUDA PASS, dmesg baseline clean.*
 
 ## Clean install (destructive wipe)
 > Boot-from-USB is verified end to end. The NVMe **wipe** install is proven on the reference box but **not yet
