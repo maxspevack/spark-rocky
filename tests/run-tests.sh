@@ -25,9 +25,24 @@ source config/versions.env
 [[ "$DRIVER_SHA256" =~ ^[0-9a-f]{64}$ ]]      && ok "versions.env: DRIVER_SHA256 is 64 hex"          || no "versions.env: DRIVER_SHA256 malformed"
 [[ "$KERNEL_SOURCE" == kernelorg || "$KERNEL_SOURCE" == clk ]] && ok "versions.env: KERNEL_SOURCE is kernelorg|clk ($KERNEL_SOURCE)" || no "versions.env: KERNEL_SOURCE invalid ($KERNEL_SOURCE)"
 [ -f "$KCONFIG" ]                             && ok "versions.env: KCONFIG points at a real base config" || no "versions.env: KCONFIG missing ($KCONFIG)"
+[[ "$CLK_COMMIT" =~ ^[0-9a-f]{40}$ ]]        && ok "versions.env: CLK_COMMIT is a 40-hex SHA ($CLK_COMMIT)" || no "versions.env: CLK_COMMIT malformed ($CLK_COMMIT)"
 vmaj(){ echo "v${1%%.*}.x"; }; if [ "$(vmaj 6.18.35)" = v6.x ] && [ "$(vmaj 7.0.0)" = v7.x ]; then ok "kernel.org v-major derivation (6.18->v6.x, 7.0->v7.x)"; else no "v-major derivation wrong"; fi
 # 01 dispatches the kernel source + derives the v-major path (no hardcoded v6.x) -- the "move kernels" pre-work.
 if grep -qF 'KERNEL_SOURCE' scripts/01-build-kernel.sh && grep -qF 'v${KVER%%.*}.x' scripts/01-build-kernel.sh; then ok "01 has the kernel-source dispatch + derived v-major path"; else no "01 missing the kernel-source dispatch / v-major derivation"; fi
+# 01 writes build.env with the resolved KVER; downstream scripts (02/02b/03/04) source it so CLK-derived KVER propagates.
+if grep -qF 'build.env' scripts/01-build-kernel.sh; then ok "01 writes build.env with resolved KVER"; else no "01 does not write build.env"; fi
+for s in 02-build-rootfs.sh 02b-install-gpu-docker.sh 03-build-nvidia-open.sh 04-build-image.sh; do
+  if grep -qF 'build.env' "scripts/$s"; then ok "$s sources build.env"; else no "$s missing build.env source (CLK KVER would not propagate)"; fi
+done
+# build.env is stale-gated: 01 stamps source+commit; every downstream consumer fails closed on a mismatch.
+if grep -qF 'BUILD_KERNEL_SOURCE=$KERNEL_SOURCE' scripts/01-build-kernel.sh && grep -qF 'BUILD_CLK_COMMIT' scripts/01-build-kernel.sh; then ok "01 stamps build.env with source + CLK commit"; else no "01 build.env missing the source/commit stamps"; fi
+for s in 02-build-rootfs.sh 02b-install-gpu-docker.sh 03-build-nvidia-open.sh 04-build-image.sh; do
+  if grep -qF 'stale build.env' "scripts/$s"; then ok "$s fails closed on a stale build.env"; else no "$s does not gate build.env staleness"; fi
+done
+# The signing/cert neutralization applies to BOTH kernel sources (the CLK configs carry MODULE_SIG=y +
+# the default key path — a tarball build would embed an ephemeral cert = nondeterministic Image bytes).
+if grep -qF 'Neutralize distro signing/cert baggage on BOTH paths' scripts/01-build-kernel.sh; then ok "01 neutralizes signing baggage on both kernel sources"; else no "01 signing neutralization is not both-paths"; fi
+if grep -qF -- '--disable MODULE_SIG_ALL' scripts/01-build-kernel.sh; then ok "01 disables MODULE_SIG_ALL explicitly (CLK decouples it from MODULE_SIG)"; else no "01 missing the MODULE_SIG_ALL disable — CLK modules_install SIGN step dies on the empty key"; fi
 # Suffix-drop stays done: kernel release is plain $KVER — no LOCALVERSION suffix, no KREL variable anywhere.
 if grep -rqF -- '--set-str LOCALVERSION' scripts/; then no "LOCALVERSION suffix reintroduced (uname must stay plain KVER)"; else ok "no LOCALVERSION suffix in any script"; fi
 if grep -qw 'KREL' scripts/*.sh;             then no "KREL variable reintroduced (kernel release must be plain KVER)"; else ok "no KREL variable in any build script"; fi
