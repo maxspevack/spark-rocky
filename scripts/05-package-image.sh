@@ -13,6 +13,14 @@ set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 source "$HERE/../config/versions.env"                 # KVER, DRIVER_VER, ROCKY_RELEASEVER, KERNEL_SHA256, PAGE_SIZE
 W="${W:-$(dirname "$HERE")}"
+# build.env: 01's resolved-KVER handoff (clk derives the release, e.g. 6.18.38-clk). Fail closed on
+# staleness — the release stamp must never carry a KVER from a different source/pin than what built.
+if [ -f "$W/build.env" ]; then
+  PIN_KVER=$KVER; source "$W/build.env"
+  [ "${BUILD_KERNEL_SOURCE:-}" = "$KERNEL_SOURCE" ] || { echo "FATAL: stale build.env (built from '${BUILD_KERNEL_SOURCE:-?}', pin is '$KERNEL_SOURCE') — rerun 01-build-kernel.sh"; exit 1; }
+  [ "$KERNEL_SOURCE" != kernelorg ] || [ "$KVER" = "$PIN_KVER" ] || { echo "FATAL: stale build.env (KVER $KVER != pinned $PIN_KVER) — rerun 01-build-kernel.sh"; exit 1; }
+  [ "$KERNEL_SOURCE" != clk ] || [ "${BUILD_CLK_COMMIT:-}" = "$CLK_COMMIT" ] || { echo "FATAL: stale build.env (CLK_COMMIT moved) — rerun 01-build-kernel.sh"; exit 1; }
+fi
 SRC="${SRC:-$W/rocky-img/rocky-gb10.img}"             # derive like 04 derives IMG (was a hardcoded mismatch)
 OUTDIR="${OUTDIR:-$W/vend}"
 INIT_PW="${INIT_PW:-rocky}"                            # documented console password (root/rocky); no forced reset (test image)
@@ -69,6 +77,8 @@ build_id=${STAMP}
 git_describe=${GIT_DESC}
 git_commit=${GIT_COMMIT}
 kernel=${KVER}
+kernel_source=${KERNEL_SOURCE}
+clk_commit=${CLK_COMMIT:-}
 page_size=${PAGE_SIZE}
 driver=${DRIVER_VER}
 rocky_releasever=${ROCKY_RELEASEVER}
@@ -146,8 +156,8 @@ contents (introspected from the image)
 --------------------------------------
 os                  : ${OS_VER}
 kernel modules dir  : ${KMODS}
-kernel pin (KVER)   : ${KVER} (tarball verified against pinned SHA256, versions.env)
-kernel release      : ${KVER}
+kernel source       : ${KERNEL_SOURCE} $([ "$KERNEL_SOURCE" = clk ] && echo "(CIQ Linux Kernel, ctrliq/kernel-src-tree @ ${CLK_COMMIT:0:12})" || echo "(kernel.org tarball, GPG-verified SHA256 pin)")
+kernel release      : ${KVER} (uname -r; the -clk suffix = CLK lineage)
 page size           : ${PAGE_SIZE} (CONFIG_ARM64 page-size choice, pinned in versions.env)
 nvidia driver       : ${DRIVER_VER} (open kernel module, built in rockylinux:10 / gcc 14.3.1)
 cuda packages       : ${CUDA_PKGS:-none}

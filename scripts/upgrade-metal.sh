@@ -26,6 +26,14 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 source "$HERE/../config/versions.env"          # KVER, DRIVER_VER, DRIVER_SHA256 (+ the rest)
 W="${W:-$(dirname "$HERE")}"
+# build.env: 01's resolved-KVER handoff (clk derives the release, e.g. 6.18.38-clk). Fail closed on
+# staleness — never install a kernel whose source/pin diverged from the current versions.env.
+if [ -f "$W/build.env" ]; then
+  PIN_KVER=$KVER; source "$W/build.env"
+  [ "${BUILD_KERNEL_SOURCE:-}" = "$KERNEL_SOURCE" ] || { echo "FATAL: stale build.env (built from '${BUILD_KERNEL_SOURCE:-?}', pin is '$KERNEL_SOURCE') — rerun 01-build-kernel.sh"; exit 1; }
+  [ "$KERNEL_SOURCE" != kernelorg ] || [ "$KVER" = "$PIN_KVER" ] || { echo "FATAL: stale build.env (KVER $KVER != pinned $PIN_KVER) — rerun 01-build-kernel.sh"; exit 1; }
+  [ "$KERNEL_SOURCE" != clk ] || [ "${BUILD_CLK_COMMIT:-}" = "$CLK_COMMIT" ] || { echo "FATAL: stale build.env (CLK_COMMIT moved) — rerun 01-build-kernel.sh"; exit 1; }
+fi
 ROOT_UUID=$(findmnt -no UUID /)
 ROOT_DEV=$(findmnt -no SOURCE /)
 PREV=$(uname -r)

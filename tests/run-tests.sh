@@ -43,9 +43,20 @@ done
 # the default key path — a tarball build would embed an ephemeral cert = nondeterministic Image bytes).
 if grep -qF 'Neutralize distro signing/cert baggage on BOTH paths' scripts/01-build-kernel.sh; then ok "01 neutralizes signing baggage on both kernel sources"; else no "01 signing neutralization is not both-paths"; fi
 if grep -qF -- '--disable MODULE_SIG_ALL' scripts/01-build-kernel.sh; then ok "01 disables MODULE_SIG_ALL explicitly (CLK decouples it from MODULE_SIG)"; else no "01 missing the MODULE_SIG_ALL disable — CLK modules_install SIGN step dies on the empty key"; fi
-# Suffix-drop stays done: kernel release is plain $KVER — no LOCALVERSION suffix, no KREL variable anywhere.
-if grep -rqF -- '--set-str LOCALVERSION' scripts/; then no "LOCALVERSION suffix reintroduced (uname must stay plain KVER)"; else ok "no LOCALVERSION suffix in any script"; fi
-if grep -qw 'KREL' scripts/*.sh;             then no "KREL variable reintroduced (kernel release must be plain KVER)"; else ok "no KREL variable in any build script"; fi
+# The uname doctrine, refined 2026-07-17: uname carries SOURCE LINEAGE ("-clk", distro convention),
+# NEVER config properties (the 64k-suffix ban stays). Exactly ONE LOCALVERSION site is allowed: 01's
+# clk branch setting "-clk". No KREL variable — KVER itself is the derived kernel release.
+if [ "$(grep -rcF -- '--set-str LOCALVERSION "-clk"' scripts/01-build-kernel.sh)" = 1 ]; then ok "01 sets the clk lineage suffix (LOCALVERSION=-clk, exactly once)"; else no "01 missing/duplicated the clk LOCALVERSION lineage suffix"; fi
+if grep -rF -- '--set-str LOCALVERSION' scripts/ | grep -vF '"-clk"' | grep -q .; then no "a non-lineage LOCALVERSION crept in (config properties must stay out of uname)"; else ok "no non-lineage LOCALVERSION in any script"; fi
+if grep -qw 'KREL' scripts/*.sh;             then no "KREL variable reintroduced (KVER is the derived kernel release)"; else ok "no KREL variable in any build script"; fi
+# KVER becomes the DERIVED release post-olddefconfig (kernelrelease), and 05/upgrade-metal consume it
+# through the stale-gated build.env like the rest of the pipeline.
+if grep -qF 'make -s kernelrelease' scripts/01-build-kernel.sh; then ok "01 derives KVER from make kernelrelease"; else no "01 does not derive the kernel release"; fi
+for s in 05-package-image.sh upgrade-metal.sh; do
+  if grep -qF 'stale build.env' "scripts/$s"; then ok "$s fails closed on a stale build.env"; else no "$s does not gate build.env staleness"; fi
+done
+if grep -qF 'kernel_source=${KERNEL_SOURCE}' scripts/05-package-image.sh; then ok "05 stamps kernel_source + clk_commit provenance"; else no "05 provenance missing the kernel source"; fi
+if grep -qF 'ciq-6.18.y' scripts/drift-check.sh && grep -qF 'row CLK' scripts/drift-check.sh; then ok "drift-check: CLK branch tip is the trigger row"; else no "drift-check missing the CLK trigger row"; fi
 # Debug hatch reads the script-relative config (the W-vs-HERE bug that silently skipped baking it).
 if grep -qF 'HERE/../config/debug-authorized_keys' scripts/04-build-image.sh && ! grep -qF 'W/config/debug-authorized_keys' scripts/04-build-image.sh; then ok "04 debug hatch reads HERE/../config (not W/config)"; else no "04 debug hatch path bug present"; fi
 # zstd is gated + content-verified, not silently swallowed (#44).

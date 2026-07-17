@@ -85,6 +85,11 @@ if [ "$KERNEL_SOURCE" = clk ]; then
   else
     cp ciq/configs/kernel-aarch64.config .config
   fi
+  # LINEAGE in uname (Max, 2026-07-17): clk builds carry CONFIG_LOCALVERSION="-clk" so uname -r,
+  # /lib/modules, vermagic, the vmlinuz name, and the GRUB title all state the kernel is the CIQ
+  # Linux Kernel, not kernel.org — the .el9-style distro convention. This refines (not reverses)
+  # the suffix doctrine: uname carries SOURCE LINEAGE; config properties like page size stay out.
+  scripts/config --set-str LOCALVERSION "-clk"
 else
   cp /work/dgx-config .config
 fi
@@ -101,13 +106,21 @@ scripts/config --set-str SYSTEM_TRUSTED_KEYS "" --set-str SYSTEM_REVOCATION_KEYS
   --set-str MODULE_SIG_KEY "" --disable MODULE_SIG --disable MODULE_SIG_ALL \
   --disable SECURITY_LOCKDOWN_LSM 2>/dev/null || true
 # Page-size variant (default 4k). 64k flips the ARM64 page-size choice; olddefconfig recomputes
-# PAGE_SHIFT/PGTABLE_LEVELS. NOTE: no LOCALVERSION suffix -- the kernel release stays plain $KVER
-# (uname -r = $KVER); the 64k choice lives in the .config symbol + the provenance stamp, not in uname.
+# PAGE_SHIFT/PGTABLE_LEVELS. NOTE: page size NEVER rides uname — it lives in the .config symbol +
+# the provenance stamp. (Lineage DOES ride uname: the clk path sets LOCALVERSION="-clk" above.)
 if [ "$PAGE_SIZE" = 64k ]; then
   scripts/config --disable ARM64_4K_PAGES --enable ARM64_64K_PAGES
   echo "[build] 64k page-size variant (CONFIG_ARM64_64K_PAGES; no uname suffix)"
 fi
 make olddefconfig >/work/olddefconfig-$KVER.log 2>&1
+# From here on KVER IS the kernel RELEASE (make kernelrelease = version + LOCALVERSION), not the
+# bare pin: 6.18.38 for kernelorg, 6.18.38-clk for clk. The modules dir, vermagic, vmlinuz name,
+# GRUB title, and provenance stamp all follow via build.env. Rename the tree dir to match so every
+# downstream $W/linux-$KVER reference resolves.
+SRCDIR=$(basename "$PWD")
+KVER=$(make -s kernelrelease)
+if [ "$SRCDIR" != "linux-$KVER" ]; then cd ..; rm -rf "linux-$KVER"; mv "$SRCDIR" "linux-$KVER"; cd "linux-$KVER"; fi
+echo "[release] kernel release: $KVER ($KERNEL_SOURCE)"
 echo "===SIGNAL-READOUT=== ($KERNEL_SOURCE $KVER + GB10 config; ABSENT = not in tree = carried)"
 for s in ARM_SMMU_V3 ARM_SMMU_V3_SVA ARM_SMMU_V3_IOMMUFD TEGRA241_CMDQV IOMMU_SVA \
   PCI_ATS PCI_PASID PCI_PRI ARCH_TEGRA ARCH_TEGRA_241_SOC ARCH_TEGRA_264_SOC \
