@@ -7,7 +7,12 @@ How a verified spark-rocky release is cut. The invariant this process exists to 
 Run on the Spark (aarch64 — `05` chroots into the image):
 
 1. **Build from HEAD.** `01`→`05` (or `04`+`05` when the kernel, rootfs, and driver are unchanged). The `05` packaging gate is fail-closed: it re-verifies every hardening step against the mounted image and the manifest, and aborts without emitting a checksum if anything is wrong.
-2. **Sign**, on the host that holds the release key: `OUTDIR=<vend-dir> scripts/06-sign-release.sh`. Produces the GPG-clearsigned `CHECKSUM` and exports the public key. The passphrase comes from the human via pinentry; it is never scripted.
+2. **SERVE GATE (mandatory since #65/#67).** Put the built kernel on the metal (`upgrade-metal.sh`), reboot to a clean GPU pool, and run:
+   ```
+   scripts/serve-gate.sh          # brings up the pinned vllm-node, waits for /health 200 + a served model
+   ```
+   It must print `GATE-PASS`. This exercises the large (~90 GB) KV-cache allocation that `05` and `validate.sh`'s `vectorAdd` do **not** — the exact path the 64k regression ([#65](https://github.com/maxspevack/spark-rocky/issues/65)) faulted on. **A release that has not passed the serve gate on its own kernel is not signable.** `vectorAdd` green is necessary, not sufficient.
+3. **Sign**, on the host that holds the release key: `OUTDIR=<vend-dir> scripts/06-sign-release.sh`. Produces the GPG-clearsigned `CHECKSUM` and exports the public key. The passphrase comes from the human via pinentry; it is never scripted.
 3. **Tag the build commit:**
    ```
    git tag -f spark-rocky-live-<YYYYMMDD> <commit>

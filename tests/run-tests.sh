@@ -57,6 +57,9 @@ for s in 05-package-image.sh upgrade-metal.sh; do
 done
 if grep -qF 'kernel_source=${KERNEL_SOURCE}' scripts/05-package-image.sh; then ok "05 stamps kernel_source + clk_commit provenance"; else no "05 provenance missing the kernel source"; fi
 if grep -qF 'ciq-6.18.y' scripts/drift-check.sh && grep -qF 'row CLK' scripts/drift-check.sh; then ok "drift-check: CLK branch tip is the trigger row"; else no "drift-check missing the CLK trigger row"; fi
+# Serve gate (#67): exists, fails closed on a dead container, and is a documented pre-sign release step.
+if [ -f scripts/serve-gate.sh ] && grep -qF 'GATE-PASS' scripts/serve-gate.sh && grep -qF 'GATE-FAIL' scripts/serve-gate.sh; then ok "serve-gate.sh present + pass/fail-closed (#67)"; else no "serve-gate.sh missing or not fail-closed (#67)"; fi
+if grep -qF 'serve-gate.sh' docs/build/release.md; then ok "release runbook requires the serve gate pre-sign (#67)"; else no "release.md does not mandate the serve gate (#67)"; fi
 # Debug hatch reads the script-relative config (the W-vs-HERE bug that silently skipped baking it).
 if grep -qF 'HERE/../config/debug-authorized_keys' scripts/04-build-image.sh && ! grep -qF 'W/config/debug-authorized_keys' scripts/04-build-image.sh; then ok "04 debug hatch reads HERE/../config (not W/config)"; else no "04 debug hatch path bug present"; fi
 # zstd is gated + content-verified, not silently swallowed (#44).
