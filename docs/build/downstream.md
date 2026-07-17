@@ -71,14 +71,15 @@ The `01`→`07` pipeline has three seams where a downstream diverges by **config
 editing an upstream script or carrying a `.patch`. `config/versions.env` is the single pinned source of truth;
 every stage sources it.
 
-### Seam 1 — Kernel (`versions.env`: `KERNEL_SOURCE` + `KVER` + `KCONFIG`)
-`01-build-kernel.sh` dispatches on `KERNEL_SOURCE`. **`kernelorg` (a stock kernel.org tarball) is the live path
-today;** `clk` (a CIQ CLK kernel) is **in progress — #52, not wired yet.** The base `.config` (`$KCONFIG`, e.g.
-`config/rocky-6.18.34-gb10.config`) is a **deliberately-frozen base**: `olddefconfig` carries it forward to
-`$KVER`, so its filename pins the *base lineage*, not the built kernel version (that's `KVER`). **To diverge:**
-change `KVER` (and/or supply your own base `.config`) and reuse `01`→`07` unchanged; the `01` SIGNAL-READOUT
-prints the GB10-symbol delta so you see exactly what your kernel choice keeps vs upstream. A different
-`kernelorg` `KVER` runs today; a vendor/CLK kernel lands when its `KERNEL_SOURCE` is wired (#52).
+### Seam 1 — Kernel (`versions.env`: `KERNEL_SOURCE` + `CLK_COMMIT` / `KVER` + `KCONFIG`)
+`01-build-kernel.sh` dispatches on `KERNEL_SOURCE`. **`clk` (the CIQ Linux Kernel, commit-pinned from the
+public `ctrliq/kernel-src-tree`, built with its own aarch64 config, `uname` suffixed `-clk`) is the shipped
+default (since 2026-07-17, GB10-validated);** `kernelorg` (a stock kernel.org tarball + the `$KCONFIG` GB10
+base config, carried forward by `olddefconfig`) is the always-live A/B knob — the parity receipts were
+recorded on it. This seam is the worked example of downstream divergence: both kernels flow through the
+same `01`→`07` unchanged, the resolved release propagates via `build.env` (fail-closed staleness gates),
+and the `01` SIGNAL-READOUT prints the GB10-symbol delta for whatever tree you point it at. **To diverge:**
+flip `KERNEL_SOURCE`, or pin a different `CLK_COMMIT`/`KVER`, or supply your own base `.config`.
 
 ### Seam 2 — Packages (`02` / `02b`) — and where the layer goes relative to the `05` gate
 `02` lays down a current Rocky rootfs at `ROCKY_RELEASEVER`; `02b` adds the GPU stack (CUDA pin `CUDA_VER`,

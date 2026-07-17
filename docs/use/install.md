@@ -10,6 +10,10 @@ the internal NVMe. There are **two deliberate, repo-run paths — neither is bak
 | **In-place upgrade (non-destructive)** | `upgrade-metal.sh` | **staying current** on an existing spark-rocky install |
 | **Clean install (destructive wipe)** | `install-baremetal.sh` | a **bare disk / clean reinstall** |
 
+Both paths require **Secure Boot disabled**, same as the Live USB — the kernels are custom, unsigned
+builds (see the Secure Boot note in [`running.md`](running.md) and the boot-chain rationale in
+[`../build/build.md`](../build/build.md)).
+
 ## In-place upgrade (non-destructive) — preferred for staying current
 On the running metal (which is also the build host), after a successful `01`→`04` build:
 ```
@@ -47,5 +51,5 @@ driver+GSP `610.43.03`, CUDA PASS, dmesg baseline clean.*
 ```
 /root/proof-of-life.sh
 ```
-Confirms the OS, the kernel (`uname -r` = the pinned kernel), `nvidia-smi` (the GB10 and driver), and a CUDA
-`vectorAdd` on the GPU.
+Confirms the OS, the kernel (`uname -r` = the built release — `6.18.38-clk` on the default CLK path; the
+`-clk` suffix states the kernel lineage), `nvidia-smi` (the GB10 and driver), and a CUDA `vectorAdd` on the GPU.

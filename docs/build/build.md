@@ -8,7 +8,7 @@ How deliverable #1 is made, and how to rebuild it yourself. Everything carries *
 - ~40 GB free for the rootfs + image.
 
 ## The pipeline (run in order)
-All versions are pinned in one place, [`../../config/versions.env`](../../config/versions.env) (`KVER`, `DRIVER_VER`, `ROCKY_RELEASEVER`, and **`PAGE_SIZE`** — our opinionated `64k` page-size choice for the GB10 serving workload; see [platform-deltas](platform-deltas.md#page-size--the-opinionated-choice-64k)). Every script sources it; bumping a value and rebuilding is the whole "stay current" mechanism (below). `PAGE_SIZE` only flips `CONFIG_ARM64_64K_PAGES` in `01`; the kernel release stays plain `$KVER` (no `LOCALVERSION` suffix, so `uname -r` = `6.18.38`).
+All versions are pinned in one place, [`../../config/versions.env`](../../config/versions.env) (`KERNEL_SOURCE` — **`clk` is the default**, `CLK_COMMIT`, the `kernelorg` A/B pins `KVER`/`KCONFIG`/`KERNEL_SHA256`, `DRIVER_VER`+`DRIVER_SHA256`, `ROCKY_RELEASEVER`, and **`PAGE_SIZE`** — our opinionated `64k` page-size choice for the GB10 serving workload; see [platform-deltas](platform-deltas.md#page-size--the-opinionated-choice-64k)). Every script sources it; bumping a pin and rebuilding is the whole "stay current" mechanism (below). The kernel release is derived by `make kernelrelease`: clk builds carry the **`-clk` lineage suffix** (`uname -r` = `6.18.38-clk` — uname states *where the source came from*, the distro convention), while `PAGE_SIZE` only flips `CONFIG_ARM64_64K_PAGES` (config properties never ride uname). Integrity models differ honestly per source: kernel.org tarballs verify against a GPG-signed SHA256 pin; the CLK tarball is commit-addressed over TLS (GitHub archive bytes are not byte-stable, so no tarball hash exists to pin).
 
 | Step | Script | Produces |
 |---|---|---|
@@ -31,13 +31,34 @@ sudo fwupdmgr upgrade
 ```
 As of 2026-06-11 the box reports the latest LVFS publishes (UEFI `0x0200980f`, EC `0x03000302`, USB-C PD `0x00000516`); the GPU VBIOS and GSP ride the driver. Benchmarks therefore run on the **same firmware a DGX OS box would** — no firmware confound. The per-delta analysis is in [`platform-deltas.md`](platform-deltas.md).
 
+## Boot-chain posture (Secure Boot: unsupported by design)
+The kernels this pipeline produces are **unsigned**, and `01` deliberately neutralizes the in-kernel
+signing machinery on both source paths (`MODULE_SIG`, `MODULE_SIG_ALL`, `SYSTEM_TRUSTED_KEYS`,
+`SECURITY_LOCKDOWN_LSM`): with the distro key paths active, a tarball build auto-generates an
+*ephemeral* signing key and embeds its certificate in the kernel Image — nondeterministic bytes that
+break build reproducibility — while the out-of-tree open NVIDIA module would stay unsigned regardless.
+Consequences, stated plainly: **Secure Boot must be disabled on the box** (the validation Spark reports
+`SecureBoot disabled`, setup mode); the release's trust anchor is the **GPG-signed artifact**
+([`verify.md`](../use/verify.md)) — provenance of the bytes, not power-on boot-chain attestation.
+If a signed-boot requirement ever materializes, the path is a MOK-enrolled signing key + signed kernel
+and modules — a deliberate future project, not a pin-flip; nothing in the current pipeline pretends
+otherwise.
+
 ## Staying current
-To pick up a new kernel (e.g. `6.18.37` → `6.18.38`) or Rocky updates:
-1. Bump the version(s) in [`../../config/versions.env`](../../config/versions.env). One file; nothing else hardcodes a version. The base GB10 `.config` carries forward — `01`'s `olddefconfig` adapts it and prints the carried-vs-upstream symbol readout.
+The refresh trigger is **CLK, not kernel.org** (the clk default, 2026-07-17): the drift sensor fires when
+the `ciq-6.18.y` branch moves past the pinned `CLK_COMMIT`; kernel.org is reported as context (the
+`kernelorg` A/B pin). To pick up a new kernel or Rocky updates:
+1. Bump the pin in [`../../config/versions.env`](../../config/versions.env) — `CLK_COMMIT` for the shipped
+   kernel (read the branch delta first; the pin bump is a reviewable diff), or `KVER`+`KERNEL_SHA256` for
+   the kernelorg A/B path. One file; nothing else hardcodes a version.
 2. Rocky userspace updates come for free: `02` installs current packages at `ROCKY_RELEASEVER`.
-3. Rebuild `01`→`04`. The open module is rebuilt against the new kernel — `02b`/`03` assert `vermagic == KVER` and fail otherwise.
-4. Boot, then `proof-of-life.sh`: `uname -r` = the new `KVER`, `nvidia-smi`, the CUDA `vectorAdd`, and the wired NIC survives a warm reboot.
-5. Re-run a benchmark and confirm parity. That is the upgrade validated — a stock-mainline kernel makes a bump a config change, not a patch-rebase.
+3. Rebuild `01`→`04`. The kernel release is derived (`make kernelrelease` — clk builds carry the `-clk`
+   lineage suffix) and propagates via `build.env`; the open module is rebuilt against the new tree —
+   `02b`/`03` assert `vermagic == KVER` and fail otherwise.
+4. Boot, then `proof-of-life.sh`: `uname -r` = the new release (e.g. `6.18.38-clk`), `nvidia-smi`, the CUDA
+   `vectorAdd`, and the wired NIC survives a warm reboot.
+5. Re-run a benchmark and confirm parity. That is the upgrade validated — a pinned-tree kernel makes a bump
+   a config change, not a patch-rebase (this repo carries zero patches against either tree).
 
 ## Validation status
 The `01`→`04` chain was re-run clean-room on **2026-06-11**: it built a Live USB that boots the GB10 on the pinned stack, the open driver auto-loads, and the GPU computes (`proof-of-life` `vectorAdd` PASS), verified by booting off the USB and back **non-destructively**. That run found and fixed real bugs (module bloat, RHEL/Rocky `grub2-install`, a missing `depmod`/auto-load), all now in the scripts. **Honest edge:** `install-baremetal.sh` (the NVMe install) is not clean-room-validated — see [`../use/install.md`](../use/install.md).

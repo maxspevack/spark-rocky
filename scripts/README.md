@@ -6,7 +6,7 @@ The mechanism behind deliverable #1. Full walkthrough + prerequisites: [`docs/bu
 
 | Script | Produces |
 |---|---|
-| `01-build-kernel.sh` | stock upstream `$KVER` (from `versions.env`; currently 6.18.38) + `config/rocky-6.18.34-gb10.config` (base config — carries forward to newer `$KVER` via `olddefconfig`; the resolved `config-$KVER` is what the manifest hashes), built in `rockylinux:10` |
+| `01-build-kernel.sh` | the kernel selected by `KERNEL_SOURCE` (default **clk** = CIQ Linux Kernel @ `CLK_COMMIT`, its own aarch64 config, `-clk` uname lineage; `kernelorg` = stock tarball + the GB10 base config via `olddefconfig`), built in `rockylinux:10`; writes the derived release + source stamps to `build.env` |
 | `02-build-rootfs.sh` | Rocky 10.2 rootfs with that kernel |
 | `02b-install-gpu-docker.sh` | CUDA + container runtime in the rootfs |
 | `02c-driver-userspace.sh` | pinned `DRIVER_VER` driver userspace, sha256-gated (`.run --no-kernel-modules`) |
@@ -35,5 +35,5 @@ The mechanism behind deliverable #1. Full walkthrough + prerequisites: [`docs/bu
 
 | Script | Produces |
 |---|---|
-| `drift-check.sh` | drift sensor (#24): per pin, `current` (`versions.env`) vs `upstream` (kernel.org `releases.json` / NVIDIA open-module releases / Rocky mirror) → MATCH/DRIFT, exit 2 on drift. The [`.github/workflows/drift-check.yml`](../.github/workflows/drift-check.yml) scheduled workflow runs it weekly + on-demand and opens a `pin-drift` tracking issue — the "when do we rebuild?" trigger. Detect-and-signal only; the evidence-backed bump is #26. |
+| `drift-check.sh` | drift sensor (#24): per pin, `current` (`versions.env`) vs `upstream` (**the `ciq-6.18.y` CLK branch tip — the trigger row since the clk default** / NVIDIA open-module releases; kernel.org + Rocky mirror as INFO rows) → MATCH/DRIFT, exit 2 on drift. The [`.github/workflows/drift-check.yml`](../.github/workflows/drift-check.yml) scheduled workflow runs it weekly + on-demand and opens a `pin-drift` tracking issue — the "when do we rebuild?" trigger. Detect-and-signal only; the evidence-backed bump is #26. |
 

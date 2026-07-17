@@ -73,6 +73,20 @@ the driver — `610.43.03` after the bump, loaded clean.
 
 **Gate result: PASS** — `err/crit(610.43.03) == err/crit(610.43.02)`, same kernel `6.18.38`.
 
+## kernelorg 6.18.38 → CLK `6.18.38-clk` + firmware `0x02009b0b` — the re-baseline (2026-07-17)
+
+Two variables moved at once — deliberately, both release-defining: the kernel lineage (the CLK default)
+and the platform firmware (UEFI `0x0200980f` → `0x02009b0b`, EC `0x03000302` → `0x03000508`, via stock
+fwupd/LVFS). Census on the metal: **22 → 19 distinct `err/crit` lines.**
+- **GONE (6):** `ARM FF-A: failed to register FFA RxTx buffers`, the `PCI: OF: of_root node is NULL`
+  class, and the `NVDA8800:00` platform-device `-16` pair with both `cma __cma_alloc` failures — the
+  L4/L8/L9 ledger classes, **resolved by the new SoC/UEFI firmware**. The platform got quieter.
+- **NEW (3):** the MT7925 WiFi/BT firmware-missing class (`Bluetooth hci0` ×2 + `mt7925e hardware init
+  failed`) — the known-benign L6 radio class, surfacing on the metal under the CLK config's radio
+  probing. #56 (the radio blacklist, queued next) removes all three.
+
+**Gate result: PASS** — every direction-change explained; no unexplained new line.
+
 ## Reboot messages (benign)
 
 `watchdog: watchdog0: watchdog did not stop!` on reboot (#49) — **kept deliberately, cosmetic.** `watchdog0`

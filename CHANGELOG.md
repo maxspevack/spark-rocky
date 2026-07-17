@@ -8,6 +8,46 @@ The release invariant is **served == tag == HEAD** (enforced by `scripts/07-veri
 bytes in the bucket match the git tag they were built from. Each release below names the kernel release it
 ships (`uname -r`).
 
+## [spark-rocky-live-20260717] — 2026-07-17 · `6.18.38-clk` (64k pages) — the CLK release
+
+**The shipped kernel is now the CIQ Linux Kernel.** `KERNEL_SOURCE=clk` is the default, pinned to the
+public GPL [`ctrliq/kernel-src-tree`](https://github.com/ctrliq/kernel-src-tree) `ciq-6.18.y` @ `b1a607d`,
+built unmodified with its own aarch64 config — and the kernel says so itself: `uname -r` → **`6.18.38-clk`**
+(the lineage suffix, `.el9`-style), the GRUB menu reads `Rocky + 6.18.38-clk (GB10)`, and the provenance
+stamp carries `kernel_source=clk` + the exact commit. Stock kernel.org stays one pin-flip away
+(`KERNEL_SOURCE=kernelorg`) — it is where the parity receipts were recorded, and both trees run the GB10
+with zero patches carried by this repo.
+
+### Changed
+- **CLK default + lineage identity.** The kernel release is derived (`make kernelrelease`) and propagates
+  through the fail-closed `build.env` handoff into every stage — modules dir, vermagic, vmlinuz name, GRUB,
+  and the `05` stamps (`kernel_source=`, `clk_commit=`). The uname doctrine is refined, not reversed:
+  lineage rides uname; config properties (64k) never do.
+- **The refresh trigger is CLK, not kernel.org.** `drift-check` fires on `ciq-6.18.y` moving past
+  `CLK_COMMIT`; kernel.org is demoted to an INFO row (context for how far CLK trails upstream).
+- **Fully current at cut time, verified zero-pending** (image and metal): Rocky 10.2 userspace current
+  (`dnf check-update` = 0 in the image rootfs and on the box) and **platform firmware current via stock
+  fwupd/LVFS — UEFI `0x02009b0b` + EC `0x03000508` applied**, `fwupdmgr get-updates` clean. The new SoC
+  firmware resolved six long-standing platform `err/crit` lines (see `docs/build/dmesg-baseline.md`).
+- **#60 fixed:** the ESP GUID pin + backup-GPT relocation moved from sgdisk (fail-open: gdisk uninstallable
+  on the metal, three silently-unpinned flashes) to **sfdisk, fail-closed, read-back-verified**.
+- **Secure Boot posture documented** (`running.md`/`install.md`/`build.md`): SB must be disabled (unsigned
+  custom kernel; signing machinery deliberately neutralized for reproducibility); the release's trust
+  anchor is the GPG-signed artifact, not boot-chain attestation.
+
+### Validated
+- The CLK path was validated end-to-end on the GB10 before the flip (the 2026-07-17 overnight session,
+  #52/#54): boot, open driver 610.43.03 loaded, CUDA, and an 8 GiB `cudaMallocManaged` round-trip —
+  which also proved `DEVICE_PRIVATE` is **not load-bearing** on the coherent GB10 (`pageableMemoryAccess=1`).
+- This release's image: built clean (the `MODULE_SIG_ALL` fix in-pipeline), metal upgraded in place to
+  `6.18.38-clk` (kernelorg `6.18.38` kept as the GRUB fallback), rebooted on the new firmware: `nvidia-smi`
+  + GSP live, CUDA `vectorAdd` PASS, dmesg census **22 → 19** with every direction-change explained.
+- Parity receipts remain recorded on the stock-mainline host, qualified in `proof.md`/`software-stack.md`;
+  benchmark validation of the CLK default is queued as #61.
+
+### Notes
+- Supersedes [spark-rocky-live-20260716]. Same `served == tag == HEAD` integrity gate (`07-verify`, #35).
+
 ## [spark-rocky-live-20260716] — 2026-07-16 · `6.18.38` (64k pages)
 
 A stay-current release (#58): same thesis — Rocky 10.2 + a stock upstream 6.18 kernel + the open NVIDIA
@@ -173,6 +213,7 @@ spark-arena.com benchmarks at parity.
 - Release integrity: GPG-signed `CHECKSUM` (ed25519, fp `71C1 6676 F9D4 0A4C E0C6 EB66 08B1 4BC3 9831 1101`),
   served at `gs://spark-rocky`, with the `served == tag == HEAD` gate (#35).
 
+[spark-rocky-live-20260717]: https://github.com/maxspevack/spark-rocky/releases/tag/spark-rocky-live-20260717
 [spark-rocky-live-20260716]: https://github.com/maxspevack/spark-rocky/releases/tag/spark-rocky-live-20260716
 [spark-rocky-live-20260706]: https://github.com/maxspevack/spark-rocky/releases/tag/spark-rocky-live-20260706
 [spark-rocky-live-20260629]: https://github.com/maxspevack/spark-rocky/releases/tag/spark-rocky-live-20260629

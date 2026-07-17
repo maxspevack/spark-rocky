@@ -1,10 +1,12 @@
-# Platform deltas — stock-mainline + open driver on the GB10
+# Platform deltas — an unmodified 6.18 tree + open driver on the GB10
 
-What a stock upstream kernel + the open NVIDIA driver surface on the DGX Spark (GB10) at boot, each line
-classified and decided. The project starts from a zero-source-patch clean room; every divergence is a
+What an unmodified 6.18 kernel tree (the shipped **CLK** default or the stock-mainline A/B path — this
+repo patches neither) + the open NVIDIA driver surface on the DGX Spark (GB10) at boot, each line
+classified and decided. The project starts from a zero-carried-patch clean room; every divergence is a
 deliberate, data-justified tweak — **carried** (tracked here + in [`THIRD_PARTY.md`](third-party.md)) or
 **upstreamed**. The pitch is auditability: every tweak is named and reasoned, not inherited from an opaque
-vendor image.
+vendor image. (The dmesg census below was recorded on the stock-mainline host; the CLK baseline is in
+[`dmesg-baseline.md`](dmesg-baseline.md).)
 
 The load-bearing fact: **GPU compute works** — `proof-of-life` runs `vectorAdd` on the GB10 (compute 12.1,
 130.7 GB) on the LiveUSB boot of 6.18.35. Everything below is peripheral to that.
@@ -57,9 +59,10 @@ matches what was built. The page size lives in the `.config` symbol + the stamp,
 ## Firmware — current, via stock `fwupd` / public LVFS
 NVIDIA publishes the GB10 platform firmware (system UEFI, Embedded Controller, USB-C PD) to the **public LVFS**;
 stock `fwupd` applies it — no DGX OS, no Enterprise entitlement, no proprietary tool (`fwupdmgr enable-remote
-lvfs && fwupdmgr refresh && fwupdmgr upgrade`). As of 2026-06-11 this box is on the **latest published**: UEFI
-`0x0200980f` (2026-04-02), EC `0x03000302`, USB-C PD `0x00000516`, confirmed against LVFS (stable + testing) and
-NVIDIA's release notes. GPU VBIOS `9A.0B.25.00.00` and GSP `610.43.03` ride the driver and are current with it.
+lvfs && fwupdmgr refresh && fwupdmgr upgrade`). As of 2026-07-17 this box is on the **latest published**: UEFI
+`0x02009b0b` (the SoC/UEFI+GPU stability package), EC `0x03000508`, USB-C PD `0x00000516` — applied via
+capsule-on-disk with stock `fwupd`, `fwupdmgr get-updates` clean after. GPU VBIOS `9A.0B.25.00.00` and GSP
+`610.43.03` ride the driver and are current with it.
 **Consequence:** parity benchmarks run on the same latest firmware a DGX OS box runs — no firmware confound.
 
 ## Ledger

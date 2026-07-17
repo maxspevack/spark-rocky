@@ -54,7 +54,7 @@ Everything swapped in is stock, current, and built from source — the exact coo
 | Layer | This stack |
 |---|---|
 | OS | Rocky Linux 10.2 |
-| Kernel | stock mainline **6.18.38** (64k pages; parity benched on 6.18.34/4k) |
+| Kernel | stock mainline **6.18.38** (64k pages; parity benched on 6.18.34/4k). *The shipped default has since moved to the CIQ Linux Kernel (`6.18.38-clk`, functionally validated on the GB10 — boot/driver/CUDA/managed-memory); the stock host these receipts were recorded on stays one pin-flip away (`KERNEL_SOURCE=kernelorg`).* |
 | Driver | open NVIDIA **610.43.03**, built from source unmodified (parity benched on 610.43.02) |
 | CUDA | **13.0** |
 
@@ -64,6 +64,6 @@ Everything swapped in is stock, current, and built from source — the exact coo
 
 - ✅ **Auditable.** Every host change is a named `.config` symbol or build step – no `.patch`/`.diff` anywhere in the repo, and the open driver is built unmodified (`make … SYSSRC=… modules`, no source edits). Nothing hidden to carry or rot.
 - ✅ **Firmware-current, the standard way.** The box runs the latest platform firmware NVIDIA publishes to the **public LVFS**, applied with stock `fwupd` – no DGX OS, no entitlement, no proprietary tool. The parity result carries no stale-firmware confound.
-- ✅ **Stays current with a one-line change.** Bump the kernel in [`config/versions.env`](../../config/versions.env) and rebuild – `6.18.38` is validated to boot and bring up the GPU; the parity benchmarks ran on `6.18.34`. A stock-mainline kernel makes a version bump a config change, not a patch-rebase that rots.
+- ✅ **Stays current with a one-line change.** Bump the kernel pin in [`config/versions.env`](../../config/versions.env) and rebuild — `CLK_COMMIT` tracks the `ciq-6.18.y` branch (the shipped default; the drift sensor fires when it moves), and the stock-mainline `KVER` pin stays live as the A/B knob. Either way a kernel refresh is a pin change, not a patch-rebase that rots — this repo carries zero patches against either tree.
 
 → **Reproduce or refute any entry yourself, credential-free:** [`reproduce-pipeline.md`](reproduce-pipeline.md)
