@@ -85,7 +85,7 @@ if [ -n "$arg_c" ] && [ "$arg_c" = "$want_c" ]; then ok "#42 grid-check want{} m
 # 04 pins a FIXED ESP partition GUID so a USB-first firmware boot entry survives re-flashes (#47).
 if grep -qF 'sfdisk --part-uuid "$IMG" 1 A84952EE-452B-44B3-ACB5-B036BA8E6B0D' scripts/04-build-image.sh; then ok "04 pins the fixed ESP GUID via sfdisk (#47/#60)"; else no "04 missing the sfdisk ESP GUID pin (#47/#60)"; fi
 if grep -qF 'ESP GUID read-back mismatch' scripts/04-build-image.sh; then ok "04 verifies the GUID pin by read-back, fail-closed (#60)"; else no "04 GUID pin not verified (#60 fail-open class)"; fi
-if grep -rq 'sgdisk' scripts/; then no "sgdisk still referenced in scripts/ (#60 — gdisk is uninstallable on the metal)"; else ok "no sgdisk dependency anywhere in scripts/ (#60)"; fi
+if grep -rqE '^[^#]*\bsgdisk\b' scripts/; then no "sgdisk still INVOKED in scripts/ (#60 — gdisk is uninstallable on the metal)"; else ok "no sgdisk invocation anywhere in scripts/ (comments exempt, #60)"; fi
 # Post-hoc throttle integrity (#43): templog captures the signal, the detector fails closed, the runner consumes it, the image bakes it.
 if grep -qF 'thermal_slowdown' scripts/templog.sh; then ok "templog captures the throttle signal (thermal_slowdown, #43)"; else no "templog missing the throttle signal (#43)"; fi
 if [ -f scripts/check-throttle.sh ] && grep -qF 'THROTTLED' scripts/check-throttle.sh; then ok "check-throttle.sh present + fails closed on a throttled run (#43)"; else no "check-throttle.sh missing or not fail-closed (#43)"; fi
