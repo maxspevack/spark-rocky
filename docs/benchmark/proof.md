@@ -37,7 +37,7 @@ graph LR
     subgraph swapped["WE SWAPPED — ours, auditable, zero patches"]
         direction TB
         E["Rocky Linux 10.2 userspace"]
-        F["stock upstream 6.18 kernel<br/>(64k pages — our opinionated choice)"]
+        F["stock upstream 6.18 kernel<br/>(4k pages; 64k reverted — #65)"]
         G["open module, built from<br/>NVIDIA's source, unmodified"]
     end
     swapped --> R["Published spark-arena<br/>numbers reproduced<br/>median 0.96–1.05x"]
@@ -54,7 +54,7 @@ Everything swapped in is stock, current, and built from source — the exact coo
 | Layer | This stack |
 |---|---|
 | OS | Rocky Linux 10.2 |
-| Kernel | stock mainline **6.18.38** (64k pages; parity benched on 6.18.34/4k). *The shipped default has since moved to the CIQ Linux Kernel (`6.18.38-clk`, functionally validated on the GB10 — boot/driver/CUDA/managed-memory); the stock host these receipts were recorded on stays one pin-flip away (`KERNEL_SOURCE=kernelorg`).* |
+| Kernel | CIQ Linux Kernel **6.18.38-clk**, **4k pages** (parity benched on stock 6.18.34/4k — same page size). *64k was an opinionated tuning choice, reverted 2026-07-17 pending a 64k-only kernel serve regression ([#65](https://github.com/maxspevack/spark-rocky/issues/65)); stock kernel.org stays one pin-flip away (`KERNEL_SOURCE=kernelorg`).* |
 | Driver | open NVIDIA **610.43.03**, built from source unmodified (parity benched on 610.43.02) |
 | CUDA | **13.0** |
 

@@ -8,7 +8,33 @@ The release invariant is **served == tag == HEAD** (enforced by `scripts/07-veri
 bytes in the bucket match the git tag they were built from. Each release below names the kernel release it
 ships (`uname -r`).
 
-## [spark-rocky-live-20260717] — 2026-07-17 · `6.18.38-clk` (64k pages) — the CLK release
+## [spark-rocky-live-20260717b] — 2026-07-17 · `6.18.38-clk` (4k pages) — 64k reverted
+
+**Page size reverted to 4k; this is a correctness fix over 20260717.** A kernel regression from `6.18.37`
+on faults the **vLLM serve** under 64k pages — a GPU Xid 31 MMU fault in the ~90 GB KV-cache allocation
+([#65](https://github.com/maxspevack/spark-rocky/issues/65)). It shipped undetected in four 64k releases
+because validation only ran `vectorAdd`, which never touches the large-allocation path. `6.18.38`/4k serves
+clean; the CLK kernel and driver are otherwise unchanged from 20260717.
+
+### Changed
+- **`PAGE_SIZE=64k` → `4k`** ([#66](https://github.com/maxspevack/spark-rocky/issues/66)). uname stays
+  `6.18.38-clk`; `getconf PAGESIZE` is now `4096`. The 64k concurrent-serving win (measured on the
+  then-working `6.18.35`) is real but currently unreachable — parked behind the regression, restored once
+  `6.18.35→.37→.38` is bisected and fixed upstream ([#68](https://github.com/maxspevack/spark-rocky/issues/68)).
+- Docs reframed (`platform-deltas`, README, `proof`, `software-stack`, `build`, `running`, `scoreboard`):
+  64k is a reverted tuning choice, not the current default.
+
+### Validated
+- Isolated by same-box single-variable A/B on the GB10 (see #65): `6.18.34`/4k, `6.18.38`/4k both **serve**;
+  `6.18.38`/64k **faults**; `6.18.35`/64k served in June. Kernel source, driver, and firmware all controlled
+  out. This release's image was **serve-gated** — the pinned `vllm-node` brought up on it, `/health` 200 with
+  the KV cache allocated, before signing ([#67](https://github.com/maxspevack/spark-rocky/issues/67)).
+
+### Notes
+- Supersedes [spark-rocky-live-20260717], which ships the 64k serve regression and is withdrawn. Same
+  `served == tag == HEAD` gate (`07-verify`, #35).
+
+## [spark-rocky-live-20260717] — 2026-07-17 · `6.18.38-clk` (64k pages) — the CLK release · **SUPERSEDED (#65: 64k serve regression)**
 
 **The shipped kernel is now the CIQ Linux Kernel.** `KERNEL_SOURCE=clk` is the default, pinned to the
 public GPL [`ctrliq/kernel-src-tree`](https://github.com/ctrliq/kernel-src-tree) `ciq-6.18.y` @ `b1a607d`,
@@ -213,6 +239,7 @@ spark-arena.com benchmarks at parity.
 - Release integrity: GPG-signed `CHECKSUM` (ed25519, fp `71C1 6676 F9D4 0A4C E0C6 EB66 08B1 4BC3 9831 1101`),
   served at `gs://spark-rocky`, with the `served == tag == HEAD` gate (#35).
 
+[spark-rocky-live-20260717b]: https://github.com/maxspevack/spark-rocky/releases/tag/spark-rocky-live-20260717b
 [spark-rocky-live-20260717]: https://github.com/maxspevack/spark-rocky/releases/tag/spark-rocky-live-20260717
 [spark-rocky-live-20260716]: https://github.com/maxspevack/spark-rocky/releases/tag/spark-rocky-live-20260716
 [spark-rocky-live-20260706]: https://github.com/maxspevack/spark-rocky/releases/tag/spark-rocky-live-20260706

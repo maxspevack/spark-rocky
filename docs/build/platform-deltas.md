@@ -11,42 +11,42 @@ vendor image. (The dmesg census below was recorded on the stock-mainline host; t
 The load-bearing fact: **GPU compute works** — `proof-of-life` runs `vectorAdd` on the GB10 (compute 12.1,
 130.7 GB) on the LiveUSB boot of 6.18.35. Everything below is peripheral to that.
 
-## Page size — the opinionated choice: 64k
+## Page size — currently 4k (64k REVERTED, #65)
 
-**We build a 64k-page kernel** (`CONFIG_ARM64_64K_PAGES`), pinned as `PAGE_SIZE=64k` in
-[`config/versions.env`](../../config/versions.env). This is a *deliberate, data-backed* divergence from the
-upstream / DGX-OS / Rocky-10 default of 4k — and it is the project's headline opinionated choice, so it is
-threaded and enforced, not left to chance.
+**We ship a 4k-page kernel** (`CONFIG_ARM64_4K_PAGES`), pinned as `PAGE_SIZE=4k` in
+[`config/versions.env`](../../config/versions.env). This is a **2026-07-17 reversal** of what had been the
+project's headline opinionated choice (64k). The reversal is a **correctness fix, not a change of opinion on
+performance**: a kernel regression from `6.18.37` on makes a 64k-page kernel **fault the vLLM serve** — a GPU
+Xid 31 MMU fault in the large (~90 GB) KV-cache allocation ([#65](https://github.com/maxspevack/spark-rocky/issues/65)).
+4k is unaffected and serves clean on `6.18.38`. **64k returns once the upstream regression is bisected and
+fixed ([#68](https://github.com/maxspevack/spark-rocky/issues/68)).**
 
-**Why.** The GB10 is a concurrent AI-serving box. 64k pages cut TLB misses and page-table walks under large
-memory working sets — exactly the regime that workload lives in (many concurrent sequences over long
-contexts → a big KV cache). 4k is the right default for a *general* host; 64k is the right default for *this*
-one.
+**Why 64k was the choice (and why it still would be, absent the regression).** The GB10 is a concurrent
+AI-serving box. 64k pages cut TLB misses and page-table walks under large memory working sets — the regime
+this workload lives in (many concurrent sequences over long contexts → a big KV cache). 4k is the right
+default for a *general* host; 64k was the right default for *this* one — until the kernel broke it.
 
-**The evidence (2026-06-16).** Full canonical 104-cell matrix, 35B-A3B-FP8, `6.18.35`/64k vs the 4k baseline
-([`receipts/qwen3.5-35b-a3b-fp8-matrix-64k-2026-06-16.csv`](../../receipts/qwen3.5-35b-a3b-fp8-matrix-64k-2026-06-16.csv)
-vs the `-2026-06-10` 4k receipt):
-- median +2.3%, **35 cells win ≥+5% vs only 3 losses** — a directional effect, not scatter.
-- the wins cluster on the **concurrent + deep-context** cells: `tg128@d65535 (c10)` **1.30×**, `(c5)` 1.25×,
-  `ctx_pp@d4096 (c2)` **1.38×**, `pp2048 (c2)` 1.15×. Single-user (`c1`) is flat; a few extreme cells regress.
+**The performance evidence stands (2026-06-16, on the then-working `6.18.35`/64k).** Full canonical 104-cell
+matrix, 35B-A3B-FP8, `6.18.35`/64k vs the 4k baseline: median +2.3%, **35 cells win ≥+5% vs 3 losses**, wins
+clustered on concurrent + deep-context cells (`tg128@d65535 (c10)` **1.30×**, `ctx_pp@d4096 (c2)` **1.38×**).
+That win was real on `6.18.35`. It is currently unreachable because 64k faults the serve on `6.18.37+` — so
+the perf gain is *parked behind a correctness bug*, not withdrawn.
 
-**Compatibility (Gate 1, verified on the box).** The 64k kernel boots, the open driver builds + loads with
-**zero source patches** (vermagic `6.18.35`), `nvidia-smi` works, a real CUDA matmul runs, and
-`getconf PAGESIZE` reports `65536`.
+**The regression (2026-07-17).** 64k on `6.18.35` served; 64k on `6.18.38` faults; 4k on `6.18.38` serves —
+so it is the *interaction* of 64k page geometry with a kernel change in the `.35→.37` window, in the large
+KV-cache GPU mapping. It shipped undetected in four 64k releases because release validation only ran
+`vectorAdd` (a tiny allocation) — the serve gate that now closes that hole is
+[#67](https://github.com/maxspevack/spark-rocky/issues/67). Full isolation: [#65](https://github.com/maxspevack/spark-rocky/issues/65).
 
-**A settled opinionated default.** The matrix above is a directional signal against a `6.18.34`-4k baseline
-(a kernel-minor rides along, so it is not a controlled same-version A/B). We judged the effect too large, too
-systematic, and too theory-consistent to be a point-release artifact, and **treat 64k as a settled design
-choice for this box** — we are not pursuing a formal same-version A/B to prove it further; the theory plus this
-directional evidence are the basis. It is an opinion, held deliberately, not a claim of proof. **If your
-workload differs, 4k is one pin-flip away in `versions.env`.**
+**Flip back to 64k in `versions.env` (only) once #68 clears it.**
 
-**How it's enforced (the process, not just a flag).** `PAGE_SIZE` is a pinned, reviewable line; `01` flips
-`CONFIG_ARM64_64K_PAGES` from it (with **no** `LOCALVERSION` suffix — the kernel release stays plain `$KVER`,
-so `uname -r` is `6.18.35`, the standard distro convention); `05`'s fail-closed gate **aborts the release if
-the resolved `.config` page size does not match the pin** (a 64k pin cannot ship a 4k image); the provenance
-stamp records `page_size=64k`; and the `validate.sh` doctor asserts the running `getconf PAGESIZE` (`65536`)
-matches what was built. The page size lives in the `.config` symbol + the stamp, not in a uname tag.
+**How it's enforced (the process, not just a flag).** `PAGE_SIZE` is a pinned, reviewable line; `01` sets the
+`CONFIG_ARM64_4K_PAGES` / `_64K_PAGES` symbol from it (with **no** `LOCALVERSION` suffix — the kernel release
+stays plain `$KVER`, the standard distro convention); `05`'s fail-closed gate **aborts the release if the
+resolved `.config` page size does not match the pin** (the current `4k` pin cannot ship a 64k image, and vice
+versa); the provenance stamp records `page_size=4k`; and the `validate.sh` doctor asserts the running
+`getconf PAGESIZE` (`4096`) matches what was built. The page size lives in the `.config` symbol + the stamp,
+not in a uname tag — so flipping the pin back to 64k after #68 is a one-line, fully-gated change.
 
 ## Grounding (measured 2026-06-11)
 - **Kernel config has the features on:** `ARM_SMMU_V3_SVA`, `IOMMU_SVA`, `PCI_PRI/PASID/ATS`, `ENERGY_MODEL`,
