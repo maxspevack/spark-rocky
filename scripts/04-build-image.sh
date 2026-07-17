@@ -35,8 +35,14 @@ parted -s "$IMG" mkpart root ext4 1025MiB 100%
 # HD(1,GPT,<part-guid>); parted assigns a RANDOM GUID per build, so re-flashing a newer image orphans the
 # entry and the box falls through to the NVMe. A fixed GUID gives every spark-rocky USB one boot identity, so
 # a single firmware entry stays valid across re-flashes (two USBs at once would collide -- two-USB is OOS).
-command -v sgdisk >/dev/null 2>&1 || dnf install -y -q gdisk 2>/dev/null || true
-sgdisk -u 1:A84952EE-452B-44B3-ACB5-B036BA8E6B0D "$IMG" >/dev/null
+# sfdisk (util-linux — ALWAYS present, no install dependency) sets the pin FAIL-CLOSED and it is
+# verified by read-back. The old sgdisk path failed OPEN: gdisk has no match in the Rocky 10 repos,
+# the || true swallowed the install failure, and under set -uo (no -e) the pin skipped silently —
+# three flashed sticks shipped random GUIDs before this was caught (#60, 2026-07-17).
+sfdisk --part-uuid "$IMG" 1 A84952EE-452B-44B3-ACB5-B036BA8E6B0D >/dev/null 2>&1 \
+  || { echo "FATAL: ESP GUID pin failed (#47/#60) — refusing to continue with a random-GUID image"; exit 1; }
+sfdisk -d "$IMG" 2>/dev/null | grep -qi "uuid=A84952EE-452B-44B3-ACB5-B036BA8E6B0D" \
+  || { echo "FATAL: ESP GUID read-back mismatch (#60) — the pin did not land"; exit 1; }
 LOOP=$(losetup --find --show -P "$IMG"); sleep 1; echo "loop=$LOOP"
 mkfs.fat -F32 -n ROCKYEFI ${LOOP}p1 >/dev/null
 mkfs.ext4 -F -q -L rocky-root ${LOOP}p2
@@ -182,8 +188,9 @@ if [ "$(lsblk -dno TRAN "$DEV" 2>/dev/null|tr -d '[:space:]')" = usb ] && [ "$(l
   for p in "$DEV"?*; do umount "$p" 2>/dev/null||true; done
   dd if="$IMG" of="$DEV" bs=16M oflag=direct status=progress; sync
   # backup GPT header lands mid-disk on a larger stick; relocate it so a clean reproducer shows no GPT errors.
-  command -v sgdisk >/dev/null 2>&1 || dnf install -y -q gdisk 2>/dev/null || true
-  command -v sgdisk >/dev/null 2>&1 && sgdisk -e "$DEV" >/dev/null 2>&1 && echo "GPT backup header relocated"
+  # sfdisk (util-linux), fail-closed — the sgdisk path silently skipped when gdisk was uninstallable (#60).
+  sfdisk --relocate gpt-bak-std "$DEV" >/dev/null 2>&1 && echo "GPT backup header relocated" \
+    || { echo "FATAL: backup-GPT relocation failed (#60)"; exit 1; }
   partprobe "$DEV" 2>/dev/null || true; sync
   echo "USB-IMAGE-DONE $KVER -> $DEV"
 else
