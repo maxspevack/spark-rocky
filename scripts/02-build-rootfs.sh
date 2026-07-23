@@ -45,6 +45,20 @@ cp /etc/yum.repos.d/cuda.repo "$R/etc/yum.repos.d/cuda.repo"
 echo "[rootfs] installing minimal CUDA (nvcc + cudart) ..."
 dnf -y --installroot="$R" --releasever="$RV" --setopt=install_weak_deps=False install \
   cuda-nvcc-${CUDA_VER} cuda-cudart-devel-${CUDA_VER} >>/host/rocky-img/rootfs.log 2>&1
+# MediaTek MT7925 WiFi/BT firmware (#64). The shipped image carried NO firmware, so the GB10 radios
+# never came up (dmesg -2, hardware init failed). Ship the mt7925 + regulatory blobs — UNCOMPRESSED
+# (~2M): linux-firmware provides them as .zst, but a .zst load fails at the driver`s early boot probe
+# on this platform while a plain .bin loads cleanly at the early driver probe (verified on the metal
+# 2026-07-22). mt7925e loads
+# post-switch-root, so rootfs .bin is found. Targeted copy, not the full ~hundreds-of-MB linux-firmware.
+echo "[rootfs] installing MT7925 WiFi/BT firmware (uncompressed, #64) ..."
+dnf install -y -q linux-firmware zstd >/dev/null 2>&1
+mkdir -p "$R/usr/lib/firmware/mediatek/mt7925"
+for f in /usr/lib/firmware/mediatek/mt7925/*.zst; do zstd -d -f -q "$f" -o "$R/usr/lib/firmware/mediatek/mt7925/$(basename "${f%.zst}")"; done
+[ -f /usr/lib/firmware/regulatory.db.zst ] && zstd -d -f -q /usr/lib/firmware/regulatory.db.zst -o "$R/usr/lib/firmware/regulatory.db"
+[ -f /usr/lib/firmware/regulatory.db.p7s ] && cp /usr/lib/firmware/regulatory.db.p7s "$R/usr/lib/firmware/regulatory.db.p7s" 2>/dev/null || true
+echo "[rootfs] mt7925 fw: $(ls "$R/usr/lib/firmware/mediatek/mt7925/"*.bin 2>/dev/null | wc -l) files, regulatory.db $([ -f "$R/usr/lib/firmware/regulatory.db" ] && echo present || echo MISSING)"
+
 echo "[rootfs] installing our $KVER kernel + modules (stripped) ..."
 cp /host/linux-$KVER/arch/arm64/boot/Image "$R/boot/vmlinuz-$KVER"
 # INSTALL_MOD_STRIP=1: strip debug symbols on install. Without it the modules tree is ~8.9G of debug-laden
