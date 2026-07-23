@@ -1,6 +1,6 @@
 # Scoreboard — single-host, spark-arena vs spark-rocky
 
-What the zero-patch stack (Rocky 10.2 + stock 6.18 + open 610) has reproduced, and what's next. The shipped stack is now **6.18.38-clk** (4k pages); the parity receipts below were benched on 6.18.34/4k — same page size. 64k was reverted 2026-07-17 (a serve regression, [#65](https://github.com/maxspevack/spark-rocky/issues/65); the historical 64k win is in [`../build/platform-deltas.md`](../build/platform-deltas.md)). Each target
+What the zero-patch stack (Rocky 10.2 + stock 6.18 + open 610) has reproduced, and what's next. The shipped stack is now **6.18.38-clk** (4k pages), and it is **benchmark-validated at parity on that exact kernel** — the Qwen3.5-0.8B full matrix on 6.18.38-clk/4k lands **median 1.007× vs the June stock-host baseline** (all 104 cells; receipt: [`reproduce-Qwen3.5-0.8B-clk4k-2026-07-23.txt`](../../receipts/reproduce-Qwen3.5-0.8B-clk4k-2026-07-23.txt), #61), so CLK reproduces the published numbers, not just the stock host. The older receipts below were benched on 6.18.34/4k — same page size. 64k was reverted 2026-07-17 (a serve regression, [#65](https://github.com/maxspevack/spark-rocky/issues/65); the historical 64k win is in [`../build/platform-deltas.md`](../build/platform-deltas.md)). Each target
 maps to its recipe via [`reproduce-pipeline.md`](reproduce-pipeline.md) (`benchmarkId` → Firestore →
 recipe permalink). Snapshot: `data/spark-arena-snapshot-2026-06-10.json`.
 
