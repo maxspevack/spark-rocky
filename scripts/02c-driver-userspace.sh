@@ -20,6 +20,13 @@ echo "$DRIVER_SHA256  $SRC" | sha256sum -c - >/dev/null 2>&1 \
   || { echo "FATAL: $SRC sha256 != pinned DRIVER_SHA256 (versions.env) — refusing to install"; exit 1; }
 echo keepcache=1 >> /etc/dnf/dnf.conf
 dnf install -y -q rpm-build cpio rsync findutils >/dev/null 2>&1   # userspace-rpm build deps (#77)
+# glvnd comes from ROCKY, not from the .run (#77): the vendor-neutral dispatch libs (libOpenGL/libEGL/
+# libGLX/...) are distro property — Rocky ships them as libglvnd-*. Installing them pre-snapshot keeps
+# them OUT of the payload diff, so the userspace rpm carries only NVIDIA vendor bytes and installs
+# without file conflicts on any host that has distro glvnd (the metal does — found the hard way when
+# the first userspace rpm, which had swallowed the .run-installed glvnd, was refused by rpm there).
+dnf install -y -q --installroot="$R" --releasever=$RV libglvnd libglvnd-egl libglvnd-glx libglvnd-opengl libglvnd-gles >>/host/rocky-img/rootfs.log 2>&1 \
+  || { echo "VERIFY-FAIL: distro libglvnd install failed (#77)"; exit 1; }
 cp "$SRC" "$R/tmp/"
 for m in proc sys dev dev/pts; do mkdir -p "$R/$m"; mount --bind "/$m" "$R/$m" 2>/dev/null || true; done
 # Snapshot BEFORE: the path-diff after the chroot install is the GROUND-TRUTH payload manifest (#77) —
@@ -31,7 +38,7 @@ snap > /tmp/pre.list
 echo "=== running .run userspace-only inside the rootfs chroot ==="
 # Inner pipefail (review M6): without it the pipeline status is tail-of-pipe (always 0) and a failed
 # or partial .run install reports success — upgrade-metal gets this right via its own set -o pipefail.
-chroot "$R" /bin/bash -c "set -o pipefail; cd /tmp && sh $RUN --no-kernel-modules --no-questions --ui=none --no-x-check --no-nouveau-check --install-libglvnd 2>&1 | tail -12"
+chroot "$R" /bin/bash -c "set -o pipefail; cd /tmp && sh $RUN --no-kernel-modules --no-questions --ui=none --no-x-check --no-nouveau-check 2>&1 | tail -12"
 for m in dev/pts dev sys proc; do umount -l "$R/$m" 2>/dev/null || true; done
 snap > /tmp/post.list
 comm -13 /tmp/pre.list /tmp/post.list > /tmp/new.list

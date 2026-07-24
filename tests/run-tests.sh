@@ -91,6 +91,9 @@ if grep -qE 'Name: kmod-nvidia-open-\$KSAN' scripts/02b-install-gpu-docker.sh; t
 if grep -qF 'kmod rpm not in rootfs rpm db' scripts/02b-install-gpu-docker.sh; then ok "02b fail-closed verifies the kmod rpm landed in the rootfs db (#77)"; else no "02b does not verify the kmod rpm install (#77)"; fi
 if grep -qF 'comm -13 /tmp/pre.list /tmp/post.list' scripts/02c-driver-userspace.sh; then ok "02c packages the .run payload from the install path-diff (ground truth) (#77)"; else no "02c does not snapshot-package the userspace (#77)"; fi
 if grep -qF 'nvidia-smi not rpm-owned' scripts/02c-driver-userspace.sh; then ok "02c fail-closed verifies the userspace is rpm-owned (#77)"; else no "02c does not verify userspace rpm ownership (#77)"; fi
+# glvnd is DISTRO property: pre-snapshot dnf install + no --install-libglvnd, or the userspace rpm
+# swallows the dispatch libs and conflicts with libglvnd-* on any normal host (hit on the metal).
+if grep -qE 'libglvnd-egl libglvnd-glx libglvnd-opengl' scripts/02c-driver-userspace.sh && ! grep -qF -- '--install-libglvnd' scripts/02c-driver-userspace.sh; then ok "02c: glvnd from Rocky rpms, not the .run — the userspace rpm carries NVIDIA bytes only (#77)"; else no "02c userspace rpm would swallow glvnd and conflict on normal hosts (#77)"; fi
 if grep -qF 'USRPM' scripts/05-package-image.sh && grep -qF 'KMODRPM' scripts/05-package-image.sh; then ok "05 vends the kmod + userspace rpms with sha256 manifest lines (#77)"; else no "05 does not vend the #77 rpms"; fi
 if grep -qF 'userspace_rpm_sha256' scripts/07-verify-release.sh; then ok "07 binds served kmod/userspace rpms to the signed CHECKSUM (#77)"; else no "07 does not verify the #77 rpms"; fi
 if grep -qF 'kmod-nvidia-open-$(uname -r | tr - _)' scripts/validate.sh; then ok "doctor checks the NVIDIA stack is rpm-owned (#77)"; else no "doctor missing the #77 rpm-ownership checks"; fi
