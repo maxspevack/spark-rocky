@@ -8,6 +8,11 @@ end). Steady since 6.18.35 — the platform baseline does not move across 6.18.y
 
 ## The baseline (benign — GB10 platform + minimal-image artifacts)
 
+> **Dated 2026-07-23: this table is the pre-2026-07-17 state.** The authoritative **current** census (19
+> distinct lines) is the **2026-07-17 re-baseline section below** — the `0x02009b0b` SoC/UEFI firmware
+> retired the PCI-OF, NVDA8800, FF-A, and cma classes, and the MT7925 radio class (3 lines, the L6 class)
+> appeared. The rows below stand as the root-cause record for every retired class.
+
 | Line (timestamp-stripped) | Count | Root cause | Verdict |
 |---|---|---|---|
 | `PCI: OF: of_root node is NULL, cannot create PCI host bridge node` | 8 | ACPI-described platform has no device-tree (OF) root; the PCI layer notes its absence. | benign — SBSA/ACPI constant |

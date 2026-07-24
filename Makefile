@@ -30,4 +30,4 @@ image:       ; $(R)/04-build-image.sh
 proof:       ; $(R)/proof-of-life.sh
 install:     ; $(R)/install-baremetal.sh
 test:        ; bash tests/run-tests.sh
-versions:    ; @echo "KVER=$(KVER)  DRIVER_VER=$(DRIVER_VER)  ROCKY_RELEASEVER=$(ROCKY_RELEASEVER)  PAGE_SIZE=$(PAGE_SIZE)"
+versions:    ; @printf 'KERNEL_SOURCE=%s  CLK_COMMIT=%.12s  KVER=%s (kernelorg A/B pin)  DRIVER_VER=%s  ROCKY_RELEASEVER=%s  PAGE_SIZE=%s\n' '$(strip $(KERNEL_SOURCE))' '$(strip $(CLK_COMMIT))' '$(strip $(KVER))' '$(strip $(DRIVER_VER))' '$(strip $(ROCKY_RELEASEVER))' '$(strip $(PAGE_SIZE))'

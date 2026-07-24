@@ -45,7 +45,8 @@ driver+GSP `610.43.03`, CUDA PASS, dmesg baseline clean.*
    ```
    **DESTRUCTIVE: it wipes the internal NVMe** (DGX OS + all data) — you must type **`WIPE /dev/nvme0n1`**
    exactly to proceed — then rsyncs the proven Rocky onto `/dev/nvme0n1p2` and installs grub (arm64-efi,
-   explicit `grub.cfg`, no BLS/shim/os-prober).
+   explicit `grub.cfg`, no BLS/os-prober; `shim-aa64` is installed and preferred in the NVRAM boot entry —
+   inert while Secure Boot is off, which this stack requires).
 3. **Reboot** with the USB removed. The box comes up on the NVMe.
 
 ## Verify (either path)

@@ -84,8 +84,10 @@ OS/kernel/driver one. We name it on every receipt and match the recipe's `contai
 
 ## What this proves — and what it does not
 
-- **Proves:** replacing the entire host — Ubuntu → Rocky 10.2, vendor `6.17-nvidia` → stock upstream (zero
-  patches), NVIDIA-built `580` → self-built open `610` — is **transparent to the workload**. The same
+- **Proves:** replacing the entire host — Ubuntu → Rocky 10.2, vendor `6.17-nvidia` → an unmodified public
+  6.18 tree (CLK the shipped default, stock kernel.org the A/B; the June receipts ran on stock, the #61
+  receipt on CLK — zero patches either way), NVIDIA-built `580` → self-built open `610` — is **transparent
+  to the workload**. The same
   container + recipe + tool land the published numbers on the community's own scoreboard. Across **three
   full-matrix** models the **median is parity (0.96–1.05×)**; two more (LFM2.5-350M, gpt-oss-120b) reproduced
   at single-cell `tg128 (c1)` — see [`scoreboard.md`](../benchmark/scoreboard.md).

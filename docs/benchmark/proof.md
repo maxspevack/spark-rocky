@@ -1,6 +1,6 @@
-# A standard Rocky Linux stack runs NVIDIA's DGX Spark – at single-host inference parity, and you can confirm it yourself
+# A standard Rocky Linux stack on the CIQ Linux Kernel runs NVIDIA's DGX Spark – at single-host inference parity, and you can confirm it yourself
 
-> Rocky 10.2 + a stock upstream 6.18 kernel + the open NVIDIA 610 driver, on the GB10, reproduces the community's own [spark-arena.com](https://spark-arena.com) single-host benchmarks. Every host change is auditable, the stack stays current through stock public tooling, and the published numbers came back.
+> Rocky 10.2 + the CIQ Linux Kernel (CLK 6.18, the shipped default — stock kernel.org 6.18 stays the always-live A/B knob, and the June parity receipts were recorded on it) + the open NVIDIA 610 driver, on the GB10, reproduces the community's own [spark-arena.com](https://spark-arena.com) single-host benchmarks. Every host change is auditable, the stack stays current through stock public tooling, and the published numbers came back.
 
 ## The proof
 
@@ -19,18 +19,18 @@ Medians spanning **0.96×–1.05×** straddle parity, the signature of a transpa
 | Model | Published (t/s) | Ours (t/s) | State |
 |---|---:|---:|---|
 | LFM2.5-350M | 222.8 | 246.0 | single cell – full matrix not yet run |
-| gpt-oss-120b | 58.8 | 62.6 | single cell – **full matrix in progress** ⏳ ([#6](https://github.com/maxspevack/spark-rocky/issues/6)) |
+| gpt-oss-120b | 58.8 | 62.6 | single cell – **full matrix parked** ([#6](https://github.com/maxspevack/spark-rocky/issues/6)) |
 
 ## We changed only the host
 
-The benchmark runs in a serving container built from the spark-arena project's **own Dockerfile, unmodified** (vLLM + the model + the spark-arena recipe). We swapped only the **host beneath it** – Rocky 10.2 + a stock 6.18 kernel + the open driver we built – and the host's `libcuda` is injected into that container at runtime. Same Dockerfile, same recipe, same GB10 silicon.
+The benchmark runs in a serving container built from the spark-arena project's **own Dockerfile, unmodified** (vLLM + the model + the spark-arena recipe). We swapped only the **host beneath it** – Rocky 10.2 + an unmodified 6.18 kernel (stock kernel.org for the June receipts, the shipped CLK default for the 2026-07-23 receipt — zero patches either way) + the open driver we built – and the host's `libcuda` is injected into that container at runtime. Same Dockerfile, same recipe, same GB10 silicon.
 
 ```mermaid
 graph LR
     subgraph held["HELD CONSTANT — NVIDIA's, unmodified"]
         direction TB
         A["GB10 silicon"]
-        B["GSP + platform firmware<br/>610.43.02, via public LVFS"]
+        B["GSP + platform firmware, via public LVFS<br/>(June receipts 610.43.02; CLK/4k receipt 610.43.03)"]
         C["CUDA libraries +<br/>the open driver's source"]
         D["spark-arena Dockerfile<br/>+ vLLM + recipe + model"]
     end
@@ -55,7 +55,7 @@ Everything swapped in is stock, current, and built from source — the exact coo
 |---|---|
 | OS | Rocky Linux 10.2 |
 | Kernel | CIQ Linux Kernel **6.18.38-clk**, **4k pages** — **benchmark-validated at parity on this exact kernel** (Qwen3.5-0.8B full matrix, median 1.007× vs the June stock-host baseline; receipt `reproduce-Qwen3.5-0.8B-clk4k-2026-07-23.txt`, #61). *64k was an opinionated tuning choice, reverted 2026-07-17 pending a 64k-only kernel serve regression ([#65](https://github.com/maxspevack/spark-rocky/issues/65)); stock kernel.org stays one pin-flip away (`KERNEL_SOURCE=kernelorg`).* |
-| Driver | open NVIDIA **610.43.03**, built from source unmodified (parity benched on 610.43.02) |
+| Driver | open NVIDIA **610.43.03**, built from source unmodified (June parity receipts benched on 610.43.02; the CLK/4k receipt, #61, on 610.43.03) |
 | CUDA | **13.0** |
 
 **CUDA — the layer that actually moves inference numbers — is held identical to the stack the published entries ran on**, so the reproduced parity is a property of the OS/kernel/driver swap, not a CUDA artifact. Parity is not superiority.

@@ -34,8 +34,10 @@ downstream path runs it**.)
 ### How you verify
 Run the maintainer's own check against the release you pin:
 ```
-scripts/07-verify-release.sh spark-rocky-live-20260629
+scripts/07-verify-release.sh <tag>
 ```
+Use the **current** release tag — take it from `gh release list` or the repo's GitHub releases page; only the
+current release is served, so a superseded tag fails `served == tag` by design.
 It fails closed unless **(a)** the served `BUILD-MANIFEST` `git_commit` == the tag's commit, **(b)** the served
 `CHECKSUM` carries a **Good GPG signature from the release public key shipped in `keys/spark-rocky-release-key.asc`**,
 and **(c)** the served image's `artifact_sha256` is the one inside that signed `CHECKSUM`.
@@ -82,8 +84,9 @@ and the `01` SIGNAL-READOUT prints the GB10-symbol delta for whatever tree you p
 flip `KERNEL_SOURCE`, or pin a different `CLK_COMMIT`/`KVER`, or supply your own base `.config`.
 
 ### Seam 2 — Packages (`02` / `02b`) — and where the layer goes relative to the `05` gate
-`02` lays down a current Rocky rootfs at `ROCKY_RELEASEVER`; `02b` adds the GPU stack (CUDA pin `CUDA_VER`,
-container runtime, the open `.ko`). Two layering points, with **different verifiability consequences** — this is
+`02` lays down a current Rocky rootfs at `ROCKY_RELEASEVER` (including the minimal `CUDA_VER` toolkit the
+on-box CUDA proof compiles against); `02b` adds the GPU stack (docker + the NVIDIA container toolkit, the
+open `.ko`). Two layering points, with **different verifiability consequences** — this is
 the one a downstream trips on, so it's explicit:
 - **Post-boot, on the booted box (the designed path):** `02` installs only minimal CUDA and notes the box pulls
   the full toolkit/stack post-install. This leaves the **shipped image bytes untouched**, so the base still
@@ -105,8 +108,8 @@ convention. Clean split: the upstream doctor answers *"is the spark-rocky base h
 
 ## 3. Worked example — a CIQ-style downstream
 A downstream wanting **a different kernel, added platform packages, and an added validation suite**:
-1. **Kernel:** set `KVER` to a different stock `kernelorg` release today (or a vendor/CLK kernel once #52 wires
-   `KERNEL_SOURCE`); rebuild `01`→`04`.
+1. **Kernel:** flip `KERNEL_SOURCE` (`clk` is the shipped default, `kernelorg` the stock path), or pin a
+   different `CLK_COMMIT`/`KVER` — Seam 1, shipped 2026-07-17 (#52); rebuild `01`→`04`.
 2. **Packages:** layer platform packages — **post-boot** to stay byte-verifiable against spark-rocky, or
    **pre-`05`** to bake them into the downstream's own signed release (Seam 2).
 3. **Validation:** extend `validate.sh` for the layered components.

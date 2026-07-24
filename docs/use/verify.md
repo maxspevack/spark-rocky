@@ -35,4 +35,4 @@ Then don't use one — rebuild the whole thing from source and compare. Everythi
 
 ## Where the release lives
 
-The release lives at the public location pinned in [`config/release.env`](../../config/release.env) — `flash.sh` reads it automatically, no validator hand-off. (A public *currency commitment* — promising to track upstream within a stated window — remains a separate launch decision, [#29](https://github.com/maxspevack/spark-rocky/issues/29).)
+The release lives at the public location pinned in [`config/release.env`](../../config/release.env) — `flash.sh` reads it automatically, no validator hand-off. (A public *currency commitment* — promising to track upstream within a stated window — is deliberately **not made**: decided 2026-06-29, [#29](https://github.com/maxspevack/spark-rocky/issues/29) closed. Releases stay best-effort, soft-launched, unsupported.)

@@ -1,4 +1,4 @@
-# THIRD_PARTY.md — adopted upstreams (adopt-by-fork doctrine)
+# third-party.md — adopted upstreams (adopt-by-fork doctrine)
 
 Tracks every third-party tool the benchmark stack depends on: upstream, the version actually in use, our
 fork, carried patches, and the upstream-filing plan.

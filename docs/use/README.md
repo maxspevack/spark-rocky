@@ -1,4 +1,4 @@
-# Use it — run Rocky 10 + a stock 6.18 kernel on your DGX Spark
+# Use it — run Rocky 10 + the CIQ Linux Kernel on your DGX Spark
 
 The primary path, and it's meant to be dead simple: try the signed Live USB (non-destructive), then install to the NVMe if and when you want it for real.
 
