@@ -26,8 +26,8 @@ source config/versions.env
 [[ "$KERNEL_SOURCE" == kernelorg || "$KERNEL_SOURCE" == clk ]] && ok "versions.env: KERNEL_SOURCE is kernelorg|clk ($KERNEL_SOURCE)" || no "versions.env: KERNEL_SOURCE invalid ($KERNEL_SOURCE)"
 [ -f "$KCONFIG" ]                             && ok "versions.env: KCONFIG points at a real base config" || no "versions.env: KCONFIG missing ($KCONFIG)"
 [[ "$CLK_COMMIT" =~ ^[0-9a-f]{40}$ ]]        && ok "versions.env: CLK_COMMIT is a 40-hex SHA ($CLK_COMMIT)" || no "versions.env: CLK_COMMIT malformed ($CLK_COMMIT)"
-vmaj(){ echo "v${1%%.*}.x"; }; if [ "$(vmaj 6.18.35)" = v6.x ] && [ "$(vmaj 7.0.0)" = v7.x ]; then ok "kernel.org v-major derivation (6.18->v6.x, 7.0->v7.x)"; else no "v-major derivation wrong"; fi
 # 01 dispatches the kernel source + derives the v-major path (no hardcoded v6.x) -- the "move kernels" pre-work.
+# (The old local-function vmaj self-test was a tautology — audit #70 C6; the grep below tests the real code.)
 if grep -qF 'KERNEL_SOURCE' scripts/01-build-kernel.sh && grep -qF 'v${KVER%%.*}.x' scripts/01-build-kernel.sh; then ok "01 has the kernel-source dispatch + derived v-major path"; else no "01 missing the kernel-source dispatch / v-major derivation"; fi
 # 01 writes build.env with the resolved KVER; downstream scripts (02/02b/03/04) source it so CLK-derived KVER propagates.
 if grep -qF 'build.env' scripts/01-build-kernel.sh; then ok "01 writes build.env with resolved KVER"; else no "01 does not write build.env"; fi
@@ -36,12 +36,17 @@ for s in 02-build-rootfs.sh 02b-install-gpu-docker.sh 03-build-nvidia-open.sh 04
 done
 # build.env is stale-gated: 01 stamps source+commit; every downstream consumer fails closed on a mismatch.
 if grep -qF 'BUILD_KERNEL_SOURCE=$KERNEL_SOURCE' scripts/01-build-kernel.sh && grep -qF 'BUILD_CLK_COMMIT' scripts/01-build-kernel.sh; then ok "01 stamps build.env with source + CLK commit"; else no "01 build.env missing the source/commit stamps"; fi
-for s in 02-build-rootfs.sh 02b-install-gpu-docker.sh 03-build-nvidia-open.sh 04-build-image.sh; do
-  if grep -qF 'stale build.env' "scripts/$s"; then ok "$s fails closed on a stale build.env"; else no "$s does not gate build.env staleness"; fi
+# One gate implementation (audit #70 C1): the lib carries the real checks; every consumer sources it.
+for c in 'BUILD_KERNEL_SOURCE:-}" = "$KERNEL_SOURCE"' 'KVER $KVER != pinned $PIN_KVER' 'CLK_COMMIT moved'; do
+  if grep -qF "$c" scripts/lib/build-env-gate.sh; then ok "build-env-gate lib carries the check: ${c:0:30}"; else no "build-env-gate lib missing a staleness check: ${c:0:30}"; fi
+done
+for s in 02-build-rootfs.sh 02b-install-gpu-docker.sh 03-build-nvidia-open.sh 04-build-image.sh 05-package-image.sh upgrade-metal.sh; do
+  if grep -qF 'source "$HERE/lib/build-env-gate.sh"' "scripts/$s"; then ok "$s sources the one build-env gate"; else no "$s does not source the build-env gate (C1)"; fi
+  if grep -qF 'stale build.env' "scripts/$s"; then no "$s carries a private copy of the gate — C1 consolidated it"; else ok "$s carries no private gate copy"; fi
 done
 # The signing/cert neutralization applies to BOTH kernel sources (the CLK configs carry MODULE_SIG=y +
 # the default key path — a tarball build would embed an ephemeral cert = nondeterministic Image bytes).
-if grep -qF 'Neutralize distro signing/cert baggage on BOTH paths' scripts/01-build-kernel.sh; then ok "01 neutralizes signing baggage on both kernel sources"; else no "01 signing neutralization is not both-paths"; fi
+if grep -qF -- '--set-str SYSTEM_TRUSTED_KEYS ""' scripts/01-build-kernel.sh && grep -qF -- '--disable SECURITY_LOCKDOWN_LSM' scripts/01-build-kernel.sh; then ok "01 neutralizes signing/cert baggage (real invocation, not the comment — C6)"; else no "01 signing neutralization commands missing"; fi
 if grep -qF -- '--disable MODULE_SIG_ALL' scripts/01-build-kernel.sh; then ok "01 disables MODULE_SIG_ALL explicitly (CLK decouples it from MODULE_SIG)"; else no "01 missing the MODULE_SIG_ALL disable — CLK modules_install SIGN step dies on the empty key"; fi
 # The kernel-as-RPM pipeline (#59): 01 builds a STRIPPED kernel rpm and fails closed if none is produced;
 # 02 dnf-installs it into the rootfs (rpm db truthful) with %post skipped (we own boot plumbing) and the
@@ -77,9 +82,6 @@ if grep -qw 'KREL' scripts/*.sh;             then no "KREL variable reintroduced
 # KVER becomes the DERIVED release post-olddefconfig (kernelrelease), and 05/upgrade-metal consume it
 # through the stale-gated build.env like the rest of the pipeline.
 if grep -qF 'make -s kernelrelease' scripts/01-build-kernel.sh; then ok "01 derives KVER from make kernelrelease"; else no "01 does not derive the kernel release"; fi
-for s in 05-package-image.sh upgrade-metal.sh; do
-  if grep -qF 'stale build.env' "scripts/$s"; then ok "$s fails closed on a stale build.env"; else no "$s does not gate build.env staleness"; fi
-done
 if grep -qF 'kernel_source=${KERNEL_SOURCE}' scripts/05-package-image.sh; then ok "05 stamps kernel_source + clk_commit provenance"; else no "05 provenance missing the kernel source"; fi
 if grep -qF 'ciq-6.18.y' scripts/drift-check.sh && grep -qF 'row CLK' scripts/drift-check.sh; then ok "drift-check: CLK branch tip is the trigger row"; else no "drift-check missing the CLK trigger row"; fi
 # Serve gate (#67): exists, fails closed on a dead container, and is a documented pre-sign release step.
@@ -105,8 +107,9 @@ if grep -qF 'DRIVER_SHA256' scripts/02c-driver-userspace.sh && grep -qF 'refusin
 # The doctor is self-contained: no dependency on a sibling proof-of-life.sh.
 if grep -qF 'proof-of-life' scripts/validate.sh; then no "validate.sh still depends on proof-of-life.sh (must be self-contained)"; else ok "validate.sh is self-contained (inlines its own CUDA proof)"; fi
 # Page-size -> config-symbol mapping (what 05's fail-closed page-size gate keys on).
-pgsym(){ [ "$1" = 64k ] && echo CONFIG_ARM64_64K_PAGES=y || echo CONFIG_ARM64_4K_PAGES=y; }
-if [ "$(pgsym 64k)" = CONFIG_ARM64_64K_PAGES=y ] && [ "$(pgsym 4k)" = CONFIG_ARM64_4K_PAGES=y ]; then ok "page-size->config-symbol mapping correct"; else no "page-size->config-symbol mapping wrong"; fi
+# The page-size pin maps to the config symbol IN 05's gate (audit #70 C6: test the real code, not a
+# local re-implementation — the old pgsym self-test passed even if 05's mapping rotted).
+if grep -qF 'WANT_PG=$([ "$PAGE_SIZE" = 64k ] && echo "CONFIG_ARM64_64K_PAGES=y" || echo "CONFIG_ARM64_4K_PAGES=y")' scripts/05-package-image.sh; then ok "05 derives the page-size gate symbol from the pin"; else no "05 page-size->symbol mapping missing/changed — the fail-closed gate may not match the pin"; fi
 # Doctor has no hardcoded issue URL (S1).
 if grep -qF 'issues/new' scripts/validate.sh; then no "validate.sh still prints a hardcoded issue URL (S1)"; else ok "validate.sh has no hardcoded issue URL (S1)"; fi
 # 04 grub menuentry is generated ONCE (S2) — guards against the two-copies divergence returning.

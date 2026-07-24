@@ -4,7 +4,7 @@
 # Parameterized via config/versions.env. Reuses the .run that 02b downloaded to $W/driver-610.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-source "$HERE/../config/versions.env"          # KVER, DRIVER_VER, ROCKY_RELEASEVER
+source "$HERE/../config/versions.env"          # DRIVER_VER, DRIVER_SHA256
 W="${W:-$(dirname "$HERE")}"
 [ -d "$W/rocky-img/rootfs" ] || { echo "FATAL: rootfs missing — run 02-build-rootfs.sh first"; exit 1; }
 

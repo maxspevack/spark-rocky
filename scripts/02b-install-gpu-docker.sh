@@ -5,16 +5,9 @@
 # Parameterized via config/versions.env. Non-destructive: writes to $W/rocky-img + $W/driver-610.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-source "$HERE/../config/versions.env"          # KVER, DRIVER_VER, ROCKY_RELEASEVER, PAGE_SIZE
+source "$HERE/../config/versions.env"          # KVER, DRIVER_VER, DRIVER_SHA256, ROCKY_RELEASEVER (+ KERNEL_SOURCE/CLK_COMMIT for the gate)
 W="${W:-$(dirname "$HERE")}"
-# build.env: 01's resolved-KVER handoff (clk derives KVER from the source Makefile). Fail closed on
-# staleness — a leftover build.env from a different source/pin must not silently steer this build.
-if [ -f "$W/build.env" ]; then
-  PIN_KVER=$KVER; source "$W/build.env"
-  [ "${BUILD_KERNEL_SOURCE:-}" = "$KERNEL_SOURCE" ] || { echo "FATAL: stale build.env (built from '${BUILD_KERNEL_SOURCE:-?}', pin is '$KERNEL_SOURCE') — rerun 01-build-kernel.sh"; exit 1; }
-  [ "$KERNEL_SOURCE" != kernelorg ] || [ "$KVER" = "$PIN_KVER" ] || { echo "FATAL: stale build.env (KVER $KVER != pinned $PIN_KVER) — rerun 01-build-kernel.sh"; exit 1; }
-  [ "$KERNEL_SOURCE" != clk ] || [ "${BUILD_CLK_COMMIT:-}" = "$CLK_COMMIT" ] || { echo "FATAL: stale build.env (CLK_COMMIT moved) — rerun 01-build-kernel.sh"; exit 1; }
-fi
+source "$HERE/lib/build-env-gate.sh"   # fail-closed staleness gate on 01's build.env (one impl — audit #70 C1)
 [ -d "$W/rocky-img/rootfs" ] || { echo "FATAL: rootfs missing — run 02-build-rootfs.sh first"; exit 1; }
 
 docker run --rm -v "$W":/host -e KVER="$KVER" -e DRIVER_VER="$DRIVER_VER" -e DRIVER_SHA256="$DRIVER_SHA256" -e RV="$ROCKY_RELEASEVER" rockylinux/rockylinux:10 bash -c '
