@@ -74,6 +74,27 @@ CU
   else
     echo "  !! CUDA compile/run FAILED (log: /tmp/va.log):"; tail -3 /tmp/va.log | sed 's/^/     /'; FAIL=1
   fi
+  # Managed-memory check (#63): an 8 GiB cudaMallocManaged alloc, written CPU-side and read GPU-side.
+  # vectorAdd's tiny allocation missed the #65 class entirely (the 64k large-allocation fault shipped in
+  # four releases under it); 8 GiB is the size the 2026-07-17 CLK validation used. Deliberately NOT the
+  # ~90 GB serve-scale alloc — that is the serve-gate's job (#67); the doctor must stay safe to run on a
+  # box with work loaded.
+  cat > /tmp/mm.cu <<'CU'
+#include <cstdio>
+__global__ void bump(unsigned char*p,size_t n){size_t i=(size_t)blockIdx.x*blockDim.x+threadIdx.x; if(i<n) p[i]+=1;}
+int main(){size_t n=8ull<<30; unsigned char*p; if(cudaMallocManaged(&p,n)!=cudaSuccess){printf("  managed-mem: ALLOC FAILED\n"); return 1;}
+ for(size_t i=0;i<n;i+=4096) p[i]=7;
+ bump<<<4096,256>>>(p,n); cudaDeviceSynchronize(); cudaError_t e=cudaGetLastError();
+ int bad=(p[0]!=8)||(p[4096]!=8);
+ printf("  managed-mem: 8 GiB cudaMallocManaged CPU-write/GPU-bump, status=%s, data=%s\n", cudaGetErrorString(e), bad?"WRONG":"ok");
+ cudaFree(p); return (e==cudaSuccess && !bad)?0:1;}
+CU
+  if PATH=/usr/local/cuda/bin:$PATH nvcc -o /tmp/mm /tmp/mm.cu >/tmp/mm.log 2>&1 && /tmp/mm >>/tmp/mm.log 2>&1; then
+    grep -E "managed-mem" /tmp/mm.log
+    echo "  ok: 8 GiB managed memory round-trips CPU<->GPU (#63)"
+  else
+    echo "  !! managed-memory check FAILED (log: /tmp/mm.log) — the #65-class large-allocation detector:"; tail -3 /tmp/mm.log | sed 's/^/     /'; FAIL=1
+  fi
 else
   echo "  !! nvcc not found — cannot run the GPU CUDA check (a spark-rocky image ships CUDA; its absence is a failure)"; FAIL=1
 fi

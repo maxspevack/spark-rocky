@@ -71,6 +71,7 @@ if grep -qF 'kernel_rpm_sha256' scripts/05-package-image.sh; then ok "05 manifes
 if grep -qE 'ARTS=\(.*\*\.rpm' scripts/06-sign-release.sh; then ok "06 signed CHECKSUM covers *.rpm (#59)"; else no "06 CHECKSUM does not cover the kernel rpm (#59)"; fi
 if grep -qF 'kernel_rpm_sha256' scripts/07-verify-release.sh && grep -qF 'predates the rpm pipeline' scripts/07-verify-release.sh; then ok "07 verifies the served rpm against the signed CHECKSUM (pre-rpm manifests skip) (#59)"; else no "07 does not verify the served kernel rpm (#59)"; fi
 if grep -qF 'kernel present in the rpm database' scripts/validate.sh; then ok "doctor checks rpm -q kernel on the booted box (#59)"; else no "doctor does not check the rpm database (#59)"; fi
+if grep -qF 'cudaMallocManaged(&p,n)' scripts/validate.sh && grep -qF '8ull<<30' scripts/validate.sh; then ok "doctor runs the 8 GiB managed-memory check (#63 — the #65-class detector)"; else no "doctor missing the managed-memory check (#63)"; fi
 # 01's build container must carry the binrpm build deps (rpm-build/cpio/kmod/openssl-the-binary).
 if grep -qE 'rpm-build cpio kmod' scripts/01-build-kernel.sh; then ok "01 installs the binrpm-pkg build deps (#59)"; else no "01 container lacks rpm-build/cpio/kmod — binrpm-pkg dies (#59)"; fi
 # The uname doctrine, refined 2026-07-17: uname carries SOURCE LINEAGE ("-clk", distro convention),
