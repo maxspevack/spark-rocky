@@ -8,6 +8,23 @@ The release invariant is **served == tag == HEAD** (enforced by `scripts/07-veri
 bytes in the bucket match the git tag they were built from. Each release below names the kernel release it
 ships (`uname -r`).
 
+## [Unreleased] — built + metal-validated at HEAD; the cut is deliberately held (2026-07-23)
+
+Merged, hardware-validated on the reference GB10, and **not yet in any served release** (the currently
+served `spark-rocky-live-20260717b` predates all of it):
+
+- **Kernel `6.18.38-clk` → `6.18.39-clk`** (`CLK_COMMIT` → `ceb41d6`, the drift sensor's trigger, #69).
+- **The kernel ships as an RPM** (#59): built in one `binrpm-pkg` invocation, dnf-installed into the
+  image and onto the metal — `rpm -q kernel` is truthful on the booted box; vended + CHECKSUM-attested.
+- **The NVIDIA stack is RPM-owned** (#77): `kmod-nvidia-open-<kver>` (the open `.ko` set + boot
+  auto-load config) and `nvidia-driver-userspace` (the `.run` payload incl. GSP firmware, packaged from
+  the install's ground-truth path-diff) — every NVIDIA byte answers to `rpm -qf`.
+- **MT7925 WiFi/BT firmware, rpm-pure** (#64): stock Rocky `mt7xxx-firmware` + `wireless-regdb`, with
+  `FW_LOADER_COMPRESS_ZSTD` enabled (the actual root cause — the "platform early-probe quirk" was a
+  misdiagnosis); the radios initialize at boot.
+- The doctor gains the 8 GiB managed-memory check (#63) and rpm-ownership checks; the full #70 audit
+  (33 findings + a 559 GB metal purge + build-speed work) landed.
+
 ## [spark-rocky-live-20260717b] — 2026-07-17 · `6.18.38-clk` (4k pages) — 64k reverted
 
 > **Correction (2026-07-22):** the "kernel regression from `6.18.37`" root cause below was **falsified** —

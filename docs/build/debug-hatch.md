@@ -34,6 +34,9 @@ The debug key is baked in, so we SSH straight into our own test boots. **The mar
 - The matching **private** keys live with each debugger (the maintainer's is in `~/.ssh`, generated for this purpose, **not** a personal key). No shared private key.
 - **Revoke** by deleting a line and rebuilding. No PKI, no CA — right-sized for one maintainer + a handful of validators.
 
-## Public launch (issue #29)
+## Shipping posture (decided 2026-06-29)
 
-For a public release, decide whether to keep `spark-rocky-debug-enable.sh` (a documented maintainer opt-in) or strip it. The locked-by-default posture and the un-releasable-debug-build gate hold regardless; the only question is whether the convenience opt-in ships to strangers.
+The release posture is soft-launched and unsupported with no broadcast (#29 closed 2026-06-29), and the
+hatch **ships as-is**: a documented maintainer opt-in, locked by default, with the un-releasable-DEBUG-build
+gate in `05` holding regardless. Revisit only if the broadcast posture ever changes — the question then is
+whether the convenience opt-in ships to strangers, and this section is where that decision gets recorded.

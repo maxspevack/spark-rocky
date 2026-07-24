@@ -51,8 +51,9 @@ and committed under `recipes/`. The entry→recipe mapping (Firestore `benchmark
 `sparkrun`'s documented surface is `setup`/`run`/`show`/`logs`/`status`/`stop` — it **runs** any recipe from
 the registries (official, community, and the benchmarked recipes browsable on spark-arena.com). It is **not**
 limited to Atlas/SGLang (an earlier note here said so — wrong). Its README documents running and browsing,
-**not** a `submit`/`upload` command, so the path for posting a result to the leaderboard is most likely the
-**spark-arena.com site itself**. sparkrun is not needed for *reproduction* — `spark-vllm-docker` +
+**not** a `submit`/`upload` command; the submission path is being established directly in
+[#72](https://github.com/maxspevack/spark-rocky/issues/72)/[#75](https://github.com/maxspevack/spark-rocky/issues/75)
+(the sparkrun/v2-profile validation + the community-recipe path). sparkrun is not needed for *reproduction* — `spark-vllm-docker` +
 `llama-benchy` + the recipe API cover that — so it stays unpulled until we submit, or until an Atlas/SGLang
 target requires it.
 

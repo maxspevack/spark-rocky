@@ -23,21 +23,23 @@ It converges the metal on the freshly-built tree, dispatching on what differs. A
 freshly-built `$KVER` **via dnf from the build's kernel rpm** (#59 — `rpm -q kernel` stays truthful; the open
 `.ko` set and a zstd initramfs ride alongside) **next to** the running kernel,
 makes it the GRUB default, and **keeps the currently-running kernel as a labeled fallback**. A **driver-only
-bump** (same kernel) swaps the open `.ko` set, installs the matched `.run` userspace (sha256-gated against
-`DRIVER_SHA256`), and rebuilds the initramfs — GRUB untouched, the replaced `.ko` set staged under
-`/root/driver-rollback-<old-ver>/`. Your data, docker, and SSH keys are untouched either way. Reboot; for a
-kernel bump, if anything is off, pick the previous kernel at the 5-second menu. *Kernel path validated on the
-GB10 (2026-07-06): 6.18.37 → 6.18.38 in place — booted, `proof-of-life` CUDA PASS, fallback retained.
-Driver-only path encodes the sequence hardware-validated 2026-07-16: 610.43.02 → 610.43.03 — rebooted,
-driver+GSP `610.43.03`, CUDA PASS, dmesg baseline clean.*
+bump** (same kernel) dnf-installs the new `kmod-nvidia-open` rpm (#77 — a clean package upgrade, the
+replaced `.ko` set staged under `/root/driver-rollback-<old-ver>/`), installs the matched userspace
+(sha256-gated against `DRIVER_SHA256`), and rebuilds the initramfs — GRUB untouched. Your data, docker,
+and SSH keys are untouched either way. Reboot; for a kernel bump, if anything is off, pick the previous
+kernel at the 5-second menu. *The dnf/rpm kernel path was validated on the GB10 **2026-07-23**:
+`6.18.38-clk` → `6.18.39-clk` in place — booted, `rpm -q kernel` truthful, doctor PASS, dmesg gate PASS,
+vLLM serve-gate GATE-PASS, fallback retained. (The earlier 2026-07-06 and 2026-07-16 validations
+exercised the retired file-copy mechanisms.)*
 
 ## Clean install (destructive wipe)
 > Boot-from-USB is verified end to end. The NVMe **wipe** install is proven on the reference box but **not yet
-> re-run clean-room against the current image** (tracked in #34; the productize-for-others phase is parked). It
+> re-run clean-room against the current image** (decided and closed, #34; the clean-room re-run is parked with productization). It
 > now requires a **typed confirmation** before it touches the disk.
 
-1. **Boot the Spark off the USB** on **wired Ethernet** (the MT7925 WiFi firmware init is unreliable on the
-   stock kernel — platform-level; see [`../build/platform-deltas.md`](../build/platform-deltas.md)).
+1. **Boot the Spark off the USB** on **wired Ethernet** — the released image (`20260717b`) ships no
+   MT7925 WiFi firmware, so the radios cannot come up on it (fixed at HEAD, #64 — images cut after
+   2026-07-23 carry the firmware as stock Rocky rpms; see [`../build/platform-deltas.md`](../build/platform-deltas.md)).
 2. **Get `install-baremetal.sh` onto the booted box** (deliberately not baked into the image) and run it:
    ```
    git clone https://github.com/maxspevack/spark-rocky
@@ -53,5 +55,6 @@ driver+GSP `610.43.03`, CUDA PASS, dmesg baseline clean.*
 ```
 /root/proof-of-life.sh
 ```
-Confirms the OS, the kernel (`uname -r` = the built release — `6.18.38-clk` on the default CLK path; the
-`-clk` suffix states the kernel lineage), `nvidia-smi` (the GB10 and driver), and a CUDA `vectorAdd` on the GPU.
+Confirms the OS, the kernel (`uname -r` = the built release, e.g. `6.18.39-clk` at the current
+`CLK_COMMIT` pin; the `-clk` suffix states the kernel lineage), `nvidia-smi` (the GB10 and driver), and
+a CUDA `vectorAdd` on the GPU.

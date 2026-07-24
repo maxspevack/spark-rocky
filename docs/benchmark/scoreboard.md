@@ -1,6 +1,6 @@
 # Scoreboard — single-host, spark-arena vs spark-rocky
 
-What the zero-patch stack (Rocky 10.2 + the open 610 driver + an unmodified 6.18 kernel — CLK the shipped default, stock kernel.org the A/B) has reproduced, and what's next. The shipped stack is now **6.18.38-clk** (4k pages), and it is **benchmark-validated at parity on that exact kernel** — the Qwen3.5-0.8B full matrix on 6.18.38-clk/4k lands **median 1.007× vs the June stock-host baseline** (all 104 cells; receipt: [`reproduce-Qwen3.5-0.8B-clk4k-2026-07-23.txt`](../../receipts/reproduce-Qwen3.5-0.8B-clk4k-2026-07-23.txt), #61), so CLK reproduces the published numbers, not just the stock host. One honest caveat rides that receipt: the CLK/4k run is **directional-strong, not throttle-certified** — its templog trace carried no throttle column (see the receipt's CAVEAT section). The older receipts below were benched on 6.18.34/4k — same page size. 64k was reverted 2026-07-17 (a serve regression, [#65](https://github.com/maxspevack/spark-rocky/issues/65); the historical 64k win is in [`../build/platform-deltas.md`](../build/platform-deltas.md)). Each target
+What the zero-patch stack (Rocky 10.2 + the open 610 driver + an unmodified 6.18 kernel — CLK the shipped default, stock kernel.org the A/B) has reproduced, and what's next. The shipped stack is **6.18.38-clk** (4k pages, released 2026-07-17), and it is **benchmark-validated at parity on that exact kernel** — the Qwen3.5-0.8B full matrix on 6.18.38-clk/4k lands **median 1.007× vs the June stock-host baseline** (all 104 cells; receipt: [`reproduce-Qwen3.5-0.8B-clk4k-2026-07-23.txt`](../../receipts/reproduce-Qwen3.5-0.8B-clk4k-2026-07-23.txt), #61), so CLK reproduces the published numbers, not just the stock host. One honest caveat rides that receipt: the CLK/4k run is **directional-strong, not throttle-certified** — its templog trace carried no throttle column (see the receipt's CAVEAT section). The older receipts below were benched on 6.18.34/4k — same page size. 64k was reverted 2026-07-17 (a serve regression, [#65](https://github.com/maxspevack/spark-rocky/issues/65); the historical 64k win is in [`../build/platform-deltas.md`](../build/platform-deltas.md)). Each target
 maps to its recipe via [`reproduce-pipeline.md`](reproduce-pipeline.md) (`benchmarkId` → Firestore →
 recipe permalink). Snapshot: `data/spark-arena-snapshot-2026-06-10.json`.
 
@@ -21,7 +21,13 @@ The consistent shape across the **three full-matrix** models (Qwen-35B, Qwen-0.8
 drift (the one uncontrolled variable — spark-arena pins no runtime version), not the OS/kernel swap. Not
 "faster"; reproduced at parity.
 
-## Target backlog (top single-host entries — parked: #9/#10/#17)
+## Target backlog — historical snapshot (2026-06-10 entries; the live queue is #71–#76)
+
+> The rows below are the June snapshot's top entries, kept for the recipe mapping. The **live**
+> benchmark queue (2026-07-23) is [#73](https://github.com/maxspevack/spark-rocky/issues/73) (Nemotron
+> flagship) and [#74](https://github.com/maxspevack/spark-rocky/issues/74) (Qwen3.6 NVFP4+MTP —
+> supersedes #9/#17), with the harness/serving-stack work in #71/#72 and the community-recipe path in
+> #75/#76.
 
 | model | published t/s | runtime | recipe | maps to issue |
 |---|---|---|---|---|

@@ -13,13 +13,13 @@ Run on the Spark (aarch64 — `05` chroots into the image):
    ```
    It must print `GATE-PASS`. This exercises the large (~90 GB) KV-cache allocation that `05` and `validate.sh`'s `vectorAdd` do **not** — the exact path the 64k regression ([#65](https://github.com/maxspevack/spark-rocky/issues/65)) faulted on. **A release that has not passed the serve gate on its own kernel is not signable.** `vectorAdd` green is necessary, not sufficient.
 3. **Sign**, on the host that holds the release key: `OUTDIR=<vend-dir> scripts/06-sign-release.sh`. Produces the GPG-clearsigned `CHECKSUM` and exports the public key. The passphrase comes from the human via pinentry; it is never scripted.
-3. **Tag the build commit:**
+4. **Tag the build commit:**
    ```
    git tag -f spark-rocky-live-<YYYYMMDD> <commit>
    git push -f origin spark-rocky-live-<YYYYMMDD>
    ```
-4. **Upload** the artifacts (`.raw.xz`, the kernel `.rpm` (#59), `CHECKSUM`, `BUILD-MANIFEST.txt`, public key) to the release bucket.
-5. **Verify, fail-closed:**
+5. **Upload** the artifacts (`.raw.xz`, the **three rpms** — kernel #59, `kmod-nvidia-open` + `nvidia-driver-userspace` #77, `CHECKSUM`, `BUILD-MANIFEST.txt`, public key) to the release bucket.
+6. **Verify, fail-closed:**
    ```
    scripts/07-verify-release.sh spark-rocky-live-<YYYYMMDD>
    ```

@@ -9,9 +9,11 @@ vendor image. (The dmesg census below was recorded on the stock-mainline host; t
 [`dmesg-baseline.md`](dmesg-baseline.md).)
 
 The load-bearing fact: **GPU compute works** — `proof-of-life` runs `vectorAdd` on the GB10 (compute 12.1,
-130.7 GB) on the LiveUSB boot of every shipped release since 6.18.35. Everything below is peripheral to that.
+130.7 GB) on the LiveUSB boot of every shipped release since 6.18.35. (Unit note, once: the unified
+memory is 121 GiB ≈ 130 GB decimal — `nvidia-smi` reports decimal GB, other docs say 121 GB binary;
+same memory.) Everything below is peripheral to that.
 
-## Page size — currently 4k (64k REVERTED, #65)
+## Page size — 4k since 2026-07-17 (64k REVERTED, #65)
 
 **We ship a 4k-page kernel** (`CONFIG_ARM64_4K_PAGES`), pinned as `PAGE_SIZE=4k` in
 [`config/versions.env`](../../config/versions.env). This is a **2026-07-17 reversal** of what had been the
@@ -76,7 +78,7 @@ capsule-on-disk with stock `fwupd`, `fwupdmgr get-updates` clean after. GPU VBIO
 | L3 | `arm-smmu-v3: PRI will be broken / msi_domain absent` | **BENIGN on current firmware** | Persists at latest firmware; configs are `=y`, so it's the platform ACPI/IORT. The GB10 GPU is NVLink-C2C-coherent (not the PCIe SMMU-SVA path) — compute is unaffected (observed) |
 | L4 | `NVDA8800:00 device-creation -16` | **BENIGN, boot-to-boot intermittent** | 1 of ~30 NVDA Grace platform devices; the only one that fails (resource conflict); non-critical to compute. Vanished after the 2026-07-17 firmware update, returned on the 2026-07-23 boot at the same firmware — intermittent at current firmware, not firmware-resolved (see `dmesg-baseline.md`) |
 | L5 | `EM: CPUs … same capacity` (×15) | **MEASURE** | Platform ACPI doesn't feed cpu `capacity-dmips-mhz` to the energy model; may change EAS scheduling across X925 vs A725 → possible perf. Quantify with a before/after spark-arena run |
-| L6 | `mt7925` WiFi/BT firmware missing | **FIXED (#64), rpm-pure since 2026-07-23** | `02` dnf-installs the stock Rocky subpackages (`mt7xxx-firmware` + `wireless-regdb`) into the rootfs; `01` enables `FW_LOADER_COMPRESS_ZSTD` so the kernel decompresses el10's compressed blobs at load time. **Correction:** the 2026-07-22 "a `.zst` load fails at the driver's early probe on this platform" was a misdiagnosis — the kernel config simply lacked ZSTD firmware decompression (`_XZ` was on, `_ZSTD` off); nothing platform-specific. The interim hand-decompressed-`.bin` fix worked for that reason and is retired. Wired stays the benchmark default; the radios are *available* (metal-verified 2026-07-22: `WM Firmware Version` at ~6.7s, `wlP9s9` up). |
+| L6 | `mt7925` WiFi/BT firmware missing | **FIXED (#64), rpm-pure since 2026-07-23** | `02` dnf-installs the stock Rocky subpackages (`mt7xxx-firmware` + `wireless-regdb`) into the rootfs; `01` enables `FW_LOADER_COMPRESS_ZSTD` so the kernel decompresses el10's compressed blobs at load time. **Correction:** the 2026-07-22 "a `.zst` load fails at the driver's early probe on this platform" was a misdiagnosis — the kernel config simply lacked ZSTD firmware decompression (`_XZ` was on, `_ZSTD` off); nothing platform-specific. The interim hand-decompressed-`.bin` fix worked for that reason and is retired. Wired stays the benchmark default; the radios are *available* (the rpm-pure path metal-verified 2026-07-23 — the dmesg gate: WM firmware loads from the rpm-owned `.xz` at ~6s, `wlP9s9` up, the 3 radio err/crit lines gone). |
 | L7 | `mlx5` ConnectX-7 loads unwanted (unused cluster NIC; on bare hardware it can flood dmesg / "insufficient power") | **CARRY (assembly), fixed** | Multi-node is out of scope, so we don't want the driver loaded. A rootfs blacklist alone is **insufficient**: in a `--no-hostonly` initramfs mlx5 coldplug-loads at ~2s, *before* the blacklist applies. `04` **omits mlx5 from the initramfs** (`--omit-drivers`) so it cannot load early; the rootfs blacklist keeps it off post-switch-root (#30). Re-enable + ship the mlx5 firmware if you ever cable it for clustering |
 | L8 | `GICv3 [Firmware Bug] GSI8`, `FF-A IRQ mapping` | **BENIGN on current firmware** | Firmware↔kernel friction the kernel flags and works around; no observed impact |
 | L9 | `PCI: OF: of_root NULL` (×8) | **NO-OP** | PCI host bridges come from ACPI on this hybrid ACPI+DT boot; expected |

@@ -16,12 +16,13 @@ Conflating them is what makes `PyTorch not found` look alarming. They exist on p
 | **2** | **Serving container** (`vllm-node*`) | Docker, on the host | the **AI stack** that runs the model on the GPU (**held constant**) | **Yes — torch 2.11.0+cu130** |
 | **3** | **Benchmark client** `llama-benchy` | host, ephemeral `uvx` venv | sends HTTP, counts tokens/sec | **No — and shouldn't** |
 
-Verified inventory (2026-07-16, on the bare-metal box):
+Verified inventory (2026-07-23, on the bare-metal box — the `6.18.39-clk` boot: doctor PASS, dmesg
+gate PASS, vLLM serve-gate GATE-PASS):
 
 ```
 ENV 1 — HOST (ours, the swapped layer)
   OS                       Rocky Linux 10.2 (Red Quartz)
-  kernel                   6.18.38-clk  CIQ Linux Kernel (CLK), 4k pages, zero patches carried here  (shipped kernel; parity benched on stock 6.18.34/4k. 64k reverted 2026-07-17 — serve regression #65)
+  kernel                   6.18.39-clk  CIQ Linux Kernel (CLK), 4k pages, zero patches carried here  (rpm-installed, #59; the released image ships 6.18.38-clk; parity benched on stock 6.18.34/4k + CLK/4k (#61). 64k reverted 2026-07-17 — serve regression #65)
   GPU driver               610.43.03 open module, WE built it            (the shipped driver; parity was benched on 610.43.02)
   platform firmware        NVIDIA's latest, via public fwupd/LVFS      (see build.md → Firmware)
   docker                   29.6.1 ; nvidia-container-toolkit 1.19.1

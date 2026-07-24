@@ -28,6 +28,8 @@ threat model requires Secure Boot, this image is not for you as shipped — see 
 Reboot and select the USB in the firmware boot menu (or set a one-time boot entry). The image logs in to a root shell automatically.
 
 ## 3. Run the check
+The console auto-logs-in as root. If autologin does not fire, the console credential is **`root` /
+`rocky`** — console-only: the image ships with network password auth disabled (key-only SSH).
 ```
 /root/validate.sh
 ```

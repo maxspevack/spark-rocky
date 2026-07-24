@@ -4,7 +4,7 @@ How deliverable #1 is made, and how to rebuild it yourself. Everything carries *
 
 ## Prerequisites (build host)
 - An **aarch64** Linux host with **Docker** — the kernel and the open module build in `rockylinux:10` containers, so the host toolchain doesn't matter. A second DGX Spark, or any ARM box, works.
-- The NVIDIA driver `.run` (the `DRIVER_VER` pinned in `versions.env`, verified against `DRIVER_SHA256`) for the userspace stage. Network access for Rocky packages + CUDA.
+- The NVIDIA driver `.run` (the `DRIVER_VER` pinned in `versions.env`) — **fetched automatically by `02b` if absent**, verified fail-closed against `DRIVER_SHA256`. Network access for Rocky packages + CUDA.
 - ~40 GB free for the rootfs + image.
 
 ## The pipeline (run in order)
@@ -29,7 +29,9 @@ sudo fwupdmgr refresh --force
 sudo fwupdmgr get-updates
 sudo fwupdmgr upgrade
 ```
-As of 2026-06-11 the box reports the latest LVFS publishes (UEFI `0x0200980f`, EC `0x03000302`, USB-C PD `0x00000516`); the GPU VBIOS and GSP ride the driver. Benchmarks therefore run on the **same firmware a DGX OS box would** — no firmware confound. The per-delta analysis is in [`platform-deltas.md`](platform-deltas.md).
+The current firmware set and its history live in **one place**, [`platform-deltas.md`](platform-deltas.md)
+(UEFI `0x02009b0b` + EC `0x03000508` as of 2026-07-17); the GPU VBIOS and GSP ride the driver. Benchmarks
+therefore run on the **same firmware a DGX OS box would** — no firmware confound.
 
 ## Boot-chain posture (Secure Boot: unsupported by design)
 The kernels this pipeline produces are **unsigned**, and `01` deliberately neutralizes the in-kernel
@@ -59,12 +61,13 @@ installs the kernel **from that rpm, via dnf** — `02` into the image rootfs (`
   rpm forbids dashes in `Version`, so the `-clk` lineage suffix sanitizes to `_clk` **in the NEVRA
   only**; module paths, `/boot` file names, and `uname -r` all keep the true `6.18.38-clk`.
 - **dnf-native rollback semantics on the metal**, alongside the GRUB fallback entry.
-- **A served, attested artifact.** The kernel rpm is vended by `05` next to the image, uploaded to the
-  release bucket, and covered by `06`'s **clearsigned CHECKSUM** — the same detached-GPG trust model as
-  the image (basic attestation by design: the rpm itself carries no embedded signature; the signed
-  CHECKSUM is the trust anchor, `07-verify` binds served rpm ↔ manifest ↔ signature fail-closed).
-  A downstream can consume just the kernel — `dnf install` the rpm on any GB10 Rocky host — without
-  flashing the image.
+- **A served, attested artifact — from the first release cut after 2026-07-23.** The kernel rpm is
+  vended by `05` next to the image, uploaded to the release bucket, and covered by `06`'s
+  **clearsigned CHECKSUM** — the same detached-GPG trust model as the image (basic attestation by
+  design: the rpm itself carries no embedded signature; the signed CHECKSUM is the trust anchor,
+  `07-verify` binds served rpm ↔ manifest ↔ signature fail-closed). A downstream can then consume just
+  the kernel — `dnf install` the rpm on any GB10 Rocky host — without flashing the image. **The
+  currently served release (`20260717b`) predates the rpm pipeline and carries no rpm.**
 
 Two deliberate boundaries: the rpm's `%post` (`kernel-install`/BLS registration) is **skipped**
 (`tsflags=noscripts`) because this image owns its boot plumbing — a static GRUB config and our dracut
@@ -80,13 +83,14 @@ open module builds against the kernel *tree*, not the rpm, and that decoupling i
 The goal (stated 2026-07-23): **represent the entire box through RPMs** — upstream Rocky packages or
 packages this pipeline builds. Current state, precisely:
 
-**RPMs this pipeline builds** (`01`, `make binrpm-pkg` against the pinned source):
+**RPMs this pipeline builds:**
 
-| Package | Shipped? | Where it goes |
-|---|---|---|
-| `kernel-<KVER-sanitized>-N.aarch64` | **yes** | dnf-installed into the image (`02`) and onto the metal (`upgrade-metal.sh`); vended + served next to the image, covered by the signed CHECKSUM |
-| `kernel-headers-…` | no | built as a side effect; the open module builds against the tree — deliberate decoupling |
-| `kernel-devel-…` | no | same |
+| Package | Built by | Shipped? | Where it goes |
+|---|---|---|---|
+| `kernel-<KVER-sanitized>-N.aarch64` | `01` (`binrpm-pkg`) | **yes** | dnf-installed into the image (`02`) and onto the metal (`upgrade-metal.sh`); vended + served next to the image, covered by the signed CHECKSUM |
+| `kmod-nvidia-open-<KVER-sanitized>-<driver>.aarch64` (#77) | `02b` | **yes** | the open `.ko` set + the boot auto-load config; kver rides the **Name** (kernel-package-style side-by-side coexistence), `Requires: kernel = <kver>`; dnf-installed into the image and onto the metal on both `upgrade-metal` paths |
+| `nvidia-driver-userspace-<driver>.aarch64` (#77) | `02c` | **yes** | the `.run` payload — libraries, tools, **GSP firmware** — packaged from the ground-truth path-diff of the actual install (the manifest regenerates per driver bump); dnf-installed over the laid files |
+| `kernel-headers-…` / `kernel-devel-…` | `01` | no | built as a side effect; the open module builds against the tree — deliberate decoupling |
 
 **RPMs from package repos** (all `gpgcheck=1`):
 
@@ -97,17 +101,16 @@ packages this pipeline builds. Current state, precisely:
 | `docker-ce`, `nvidia-container-toolkit` | Docker / NVIDIA | the serving container runtime |
 | `mt7xxx-firmware`, `wireless-regdb` (#64) | Rocky | MT7925 WiFi/BT blobs + regulatory.db — rpm-owned, kernel decompresses the `.xz`/`.zst` blobs at load time |
 
-**NOT rpm-managed today** (the honest remainder, in descending size):
+**NOT rpm-managed** (the deliberate remainder):
 
-| Thing | How it lands | Path to rpm, if wanted |
+| Thing | How it lands | Why it stays out |
 |---|---|---|
-| open NVIDIA kernel modules (`.ko` set) | built from NVIDIA source by `02b`, copied to `/lib/modules/$KVER/extra/` | package as a kmod rpm in-pipeline — the natural next #59-class step |
-| NVIDIA driver userspace + GSP firmware | the `.run` installer (`02c`, sha256-pinned) | repackage the `.run` payload as an rpm; NVIDIA's own el10 repo driver rpms are the alternative but lag the pinned open-source version |
-| dracut initramfs + static `grub.cfg` | generated by `04` per image | stays generated — machine-specific output, not distributable content |
+| dracut initramfs + static `grub.cfg` | generated by `04` per image | machine-specific generated output, not distributable content |
 | the ops scripts (`validate.sh`, `templog.sh`, …) | baked by `04`/`05` | could ride a tiny noarch rpm; low value while the image is the unit of distribution |
 
-`rpm -qa` on the booted box plus this table accounts for every byte. The two NVIDIA rows are the gap
-between today and the stated goal.
+`rpm -qa` on the booted box plus this table accounts for every byte. Since #77 (2026-07-23), **every
+NVIDIA byte — kernel modules, userspace, GSP firmware — answers to `rpm -qf`**; the doctor checks all
+three packages on the booted box.
 
 ## Staying current
 The refresh trigger is **CLK, not kernel.org** (the clk default, 2026-07-17): the drift sensor fires when
@@ -126,4 +129,10 @@ the `ciq-6.18.y` branch moves past the pinned `CLK_COMMIT`; kernel.org is report
    a config change, not a patch-rebase (this repo carries zero patches against either tree).
 
 ## Validation status
-The `01`→`04` chain was re-run clean-room on **2026-06-11**: it built a Live USB that boots the GB10 on the pinned stack, the open driver auto-loads, and the GPU computes (`proof-of-life` `vectorAdd` PASS), verified by booting off the USB and back **non-destructively**. That run found and fixed real bugs (module bloat, RHEL/Rocky `grub2-install`, a missing `depmod`/auto-load), all now in the scripts. **Honest edge:** `install-baremetal.sh` (the NVMe install) is not clean-room-validated — see [`../use/install.md`](../use/install.md).
+Two validation anchors, honestly dated: the `01`→`04` chain was re-run **clean-room on 2026-06-11**
+(a Live USB that boots the GB10, driver auto-loads, `vectorAdd` PASS, non-destructive USB-and-back) —
+that run predates the CLK default and the rpm pipeline. The **rpm pipeline was validated 2026-07-23**,
+not clean-room but end-to-end on the reference box: full `01`→`04` build at HEAD, metal upgraded via
+the dnf/rpm path (`6.18.38-clk` → `6.18.39-clk`), rebooted — `rpm -q kernel` truthful, doctor PASS,
+dmesg gate PASS, vLLM serve-gate GATE-PASS. **Honest edge:** `install-baremetal.sh` (the NVMe install)
+is not clean-room-validated — see [`../use/install.md`](../use/install.md).

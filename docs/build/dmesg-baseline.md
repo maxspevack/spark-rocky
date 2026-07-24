@@ -1,17 +1,19 @@
-# dmesg err/crit baseline (GB10, 6.18.38)
+# dmesg err/crit baseline (GB10, 6.18.y)
 
 A durable census of the kernel `err`/`crit` lines a healthy spark-rocky box emits at boot, each root-caused
 and marked benign, so a future build's `dmesg -t -l err,crit,alert,emerg` can be diffed against this instead
 of re-litigated. **None of these affect the GPU/CUDA path** (proof-of-life passes). The census below was
 captured on the GB10; the stay-current gate re-confirms it each release (see the release-diff sections at the
-end). Steady since 6.18.35 — the platform baseline does not move across 6.18.y point releases.
+end). Kernel point releases hold the census steady (6.18.35 through 6.18.39: zero kernel-driven changes);
+what moves it is firmware (22→19, 2026-07-17) and packaging (19→18, 2026-07-23) — each move gated + explained.
 
 ## The baseline (benign — GB10 platform + minimal-image artifacts)
 
-> **Dated 2026-07-23: this table is the pre-2026-07-17 state.** The authoritative **current** census (19
-> distinct lines) is the **2026-07-17 re-baseline section below** — the `0x02009b0b` SoC/UEFI firmware
-> retired the PCI-OF, NVDA8800, FF-A, and cma classes, and the MT7925 radio class (3 lines, the L6 class)
-> appeared. The rows below stand as the root-cause record for every retired class.
+> **Dated 2026-07-23: this table is the pre-2026-07-17 state.** The authoritative **current** census (**18
+> distinct lines**) is the **`6.18.38-clk` → `6.18.39-clk` section at the end** (2026-07-23) — the
+> `0x02009b0b` SoC/UEFI firmware retired the PCI-OF, FF-A, and cma classes (2026-07-17), the #64
+> firmware fix retired the MT7925 radio class, and the NVDA8800 pair is boot-to-boot intermittent. The
+> rows below stand as the root-cause record for every retired class.
 
 | Line (timestamp-stripped) | Count | Root cause | Verdict |
 |---|---|---|---|
@@ -88,7 +90,8 @@ fwupd/LVFS). Census on the metal: **22 → 19 distinct `err/crit` lines.**
   L4/L8/L9 ledger classes, **resolved by the new SoC/UEFI firmware**. The platform got quieter.
 - **NEW (3):** the MT7925 WiFi/BT firmware-missing class (`Bluetooth hci0` ×2 + `mt7925e hardware init
   failed`) — the known-benign L6 radio class, surfacing on the metal under the CLK config's radio
-  probing. #56 (the radio blacklist, queued next) removes all three.
+  probing. #56 (the radio blacklist) was queued to remove all three — *superseded: #64's firmware fix
+  made #56 moot; the radios initialize instead of failing (see the 6.18.39 section below).*
 
 **Gate result: PASS** — every direction-change explained; no unexplained new line.
 

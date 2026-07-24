@@ -15,8 +15,9 @@ Confirm that fingerprint through a second channel before trusting it.
 From the directory holding the release files (`CHECKSUM`, the `.raw.xz`, `BUILD-MANIFEST.txt`):
 
 ```
-# 1. import the key from THIS repo (not from beside the image); confirm the fingerprint out-of-band
-gpg --import keys/spark-rocky-release-key.asc
+# 1. import the key from THIS repo (not from beside the image); confirm the fingerprint out-of-band.
+#    keys/ is repo-relative — from the release-files directory, point at your clone:
+gpg --import /path/to/spark-rocky/keys/spark-rocky-release-key.asc
 
 # 2. the checksums are authentically ours
 gpg --verify CHECKSUM           # must print: Good signature ... 71C1 6676 ...
