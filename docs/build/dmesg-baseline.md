@@ -92,6 +92,24 @@ fwupd/LVFS). Census on the metal: **22 → 19 distinct `err/crit` lines.**
 
 **Gate result: PASS** — every direction-change explained; no unexplained new line.
 
+## 6.18.38-clk → 6.18.39-clk (metal in-place upgrade, 2026-07-23)
+
+The `.39` bump (#69) via the kernel-rpm path (#59). Census on the metal: **19 → 18 distinct `err/crit`
+lines** (baselines: `/root/dmesg-638clk-baseline.txt` → `/root/dmesg-639clk-baseline.txt`).
+- **GONE (3):** the whole MT7925 radio class (`mt7925e hardware init failed` + `Bluetooth hci0`
+  firmware ×2) — **fixed by #64 rpm-pure**: `mt7xxx-firmware`/`wireless-regdb` installed, the kernel
+  decompresses the `.xz` blobs (`FW_LOADER_COMPRESS_ZSTD` also enabled for the `.zst` era). The WM
+  firmware loads at ~6s; `wlP9s9` exists. #56 (radio blacklist) is thereby MOOT for the err/crit
+  census — the radios now initialize instead of failing.
+- **RETURNED (2):** the `NVDA8800:00` platform-device pair (`failed to claim resource 0` +
+  `platform device creation failed: -16`) — ledger **L4, classified benign** (1 of ~30 NVDA Grace
+  platform devices; non-critical to compute). It vanished after the 2026-07-17 firmware update and is
+  back on this boot — the line is boot-to-boot intermittent at current firmware, not kernel-driven
+  (same firmware both boots). Reclassified: L4 is *intermittent-benign*, not firmware-resolved.
+
+**Gate result: PASS** — every direction-change explained; CUDA vectorAdd + a full vLLM serve-gate
+passed on the same boot.
+
 ## Reboot messages (benign)
 
 `watchdog: watchdog0: watchdog did not stop!` on reboot (#49) — **kept deliberately, cosmetic.** `watchdog0`
