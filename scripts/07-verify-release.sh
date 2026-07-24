@@ -17,7 +17,10 @@ ACCT="${GCLOUD_ACCOUNT:-max.spevack@gmail.com}"   # the bucket lives under the p
 KEY="${KEY:-$HERE/../keys/spark-rocky-release-key.asc}"
 GS="gcloud storage"; A="--account=$ACCT"
 fail=0; say(){ printf '%s\n' "$*"; }
-chk(){ if eval "$1"; then say "  ok: $2"; else say "  VERIFY-FAIL: $2"; fail=1; fi; }
+# res: report a check's already-computed result. NO eval, deliberately (review M9): every value this
+# script compares is parsed from the SERVED manifest — the artifact it exists to distrust — and data
+# that crossed a trust boundary must never pass through eval on the verifying machine.
+res(){ if [ "$1" = 0 ]; then say "  ok: $2"; else say "  VERIFY-FAIL: $2"; fail=1; fi; }
 
 tagc=$(git rev-list -n1 "$TAG" 2>/dev/null) || { say "FATAL: tag '$TAG' not found locally"; exit 1; }
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
@@ -30,33 +33,31 @@ asha=$(awk -F': *' '/^artifact_sha256/{print $2; exit}' "$tmp/manifest")
 
 say "=== verify (fail-closed) ==="
 # 1. served == tag (the invariant that drifted)
-chk "[ \"$servedc\" = \"$tagc\" ]"  "served commit ${servedc:0:7} == tag $TAG (${tagc:0:7})"
-# 2. the served CHECKSUM is authentically ours
+[ "$servedc" = "$tagc" ]; res $? "served commit ${servedc:0:7} == tag $TAG (${tagc:0:7})"
+# 2. the served CHECKSUM is authentically OURS — pinned fingerprint, not merely "a" Good signature
+# (review MINOR-7: any-key grep would accept a signature from any key in the local keyring; flash.sh
+# has pinned VALIDSIG since day one — same standard here).
+FPR="71C16676F9D40A4CE0C6EB6608B14BC398311101"
 gpg --import "$KEY" >/dev/null 2>&1 || true
-chk "gpg --verify '$tmp/CHECKSUM' 2>&1 | grep -q 'Good signature'"  "served CHECKSUM carries a Good GPG signature"
+gpg --status-fd 1 --verify "$tmp/CHECKSUM" 2>/dev/null | grep -q "VALIDSIG $FPR"
+res $? "served CHECKSUM carries a valid signature from the PINNED release key (${FPR:0:8}...)"
 # 3. the served image's sha is the one inside that signed CHECKSUM (binds manifest <-> signed bytes)
-chk "[ -n \"$asha\" ] && grep -q \"$asha\" '$tmp/CHECKSUM'"  "served image sha ${asha:0:12}... is covered by the signed CHECKSUM"
+[ -n "$asha" ] && grep -qF "$asha" "$tmp/CHECKSUM"; res $? "served image sha ${asha:0:12}... is covered by the signed CHECKSUM"
 
-# 4 (#59). the served kernel rpm: present in the bucket, and its sha is inside the signed CHECKSUM.
-# Manifests older than the rpm pipeline have no kernel_rpm line — skipped, not failed (old releases verify).
-krpm=$(awk -F': *' '/^kernel_rpm  /{print $2; exit}' "$tmp/manifest")
-ksha=$(awk -F': *' '/^kernel_rpm_sha256/{print $2; exit}' "$tmp/manifest")
-if [ -n "$krpm" ]; then
-  chk "$GS ls '$BUCKET/$krpm' $A >/dev/null 2>&1"  "kernel rpm $krpm is served from the bucket"
-  chk "[ -n \"$ksha\" ] && grep -q \"$ksha\" '$tmp/CHECKSUM'"  "served kernel rpm sha ${ksha:0:12}... is covered by the signed CHECKSUM"
-else
-  say "  note: manifest predates the rpm pipeline (no kernel_rpm) — rpm checks skipped"
-fi
-# 4b (#77). same binding for the kmod + userspace rpms (manifests predating them skip).
-for pair in "kmod_rpm kmod_rpm_sha256 kmod" "userspace_rpm userspace_rpm_sha256 userspace"; do
+# 4 (#59/#77). each served rpm: present in the bucket, sha inside the signed CHECKSUM.
+# Manifests older than the rpm pipeline have no rpm lines — skipped, not failed (old releases verify).
+sawrpm=0
+for pair in "kernel_rpm kernel_rpm_sha256 kernel" "kmod_rpm kmod_rpm_sha256 kmod" "userspace_rpm userspace_rpm_sha256 userspace"; do
   set -- $pair
   prpm=$(awk -F': *' -v k="$1" '$1 ~ "^"k" *$" {print $2; exit}' "$tmp/manifest")
   psha=$(awk -F': *' -v k="$2" '$1 ~ "^"k" *$" {print $2; exit}' "$tmp/manifest")
   if [ -n "$prpm" ]; then
-    chk "$GS ls '$BUCKET/$prpm' $A >/dev/null 2>&1"  "$3 rpm $prpm is served from the bucket"
-    chk "[ -n \"$psha\" ] && grep -q \"$psha\" '$tmp/CHECKSUM'"  "served $3 rpm sha ${psha:0:12}... is covered by the signed CHECKSUM"
+    sawrpm=1
+    $GS ls "$BUCKET/$prpm" $A >/dev/null 2>&1; res $? "$3 rpm $prpm is served from the bucket"
+    [ -n "$psha" ] && grep -qF "$psha" "$tmp/CHECKSUM"; res $? "served $3 rpm sha ${psha:0:12}... is covered by the signed CHECKSUM"
   fi
 done
+[ "$sawrpm" = 1 ] || say "  note: manifest predates the rpm pipeline (no rpm lines) — rpm checks skipped"
 
 # 5. HEAD-advanced: a heads-up, never a failure (durable invariant is served == tag)
 head=$(git rev-parse HEAD 2>/dev/null)

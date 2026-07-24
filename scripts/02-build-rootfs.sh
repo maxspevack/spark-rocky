@@ -78,5 +78,7 @@ R="$W/rocky-img/rootfs"
 [ -d "$R/lib/modules/$KVER" ] || { echo "VERIFY-FAIL: no /lib/modules/$KVER in rootfs"; exit 1; }
 # #59: the kernel must be IN the image rpm database (the point of the rpm pipeline — truthful rpm -q).
 rpm --root "$R" -q kernel >/dev/null 2>&1 || { echo "VERIFY-FAIL: kernel not in the rootfs rpm database"; exit 1; }
-[ -e "$R/usr/local/cuda/bin/nvcc" ] || [ -e "$R/usr/local/cuda-13.0/bin/nvcc" ] || echo "WARN: nvcc not in rootfs (check rootfs.log)"
+# nvcc is a stated image property (the proof-of-life/doctor compiler) — its absence is a build failure
+# discovered NOW, not after a full image build + boot (review MINOR-13).
+[ -e "$R/usr/local/cuda/bin/nvcc" ] || [ -e "$R/usr/local/cuda-13.0/bin/nvcc" ] || { echo "VERIFY-FAIL: nvcc not in rootfs (check rootfs.log) — the on-box CUDA proof cannot compile"; exit 1; }
 echo "ROOTFS-OK $KVER ($(du -sh "$R" | cut -f1))"

@@ -85,7 +85,7 @@ CU
   # box with work loaded.
   cat > /tmp/mm.cu <<'CU'
 #include <cstdio>
-__global__ void bump(unsigned char*p,size_t n){size_t i=(size_t)blockIdx.x*blockDim.x+threadIdx.x; if(i<n) p[i]+=1;}
+__global__ void bump(unsigned char*p,size_t n){for(size_t i=(size_t)blockIdx.x*blockDim.x+threadIdx.x;i<n;i+=(size_t)gridDim.x*blockDim.x) p[i]+=1;}
 int main(){size_t n=8ull<<30; unsigned char*p; if(cudaMallocManaged(&p,n)!=cudaSuccess){printf("  managed-mem: ALLOC FAILED\n"); return 1;}
  for(size_t i=0;i<n;i+=4096) p[i]=7;
  bump<<<4096,256>>>(p,n); cudaDeviceSynchronize(); cudaError_t e=cudaGetLastError();
@@ -114,7 +114,7 @@ chk '[ "${NOISE:-1}" = 0 ]'                      "dmesg clean of the known regre
 line
 if [ "$FAIL" = 0 ]; then
   echo " RESULT: PASS"
-  echo " Rocky + stock kernel $K + open driver $DRV drives the GB10 on this box, and the image is clean."
+  echo " Rocky + kernel $K + open driver $DRV drives the GB10 on this box, and the image is clean."
 else
   echo " RESULT: FAIL"
   echo " Something above did not come up as expected — see the failed checks (!!) above."

@@ -26,9 +26,9 @@ trap 'docker rm -f vllm_node >/dev/null 2>&1 || true' EXIT
 
 ok=0
 for i in $(seq 1 45); do
-  sleep 15
   code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:$PORT/health" 2>/dev/null || true)
   if [ "$code" = 200 ]; then ok=1; break; fi
+  sleep 15
   if ! docker ps --format '{{.Names}}' | grep -q vllm_node; then
     echo "GATE-FAIL: serve container died after $((i*15))s — KV-cache/serve fault (the #65 class)."
     grep -iE "Xid|illegal memory|AcceleratorError|CUDA error|RuntimeError" "$LOG" 2>/dev/null | tail -4

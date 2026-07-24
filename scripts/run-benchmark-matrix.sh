@@ -23,6 +23,10 @@ for i in $(seq 1 60); do
   docker ps --format '{{.Names}}' | grep -q vllm_node || { echo "DIED @ poll $i"; docker logs --tail 25 vllm_node 2>&1 | tail -25; exit 1; }
   echo "poll $i: loading"; sleep 10
 done
+# Fail closed on readiness (review NIT-6): falling through 60 polls and benchmarking a dead server
+# produced a llama-benchy stack trace instead of the actual diagnosis.
+[ "$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:$PORT/health" 2>/dev/null)" = 200 ] \
+  || { echo "MATRIX-ABORT: server never became ready after 60 polls (10 min)"; exit 1; }
 
 # Auto-arm the forensic logger (templog) for the whole sweep, stopped on any exit. A benchmark must never run
 # untraced: the 2026-06-11 crash had no thermal trace. (templog only observes; if a run thermally throttles,

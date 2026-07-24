@@ -10,8 +10,14 @@ OUTDIR="${OUTDIR:-$W/vend}"
 KEY="${KEY:-spark-rocky release signing}"     # uid substring of the signing key
 cd "$OUTDIR"
 shopt -s nullglob
-ARTS=( *.raw.xz *.rpm *.BUILD-MANIFEST.txt *.packages.txt )   # *.rpm: the kernel rpm rides the same signed CHECKSUM (#59)
+ARTS=( *.raw.xz *.rpm *.BUILD-MANIFEST.txt *.packages.txt )   # *.rpm: kernel + kmod + userspace rpms ride the same signed CHECKSUM (#59/#77)
 [ ${#ARTS[@]} -gt 0 ] || { echo "FATAL: no release artifacts in $OUTDIR — run 05 first"; exit 1; }
+# ONE release per signing run (review M8): vend-dir rotation is manual, and a leftover second image
+# would get an authentic signature — then flash.sh takes the alphabetically-FIRST .raw.xz line from
+# the CHECKSUM, i.e. the OLDER image, with a fully valid chain. Refuse ambiguity outright.
+IMGS=( *.raw.xz ); MANS=( *.BUILD-MANIFEST.txt )
+[ ${#IMGS[@]} -eq 1 ] || { echo "FATAL: ${#IMGS[@]} images in $OUTDIR — one release per vend dir; rotate/clean before signing"; exit 1; }
+[ ${#MANS[@]} -eq 1 ] || { echo "FATAL: ${#MANS[@]} manifests in $OUTDIR — one release per vend dir; rotate/clean before signing"; exit 1; }
 gpg --list-secret-keys "$KEY" >/dev/null 2>&1 || { echo "FATAL: no secret key matching '$KEY' — mint it first"; exit 1; }
 
 echo "=== CHECKSUM over: ${ARTS[*]} ==="

@@ -28,7 +28,8 @@ STAMP="spark-rocky-live-aarch64-${KVER}-${RELDATE}"
 [ "$(id -u)" = 0 ]        || { echo "FATAL: must run as root (loop-mounts an image)"; exit 1; }
 [ "$(uname -m)" = aarch64 ] || { echo "FATAL: 05 chroots into an aarch64 image; run on the Spark (or register qemu-user-static)"; exit 1; }
 [ -f "$SRC" ]             || { echo "FATAL: source image not found: $SRC (run 01-04 first, or pass SRC=)"; exit 1; }
-command -v xz >/dev/null 2>&1 || dnf install -y -q xz 2>/dev/null || true
+command -v xz >/dev/null 2>&1 || dnf install -y -q xz 2>/dev/null
+command -v xz >/dev/null 2>&1 || { echo "FATAL: xz unavailable — cannot produce the release artifact"; exit 1; }
 
 mkdir -p "$OUTDIR"
 WORK="$OUTDIR/${STAMP}.raw"
@@ -94,6 +95,10 @@ chroot "$MNT" /sbin/ldconfig; echo "  - ld.so.cache: $(chroot "$MNT" ldconfig -p
 OS_VER=$(. "$MNT/etc/os-release" 2>/dev/null; echo "${VERSION:-unknown}")
 CUDA_PKGS=$(rpm -qa --root "$MNT" 2>/dev/null | grep -iE '^cuda-' | sort | tr '\n' ' ')
 KMODS=$(ls "$MNT"/lib/modules/ 2>/dev/null | tr '\n' ' ')
+# Captured WHILE MOUNTED (review M1, empirically reproduced): the manifest heredoc below runs after
+# cleanup unmounts $MNT — a live rpm --root there rendered "package kernel is not installed" into the
+# provenance field #59 exists to attest.
+KRPM_NEVRA=$(rpm --root "$MNT" -q kernel 2>/dev/null | head -1)
 CFG="$W/config-$KVER"   # the RESOLVED config 01 built (config-$KVER, e.g. config-6.18.35). NO glob fallback: a 05-only re-run without 01 must FAIL the gate below, never silently sign a guessed .config identity (Gafton)
 WANT_PG=$([ "$PAGE_SIZE" = 64k ] && echo "CONFIG_ARM64_64K_PAGES=y" || echo "CONFIG_ARM64_4K_PAGES=y")   # the page-size symbol the pin demands
 CFG_SHA=$([ -f "$CFG" ] && sha256sum "$CFG" | cut -d' ' -f1 || echo unknown)
@@ -122,6 +127,7 @@ chk '[ "$(readlink "$MNT/etc/systemd/system/systemd-firstboot.service")" = /dev/
 chk 'grep -q -- "--autologin root" "$MNT/etc/systemd/system/getty@tty1.service.d/autologin.conf"'  "boot: console autologin configured"
 chk '[ -s "$MNT/etc/spark-rocky-release" ]'                              "provenance stamp written"
 chk 'rpm --root "$MNT" -q kernel >/dev/null 2>&1'                        "kernel present in the image rpm database (#59 — rpm -q must be truthful on the booted box)"
+chk '[ -d "$MNT/lib/modules/$KVER" ]'                                    "the image carries /lib/modules/$KVER (the STAMP names the kernel that is actually inside)"
 chk '[ ! -e "$MNT/etc/spark-rocky-debug-hatch" ]'                        "no DEBUG hatch marker (a DEBUG build is un-releasable)"
 chk '[ -f "$W/config-$KVER" ]'                                           "resolved config-$KVER present (manifest hashes the real build config, not a guessed base glob)"
 chk 'grep -q "$WANT_PG" "$CFG"'                                          "page size matches the pin: $PAGE_SIZE ($WANT_PG) — a 64k pin cannot ship a 4k image"
@@ -173,7 +179,7 @@ os                  : ${OS_VER}
 kernel modules dir  : ${KMODS}
 kernel source       : ${KERNEL_SOURCE} $([ "$KERNEL_SOURCE" = clk ] && echo "(CIQ Linux Kernel, ctrliq/kernel-src-tree @ ${CLK_COMMIT:0:12})" || echo "(kernel.org tarball, GPG-verified SHA256 pin)")
 kernel release      : ${KVER} (uname -r; the -clk suffix = CLK lineage)
-kernel rpm (NEVRA)  : $(rpm --root "$MNT" -q kernel 2>/dev/null | head -1 || echo UNKNOWN) (#59 — built by 01 binrpm-pkg, dnf-installed by 02)
+kernel rpm (NEVRA)  : ${KRPM_NEVRA:-UNKNOWN} (#59 — built by 01 binrpm-pkg, dnf-installed by 02)
 page size           : ${PAGE_SIZE} (CONFIG_ARM64 page-size choice, pinned in versions.env)
 nvidia driver       : ${DRIVER_VER} (open kernel module, built in rockylinux:10 / gcc 14.3.1)
 cuda packages       : ${CUDA_PKGS:-none}

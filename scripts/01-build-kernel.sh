@@ -57,8 +57,11 @@ case "$KERNEL_SOURCE" in
     MAJ="v${KVER%%.*}.x"
     [ -f linux-$KVER.tar.xz ] || wget -q "https://cdn.kernel.org/pub/linux/kernel/$MAJ/linux-$KVER.tar.xz"
     # Verify against the kernel.org-published SHA256 (pinned in versions.env) before trusting a byte:
-    # a compromised CDN/MITM otherwise gets compiled and later GPG-signed in our name.
-    [ -n "$KERNEL_SHA256" ] && { echo "$KERNEL_SHA256  linux-$KVER.tar.xz" | sha256sum -c - || { echo "FATAL: kernel tarball SHA256 mismatch"; exit 1; }; }
+    # a compromised CDN/MITM otherwise gets compiled and later GPG-signed in our name. An EMPTY pin is
+    # FATAL, not a skip — "[ -n ] && {...}" under set -e silently continues when the pin is missing
+    # (review M4, empirically reproduced), which would compile-and-sign an unverified tarball.
+    [ -n "$KERNEL_SHA256" ] || { echo "FATAL: KERNEL_SHA256 pin missing/empty — refusing an unverified tarball"; exit 1; }
+    echo "$KERNEL_SHA256  linux-$KVER.tar.xz" | sha256sum -c - || { echo "FATAL: kernel tarball SHA256 mismatch"; exit 1; }
     rm -rf linux-$KVER && tar xf linux-$KVER.tar.xz
     ;;
   clk)
@@ -114,12 +117,12 @@ fi
 # GB10, 2026-07-16, CLK ciq-6.18.y @ b1a607d).
 scripts/config --set-str SYSTEM_TRUSTED_KEYS "" --set-str SYSTEM_REVOCATION_KEYS "" \
   --set-str MODULE_SIG_KEY "" --disable MODULE_SIG --disable MODULE_SIG_ALL \
-  --disable SECURITY_LOCKDOWN_LSM 2>/dev/null || true
+  --disable SECURITY_LOCKDOWN_LSM
 # Firmware loads straight from Rocky'"'"'s .zst-compressed firmware RPMs (#64): el10 ships blobs as .zst,
 # and both inherited configs enable only XZ decompression — the exact gap that made the MT7925 radios
 # dead-on-boot until 2026-07-23. The kernel decompresses at request time; the rootfs installs the stock
 # firmware subpackages via dnf, no hand-decompressed files. A .config choice, not a source patch.
-scripts/config --enable FW_LOADER_COMPRESS_ZSTD 2>/dev/null || true
+scripts/config --enable FW_LOADER_COMPRESS_ZSTD
 # Page-size variant (default 4k). 64k flips the ARM64 page-size choice; olddefconfig recomputes
 # PAGE_SHIFT/PGTABLE_LEVELS. NOTE: page size NEVER rides uname — it lives in the .config symbol +
 # the provenance stamp. (Lineage DOES ride uname: the clk path sets LOCALVERSION="-clk" above.)
@@ -128,6 +131,15 @@ if [ "$PAGE_SIZE" = 64k ]; then
   echo "[build] 64k page-size variant (CONFIG_ARM64_64K_PAGES; no uname suffix)"
 fi
 make olddefconfig >/work/olddefconfig-$KVER.log 2>&1
+# FAIL-CLOSED config asserts (review M3): the two edits above sit on this project'"'"'s two documented
+# mines — the 2026-07-16 sign-file explosion (MODULE_SIG*) and the #64 dead radios (ZSTD firmware).
+# A scripts/config no-op (tree layout change on a future bump) must abort here, not ship the mine.
+grep -qE "^# CONFIG_MODULE_SIG is not set|^CONFIG_MODULE_SIG=n" .config \
+  || { echo "FATAL: MODULE_SIG still enabled after neutralization — the sign-file mine (2026-07-16)"; exit 1; }
+grep -qE "^CONFIG_MODULE_SIG_ALL=y" .config \
+  && { echo "FATAL: MODULE_SIG_ALL survived the disable — modules_install would die in sign-file"; exit 1; }
+grep -qE "^CONFIG_FW_LOADER_COMPRESS_ZSTD=y" .config \
+  || { echo "FATAL: FW_LOADER_COMPRESS_ZSTD did not take — compressed firmware would not load (#64)"; exit 1; }
 stage source-extract-config
 # From here on KVER IS the kernel RELEASE (make kernelrelease = version + LOCALVERSION), not the
 # bare pin: 6.18.38 for kernelorg, 6.18.38-clk for clk. The modules dir, vermagic, vmlinuz name,
@@ -159,12 +171,11 @@ echo "===BUILD-START==="
 # fully built for 03 (Module.symvers, headers). kernel-headers/kernel-devel subpackages are built too
 # but deliberately NOT shipped (the open .ko builds against the tree, not the rpm — deliberate).
 make -j"$(nproc)" INSTALL_MOD_STRIP=1 binrpm-pkg >/work/build-$KVER.log 2>&1
-echo "BUILD-RC=$?"
 stage build-and-binrpm
 [ -f arch/arm64/boot/Image ] && echo "KERNEL-BUILT $KVER ($(ls -la arch/arm64/boot/Image | awk "{print \$5}") bytes)"
 cp .config /work/config-$KVER
 KRPM=$(ls rpmbuild/RPMS/aarch64/kernel-[0-9]*.rpm 2>/dev/null | head -1)
-[ -n "$KRPM" ] || { echo "FATAL: binrpm-pkg produced no kernel rpm (#59) — see binrpm-$KVER.log"; exit 1; }
+[ -n "$KRPM" ] || { echo "FATAL: binrpm-pkg produced no kernel rpm (#59) — see build-$KVER.log"; exit 1; }
 cp "$KRPM" /work/
 KRPM=$(basename "$KRPM")
 echo "KERNEL-RPM $KRPM ($(du -h /work/$KRPM | cut -f1))"

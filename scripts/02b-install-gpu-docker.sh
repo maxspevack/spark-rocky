@@ -61,7 +61,10 @@ make modules -j"$(nproc)" SYSSRC=/host/linux-$KVER >/host/ko.log 2>&1
 KSAN=$(echo "$KVER" | tr - _)
 BR=/tmp/kmod-buildroot; rm -rf "$BR"; mkdir -p "$BR/lib/modules/$KVER/extra" "$BR/etc/modules-load.d"
 cp *.ko "$BR/lib/modules/$KVER/extra/"
-strip --strip-debug "$BR/lib/modules/$KVER/extra/"*.ko 2>/dev/null || true
+strip --strip-debug "$BR/lib/modules/$KVER/extra/"*.ko
+# Size-gate the strip (review NIT-2): a silent strip failure ships ~98M-per-module debug-laden .ko.
+KOSZ=$(du -sm "$BR/lib/modules/$KVER/extra" | cut -f1)
+[ "$KOSZ" -lt 100 ] || { echo "VERIFY-FAIL: .ko set is ${KOSZ}M after strip (expected ~15M) — strip did not take"; exit 1; }
 # The boot auto-load config rides the kmod rpm too — kernel-side nvidia config, rpm-owned.
 printf "nvidia\nnvidia-modeset\nnvidia-uvm\nnvidia-drm\n" > "$BR/etc/modules-load.d/nvidia.conf"
 cat > /tmp/kmod.spec <<SPEC

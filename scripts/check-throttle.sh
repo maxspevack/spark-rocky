@@ -33,7 +33,7 @@ fi
 read -r verdict min_tl max_tmp slow_hits < <(awk -F, -v cs="$c_slow" -v ct="$c_tl" -v cp="$c_tmp" -v margin="$MARGIN" '
   NR==1 { next }
   {
-    if (cs!="" && $cs ~ /THROTTLE|Active/) slow++
+    if (cs!="" && ($cs ~ /THROTTLE/ || $cs=="Active")) slow++   # NOT ~/Active/: "Not Active" would match (review NIT-7)
     if (ct!="" && $ct ~ /^-?[0-9]+$/) { v=$ct+0; if (mintl=="" || v<mintl) mintl=v }
     if (cp!="" && $cp ~ /^[0-9]+$/)    { t=$cp+0; if (t>maxt) maxt=t }
   }

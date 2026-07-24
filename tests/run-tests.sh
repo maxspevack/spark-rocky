@@ -36,6 +36,16 @@ for s in 02-build-rootfs.sh 02b-install-gpu-docker.sh 03-build-nvidia-open.sh 04
 done
 # build.env is stale-gated: 01 stamps source+commit; every downstream consumer fails closed on a mismatch.
 if grep -qF 'BUILD_KERNEL_SOURCE=$KERNEL_SOURCE' scripts/01-build-kernel.sh && grep -qF 'BUILD_CLK_COMMIT' scripts/01-build-kernel.sh; then ok "01 stamps build.env with source + CLK commit"; else no "01 build.env missing the source/commit stamps"; fi
+# Script-review hardening (2026-07-23 Gafton pass): absent build.env is FATAL (M2), 06 refuses an
+# ambiguous vend dir (M8 — two images would let flash.sh pick the older one with a valid signature),
+# 07 pins the release fingerprint (any-key "Good signature" is not ours) and evals no served data (M9).
+if grep -qF 'no $W/build.env' scripts/lib/build-env-gate.sh; then ok "build-env gate: ABSENT is as fatal as stale (M2)"; else no "build-env gate fails open when build.env is absent (M2)"; fi
+if grep -qF 'one release per vend dir' scripts/06-sign-release.sh; then ok "06 refuses to sign an ambiguous vend dir (M8)"; else no "06 signs whatever is lying in vend/ (M8)"; fi
+if grep -qF 'VALIDSIG $FPR' scripts/07-verify-release.sh; then ok "07 pins the release-key fingerprint (MINOR-7)"; else no "07 accepts any Good signature (MINOR-7)"; fi
+if grep -qE '^chk\(\)\{ if eval' scripts/07-verify-release.sh; then no "07 evals served-manifest data (M9 — injection in the verifier)"; else ok "07 evals no served data (M9)"; fi
+if grep -qF 'FATAL: KERNEL_SHA256 pin missing' scripts/01-build-kernel.sh; then ok "01 refuses an empty KERNEL_SHA256 pin (M4)"; else no "01 silently skips tarball verification on an empty pin (M4)"; fi
+if grep -qF 'MODULE_SIG still enabled after neutralization' scripts/01-build-kernel.sh && grep -qF 'FW_LOADER_COMPRESS_ZSTD did not take' scripts/01-build-kernel.sh; then ok "01 fail-closed asserts the two mine-adjacent config edits (M3)"; else no "01 config edits can silently no-op onto documented mines (M3)"; fi
+
 # One gate implementation (audit #70 C1): the lib carries the real checks; every consumer sources it.
 for c in 'BUILD_KERNEL_SOURCE:-}" = "$KERNEL_SOURCE"' 'KVER $KVER != pinned $PIN_KVER' 'CLK_COMMIT moved'; do
   if grep -qF "$c" scripts/lib/build-env-gate.sh; then ok "build-env-gate lib carries the check: ${c:0:30}"; else no "build-env-gate lib missing a staleness check: ${c:0:30}"; fi
@@ -91,7 +101,7 @@ if grep -qE 'rpm-build cpio kmod' scripts/01-build-kernel.sh; then ok "01 instal
 # clk branch setting "-clk". No KREL variable — KVER itself is the derived kernel release.
 if [ "$(grep -rcF -- '--set-str LOCALVERSION "-clk"' scripts/01-build-kernel.sh)" = 1 ]; then ok "01 sets the clk lineage suffix (LOCALVERSION=-clk, exactly once)"; else no "01 missing/duplicated the clk LOCALVERSION lineage suffix"; fi
 if grep -rF -- '--set-str LOCALVERSION' scripts/ | grep -vF '"-clk"' | grep -q .; then no "a non-lineage LOCALVERSION crept in (config properties must stay out of uname)"; else ok "no non-lineage LOCALVERSION in any script"; fi
-if grep -qw 'KREL' scripts/*.sh;             then no "KREL variable reintroduced (KVER is the derived kernel release)"; else ok "no KREL variable in any build script"; fi
+if grep -rqw 'KREL' scripts/;                then no "KREL variable reintroduced (KVER is the derived kernel release)"; else ok "no KREL variable in any build script (incl. lib/)"; fi
 # KVER becomes the DERIVED release post-olddefconfig (kernelrelease), and 05/upgrade-metal consume it
 # through the stale-gated build.env like the rest of the pipeline.
 if grep -qF 'make -s kernelrelease' scripts/01-build-kernel.sh; then ok "01 derives KVER from make kernelrelease"; else no "01 does not derive the kernel release"; fi

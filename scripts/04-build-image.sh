@@ -10,6 +10,7 @@ source "$HERE/lib/build-env-gate.sh"   # fail-closed staleness gate on 01's buil
 R="$W/rocky-img/rootfs"
 IMG="$W/rocky-img/rocky-gb10.img"
 DEV="${DEV:-/dev/sda}"
+[ "$(id -u)" = 0 ] || { echo "FATAL: must run as root (loop devices, mkfs, mounts)"; exit 1; }
 MNT=/mnt/rimg
 [ -d "$R" ] || { echo "FATAL: rootfs missing — run 02/02b/02c first"; exit 1; }
 
@@ -36,13 +37,24 @@ sfdisk --part-uuid "$IMG" 1 A84952EE-452B-44B3-ACB5-B036BA8E6B0D >/dev/null 2>&1
   || { echo "FATAL: ESP GUID pin failed (#47/#60) — refusing to continue with a random-GUID image"; exit 1; }
 sfdisk -d "$IMG" 2>/dev/null | grep -qi "uuid=A84952EE-452B-44B3-ACB5-B036BA8E6B0D" \
   || { echo "FATAL: ESP GUID read-back mismatch (#60) — the pin did not land"; exit 1; }
-LOOP=$(losetup --find --show -P "$IMG"); sleep 1; echo "loop=$LOOP"
-mkfs.fat -F32 -n ROCKYEFI ${LOOP}p1 >/dev/null
-mkfs.ext4 -F -q -L rocky-root ${LOOP}p2
+# GATED loop/mkfs/mount chain (review M5): this script runs without set -e (the verify-collect
+# pattern), so every step here must be gated EXPLICITLY — an ungated failure would let the populate +
+# the whole verify block run against $MNT as a plain host directory and print IMAGE-VERIFY-OK over an
+# image full of zeroes (05's mountpoint gate catches that before signing; the DEV= direct-flash path
+# would not). The partition-node wait mirrors 05's documented udev race handling.
+LOOP=$(losetup --find --show -P "$IMG") || { echo "FATAL: losetup failed"; exit 1; }
+for _ in $(seq 1 50); do [ -b "${LOOP}p2" ] && break; sleep 0.2; done
+{ [ -b "${LOOP}p1" ] && [ -b "${LOOP}p2" ]; } || { echo "FATAL: ${LOOP}p1/p2 never appeared (udev race)"; losetup -d "$LOOP"; exit 1; }
+echo "loop=$LOOP"
+mkfs.fat -F32 -n ROCKYEFI ${LOOP}p1 >/dev/null   || { echo "FATAL: mkfs.fat failed"; losetup -d "$LOOP"; exit 1; }
+mkfs.ext4 -F -q -L rocky-root ${LOOP}p2          || { echo "FATAL: mkfs.ext4 failed"; losetup -d "$LOOP"; exit 1; }
 EFI_UUID=$(blkid -s UUID -o value ${LOOP}p1); ROOT_UUID=$(blkid -s UUID -o value ${LOOP}p2)
 echo "EFI=$EFI_UUID ROOT=$ROOT_UUID"
 
-mkdir -p "$MNT"; mount ${LOOP}p2 "$MNT"; mkdir -p "$MNT"/boot/efi; mount ${LOOP}p1 "$MNT"/boot/efi
+mkdir -p "$MNT"
+mount ${LOOP}p2 "$MNT"                && mountpoint -q "$MNT"          || { echo "FATAL: root mount failed"; losetup -d "$LOOP"; exit 1; }
+mkdir -p "$MNT"/boot/efi
+mount ${LOOP}p1 "$MNT"/boot/efi       && mountpoint -q "$MNT"/boot/efi || { echo "FATAL: ESP mount failed"; umount "$MNT"; losetup -d "$LOOP"; exit 1; }
 echo "=== populate (fast, on NVMe) ==="; cp -a "$R"/. "$MNT"/
 cat > "$MNT"/etc/fstab <<EOF
 UUID=$ROOT_UUID / ext4 defaults 0 1
@@ -170,7 +182,11 @@ grep -q "blacklist mlx5_core" "$MNT/etc/modprobe.d/blacklist-mlx5.conf" 2>/dev/n
 [ -x "$MNT/root/spark-rocky-debug-enable.sh" ] || { echo "VERIFY-FAIL: spark-rocky-debug-enable.sh not baked (debug hatch missing — the \$HERE/../config path bug)"; VERR=1; }
 [ "$VERR" = 0 ] && echo "IMAGE-VERIFY-OK: vmlinuz-$KVER + zstd initramfs ($ISZ bytes) + BOOTAA64.EFI + grub + boot-hygiene + debug-hatch present"
 for m in var/tmp dev/pts dev sys proc; do umount -l "$MNT"/$m 2>/dev/null||true; done
-umount "$MNT"/boot/efi 2>/dev/null||true; umount "$MNT" 2>/dev/null||true; losetup -d "$LOOP"; sync
+umount "$MNT"/boot/efi 2>/dev/null||true; umount "$MNT" 2>/dev/null||true
+# A still-mounted target here means a busy rootfs (classic: chroot-dnf-spawned gpg-agent) — the image
+# file would be packaged/flashed against a dirty filesystem. Loud, not silent (review MINOR-12).
+mountpoint -q "$MNT" && echo "WARNING: $MNT still mounted after umount — a process holds the rootfs; image may be dirty (fuser -vm $MNT)"
+losetup -d "$LOOP"; sync
 [ "$VERR" = 0 ] || { echo "ABORT: image failed verification"; exit 1; }
 echo "IMAGE-VERIFY-OK -> $IMG ($(stat -c%s "$IMG" 2>/dev/null) bytes)"
 # OPTIONAL flash: only if $DEV is a present, removable USB. Absent or non-USB -> skip cleanly (the

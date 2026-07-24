@@ -133,7 +133,10 @@ ISZ=$(stat -c%s "/boot/initramfs-$KVER.img" 2>/dev/null || echo 0)
 if [ "$KCH" = 1 ]; then
   echo "== rewrite GRUB (backup first; $KVER default, $PREV fallback) =="
   cp -f "$GRUBCFG" "$GRUBCFG.bak-pre-$KVER"
-  cat > "$GRUBCFG" <<EOF
+  # Write-to-new + atomic mv (review MINOR-11): a truncate-in-place heredoc that dies mid-write
+  # (ENOSPC on the ESP) leaves an unbootable default path; mv on the same FAT filesystem is the
+  # closest to atomic the ESP offers.
+  cat > "$GRUBCFG.new" <<EOF
 load_env
 set default=0
 set timeout=5
@@ -150,8 +153,9 @@ menuentry 'Rocky + $PREV (GB10) [previous - fallback]' {
   initrd /boot/initramfs-$PREV.img
 }
 EOF
-  { grep -q "vmlinuz-$KVER" "$GRUBCFG" && grep -q "vmlinuz-$PREV" "$GRUBCFG"; } \
-    || { echo "FATAL: new grub.cfg missing an entry — restoring backup"; cp -f "$GRUBCFG.bak-pre-$KVER" "$GRUBCFG"; exit 1; }
+  { grep -q "vmlinuz-$KVER" "$GRUBCFG.new" && grep -q "vmlinuz-$PREV" "$GRUBCFG.new"; } \
+    || { echo "FATAL: new grub.cfg missing an entry — original left untouched"; rm -f "$GRUBCFG.new"; exit 1; }
+  mv -f "$GRUBCFG.new" "$GRUBCFG"
 fi
 
 echo ""

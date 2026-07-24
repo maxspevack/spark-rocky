@@ -16,4 +16,9 @@ if [ -f "$W/build.env" ]; then
   [ "${BUILD_KERNEL_SOURCE:-}" = "$KERNEL_SOURCE" ] || { echo "FATAL: stale build.env (built from '${BUILD_KERNEL_SOURCE:-?}', pin is '$KERNEL_SOURCE') — rerun 01-build-kernel.sh"; exit 1; }
   [ "$KERNEL_SOURCE" != kernelorg ] || [ "$KVER" = "$PIN_KVER" ] || { echo "FATAL: stale build.env (KVER $KVER != pinned $PIN_KVER) — rerun 01-build-kernel.sh"; exit 1; }
   [ "$KERNEL_SOURCE" != clk ] || [ "${BUILD_CLK_COMMIT:-}" = "$CLK_COMMIT" ] || { echo "FATAL: stale build.env (CLK_COMMIT moved) — rerun 01-build-kernel.sh"; exit 1; }
+else
+  # ABSENT is as fatal as STALE (review M2): every consumer needs the RESOLVED release; without
+  # build.env, KVER is the kernelorg A/B pin — under the clk default that names a kernel no artifact
+  # in $W corresponds to, and stale kernelorg leftovers would be consumed silently.
+  echo "FATAL: no $W/build.env — run 01-build-kernel.sh first (the resolved-release handoff is required)"; exit 1
 fi

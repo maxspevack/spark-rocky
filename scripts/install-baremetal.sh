@@ -25,7 +25,7 @@ umount -R /mnt/dgx 2>/dev/null; umount ${TGT}p1 ${TGT}p2 2>/dev/null; true
 # (ASSUME_YES=1 only for unattended automation that has confirmed out-of-band. For staying current on an
 # existing install, prefer the non-destructive scripts/upgrade-metal.sh instead of this wipe.)
 if [ "${ASSUME_YES:-0}" != 1 ]; then
-  echo "About to ERASE $TGT ($(lsblk -dno SIZE,MODEL "$TGT" 2>/dev/null)) and install Rocky $ROCKY_RELEASEVER + $KVER. ALL DATA ON IT IS DESTROYED."
+  echo "About to ERASE $TGT ($(lsblk -dno SIZE,MODEL "$TGT" 2>/dev/null)) and install Rocky $ROCKY_RELEASEVER + $RUNK (the RUNNING system). ALL DATA ON IT IS DESTROYED."
   read -r -p "Type 'WIPE $TGT' exactly to proceed: " ans
   [ "$ans" = "WIPE $TGT" ] || { echo "ABORT: confirmation not matched — nothing was wiped."; exit 1; }
 fi
@@ -75,5 +75,7 @@ echo '--- boot order ---'; efibootmgr 2>/dev/null | grep -iE 'BootOrder|Rocky'
 grep -q "vmlinuz" /mnt/tgt/boot/efi/EFI/rocky/grub.cfg 2>/dev/null \
   || { echo "FATAL: ESP grub.cfg missing/empty (no vmlinuz entry) -- NOT bootable, do not reboot to $TGT"; exit 1; }
 for d in dev/pts dev sys proc run; do umount /mnt/tgt/$d 2>/dev/null; done
-sync; umount /mnt/tgt/boot/efi; umount /mnt/tgt
+sync
+umount /mnt/tgt/boot/efi || echo "WARNING: ESP umount failed — check fuser -vm /mnt/tgt/boot/efi before rebooting"
+umount /mnt/tgt          || echo "WARNING: target umount failed — a process holds the new rootfs; check fuser -vm /mnt/tgt before rebooting"
 echo "=== INSTALL-DONE: bare-metal Rocky on $TGT ==="

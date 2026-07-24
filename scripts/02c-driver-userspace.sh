@@ -29,7 +29,9 @@ for m in proc sys dev dev/pts; do mkdir -p "$R/$m"; mount --bind "/$m" "$R/$m" 2
 snap(){ (cd "$R" && find . \( -path ./proc -o -path ./sys -o -path ./dev -o -path ./tmp -o -path ./var/log \) -prune -o -print | sort); }
 snap > /tmp/pre.list
 echo "=== running .run userspace-only inside the rootfs chroot ==="
-chroot "$R" /bin/bash -c "cd /tmp && sh $RUN --no-kernel-modules --no-questions --ui=none --no-x-check --no-nouveau-check --install-libglvnd 2>&1 | tail -12"
+# Inner pipefail (review M6): without it the pipeline status is tail-of-pipe (always 0) and a failed
+# or partial .run install reports success — upgrade-metal gets this right via its own set -o pipefail.
+chroot "$R" /bin/bash -c "set -o pipefail; cd /tmp && sh $RUN --no-kernel-modules --no-questions --ui=none --no-x-check --no-nouveau-check --install-libglvnd 2>&1 | tail -12"
 for m in dev/pts dev sys proc; do umount -l "$R/$m" 2>/dev/null || true; done
 snap > /tmp/post.list
 comm -13 /tmp/pre.list /tmp/post.list > /tmp/new.list

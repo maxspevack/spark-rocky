@@ -9,7 +9,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 source "$HERE/../config/versions.env"          # KVER, DRIVER_VER (+ KERNEL_SOURCE/CLK_COMMIT for the gate)
 W="${W:-$(dirname "$HERE")}"
 source "$HERE/lib/build-env-gate.sh"   # fail-closed staleness gate on 01's build.env (one impl — audit #70 C1)
-EXPECT_VM="$KVER"   # the open module's vermagic must equal the kernel release, which is plain $KVER (no LOCALVERSION suffix)
+EXPECT_VM="$KVER"   # the open module's vermagic must equal the RESOLVED kernel release (LOCALVERSION included — 6.18.39-clk on the clk default; page size never rides it)
 LOG="$W/nvbuild.full.log"
 KO="$W/driver-610/NVIDIA-Linux-aarch64-$DRIVER_VER/kernel-open"
 [ -d "$KO" ] || { echo "FATAL: $KO missing — run 02b first (it downloads+extracts the driver)"; exit 1; }
