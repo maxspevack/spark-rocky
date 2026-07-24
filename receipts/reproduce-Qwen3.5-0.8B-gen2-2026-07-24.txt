@@ -1,0 +1,53 @@
+SERVING GENERATION 2 VALIDATION — Qwen3.5-0.8B, full canonical matrix (#71)
+Date: 2026-07-24
+
+WHAT WE VALIDATED
+  The generation-2 serving image — the first pulled from spark-arena/dgx-vllm's PERMANENT dated
+  mirror tags instead of a locally-captured digest — serves and benchmarks on the shipped kernel,
+  and the June→gen-2 runtime drift is measured cell-by-cell instead of floating silently. This
+  closes the standing confound ("spark-arena pins no vLLM version") for our receipts by
+  construction: the tag below is public, immutable, and maps to exact vLLM/FlashInfer commits
+  via the mirror's build-index.json.
+
+HOST STACK
+  Rocky Linux 10.2 · kernel 6.18.39-clk (4k pages) · open driver 610.43.03 · single GB10.
+  Serving container: ghcr.io/spark-arena/dgx-vllm-eugr-nightly:2026072302
+    digest sha256:200979f304bfc688a4ed1f00895c6a22c2372065837f79de65dd35b5b4a446ef
+    (cross-verified: build-index.json == live ghcr manifest, 2026-07-23)
+    vLLM 0.23.1rc1.dev1408+ga354a9055.d20260723 · FlashInfer 0.6.15 · FastAPI 0.136.3 ·
+    torch 2.11.0+cu130 · transformers 5.14.1 · triton 3.6.0
+  Recipe: qwen3.5-0.8b-arena with only the container: line changed to the pinned tag
+  (qwen3.5-0.8b-arena-2026072302.yaml). llama-benchy 0.3.8 via scripts/run-benchmark-matrix.sh.
+  Serve-gate: GATE-PASS on this exact image + kernel before the matrix.
+
+COMMANDS
+  bash serve-gate.sh qwen3.5-0.8b-arena-2026072302 8000          # GATE-PASS
+  ./run-recipe.sh qwen3.5-0.8b-arena-2026072302 --solo -d
+  bash run-benchmark-matrix.sh 8000 Qwen/Qwen3.5-0.8B matrix-0.8b-2026072302.csv
+
+RESULT — receipts/qwen3.5-0.8b-matrix-gen2-2026-07-24.csv
+  Cell-by-cell t_s_mean over all 104 common cells, two baselines:
+
+  vs #61 (6.18.38-clk/4k, June image — the runtime delta, near-pure*):
+    median 1.017x · decode median 0.994x (FLAT) · prefill median 1.055x
+    best cells: pp2048 @ d100000 (c5) 1.73x, pp2048 @ d65535 (c5) 1.44x, pp2048 @ d32768 (c2) 1.35x
+    worst cells: pp2048 (c5) 0.80x, tg128 @ d100000 (c2) 0.84x — same magnitude as the #61 run's
+    own spread (min 0.799), scattered concurrency cells, not an axis.
+  vs June (stock 6.18.34 host, June image — host + runtime both moved):
+    median 1.037x · decode median 1.000x · prefill median 1.092x
+  Headline tg128 (c1): 124.1 t/s  (June ours 123.0 · #61 123.9 · published spark-arena 121.2)
+
+  READING: the vLLM 0.22→0.23 + FlashInfer 0.6.13→0.6.15 generation moves PREFILL (compute-bound;
+  biggest at deep-context concurrency, up to 1.73x) and does not move DECODE (bandwidth-bound,
+  0.994x) — exactly the expected shape for this hardware. The delta is the image as a unit; no
+  attribution to a single component is claimed.
+
+CAVEATS (honest)
+  * "near-pure": the #61 baseline ran kernel 6.18.38-clk; this run is 6.18.39-clk. The .39 bump's
+    01 SIGNAL-READOUT was symbol-for-symbol identical and serve-gated; the kernel contribution to
+    this comparison is expected nil but rides in it.
+  * THROTTLE-CHECK: CLEAN with WARN — min T.Limit headroom 3C (<=5C), max temp 85C. Numbers kept;
+    the box ran hot. A cool-ambient re-run would firm up the worst-cell tail.
+  * This is a regression-vs-self drift read (#71's purpose), NOT a new parity claim vs published —
+    the published entry predates this runtime by ~7 weeks; parity language stays with the June and
+    #61 receipts.
