@@ -61,7 +61,9 @@ for s in 02-build-rootfs.sh upgrade-metal.sh; do
   if grep -qE 'for f in vmlinuz System.map config' "scripts/$s"; then ok "$s replicates the skipped %post file copies (#59)"; else no "$s misses the %post vmlinuz/System.map/config copies (#59)"; fi
 done
 if grep -qE 'rpm --root "\$R" -q kernel' scripts/02-build-rootfs.sh; then ok "02 verifies the kernel landed in the image rpm database (#59)"; else no "02 does not verify the image rpm db knows the kernel (#59)"; fi
-if grep -qF 'rm -rf "/lib/modules/$KVER/extra"' scripts/upgrade-metal.sh && grep -qF 'rootfs/lib/modules/$KVER/extra" "/lib/modules/$KVER/extra"' scripts/upgrade-metal.sh; then ok "upgrade-metal re-carries the nvidia extra/ tree after the rpm install (#59)"; else no "upgrade-metal kernel path sheds the GPU driver — the rpm carries no extra/ (#59)"; fi
+# The kernel rpm carries no extra/ — the open .ko set must arrive via the kmod rpm on BOTH dispatch
+# paths, or a kernel bump silently sheds the GPU driver (#59 -> #77).
+if [ "$(grep -c 'install_kmod_rpm$' scripts/upgrade-metal.sh)" -ge 2 ] && grep -qF 'KMODRPM not set' scripts/upgrade-metal.sh; then ok "upgrade-metal installs the kmod rpm on both dispatch paths, fail-closed (#77)"; else no "upgrade-metal kernel path sheds the GPU driver — kmod rpm not installed on both paths (#77)"; fi
 if grep -qF 'kernel_rpm=' scripts/05-package-image.sh; then ok "05 stamps the kernel NEVRA into the image provenance (#59)"; else no "05 provenance carries no kernel NEVRA (#59)"; fi
 if grep -qF 'kernel present in the image rpm database' scripts/05-package-image.sh; then ok "05 fails closed if the image rpm db lacks the kernel (#59)"; else no "05 does not gate the image rpm db (#59)"; fi
 # The rpm is a SERVED, ATTESTED artifact: 05 vends it fail-closed, 06's signed CHECKSUM covers *.rpm,
@@ -72,6 +74,16 @@ if grep -qE 'ARTS=\(.*\*\.rpm' scripts/06-sign-release.sh; then ok "06 signed CH
 if grep -qF 'kernel_rpm_sha256' scripts/07-verify-release.sh && grep -qF 'predates the rpm pipeline' scripts/07-verify-release.sh; then ok "07 verifies the served rpm against the signed CHECKSUM (pre-rpm manifests skip) (#59)"; else no "07 does not verify the served kernel rpm (#59)"; fi
 if grep -qF 'kernel present in the rpm database' scripts/validate.sh; then ok "doctor checks rpm -q kernel on the booted box (#59)"; else no "doctor does not check the rpm database (#59)"; fi
 if grep -qF 'cudaMallocManaged(&p,n)' scripts/validate.sh && grep -qF '8ull<<30' scripts/validate.sh; then ok "doctor runs the 8 GiB managed-memory check (#63 — the #65-class detector)"; else no "doctor missing the managed-memory check (#63)"; fi
+# #77: the NVIDIA stack is rpm-owned — 02b packages + dnf-installs the kmod rpm (kver in the NAME,
+# kernel-package-style coexistence), 02c snapshots the .run install and packages the payload diff as
+# the userspace rpm; both vended by 05, bound by 07, checked by the doctor.
+if grep -qE 'Name: kmod-nvidia-open-\$KSAN' scripts/02b-install-gpu-docker.sh; then ok "02b packages the open .ko set as a kmod rpm (kver in the Name) (#77)"; else no "02b does not build the kmod rpm (#77)"; fi
+if grep -qF 'kmod rpm not in rootfs rpm db' scripts/02b-install-gpu-docker.sh; then ok "02b fail-closed verifies the kmod rpm landed in the rootfs db (#77)"; else no "02b does not verify the kmod rpm install (#77)"; fi
+if grep -qF 'comm -13 /tmp/pre.list /tmp/post.list' scripts/02c-driver-userspace.sh; then ok "02c packages the .run payload from the install path-diff (ground truth) (#77)"; else no "02c does not snapshot-package the userspace (#77)"; fi
+if grep -qF 'nvidia-smi not rpm-owned' scripts/02c-driver-userspace.sh; then ok "02c fail-closed verifies the userspace is rpm-owned (#77)"; else no "02c does not verify userspace rpm ownership (#77)"; fi
+if grep -qF 'USRPM' scripts/05-package-image.sh && grep -qF 'KMODRPM' scripts/05-package-image.sh; then ok "05 vends the kmod + userspace rpms with sha256 manifest lines (#77)"; else no "05 does not vend the #77 rpms"; fi
+if grep -qF 'userspace_rpm_sha256' scripts/07-verify-release.sh; then ok "07 binds served kmod/userspace rpms to the signed CHECKSUM (#77)"; else no "07 does not verify the #77 rpms"; fi
+if grep -qF 'kmod-nvidia-open-$(uname -r | tr - _)' scripts/validate.sh; then ok "doctor checks the NVIDIA stack is rpm-owned (#77)"; else no "doctor missing the #77 rpm-ownership checks"; fi
 # 01's build container must carry the binrpm build deps (rpm-build/cpio/kmod/openssl-the-binary).
 if grep -qE 'rpm-build cpio kmod' scripts/01-build-kernel.sh; then ok "01 installs the binrpm-pkg build deps (#59)"; else no "01 container lacks rpm-build/cpio/kmod — binrpm-pkg dies (#59)"; fi
 # The uname doctrine, refined 2026-07-17: uname carries SOURCE LINEAGE ("-clk", distro convention),

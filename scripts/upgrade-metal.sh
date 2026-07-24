@@ -55,6 +55,18 @@ BUILT_DRV=$(modinfo -F version "$KO_SRC" 2>/dev/null)
 command -v zstd >/dev/null || { echo "FATAL: zstd missing (initramfs would silently fall back to gzip)"; exit 1; }
 [ -f "$GRUBCFG" ]         || { echo "FATAL: $GRUBCFG not found — is this the spark-rocky metal?"; exit 1; }
 
+# The open .ko set installs as the kmod rpm on BOTH dispatch paths (#77): same-name new-version =
+# a clean dnf upgrade on a driver bump; same-NEVRA re-run = reinstall (idempotent). /lib/modules on
+# the metal is 100% rpm-owned (kernel rpm + this).
+install_kmod_rpm() {
+  [ -n "${KMODRPM:-}" ] || { echo "FATAL: KMODRPM not set — build.env predates the kmod-rpm pipeline; rerun 02b"; exit 1; }
+  [ -f "$W/$KMODRPM" ]  || { echo "FATAL: kmod rpm $W/$KMODRPM missing — rerun 02b"; exit 1; }
+  local NEVRA; NEVRA=$(rpm -qp --qf '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}' "$W/$KMODRPM")
+  local OP=install; rpm -q "$NEVRA" >/dev/null 2>&1 && OP=reinstall
+  dnf -y -q --nogpgcheck --setopt=tsflags=noscripts "$OP" "$W/$KMODRPM" \
+    || { echo "FATAL: dnf $OP of $KMODRPM failed"; exit 1; }
+}
+
 if [ "$KCH" = 1 ]; then
   echo "== install kernel from the rpm (#59): ${KRPM:-UNSET} =="
   # dnf-install (not file copies): the metal's rpm database stays truthful — rpm -q kernel names what
@@ -70,17 +82,16 @@ if [ "$KCH" = 1 ]; then
   for f in vmlinuz System.map config; do
     cp -f "/lib/modules/$KVER/$f" "/boot/$f-$KVER" || { echo "FATAL: $f missing from the kernel rpm"; exit 1; }
   done
-  # The rpm carries only the kernel's own modules — the open NVIDIA .ko set (03) rides the rootfs tree.
-  # Without this copy a kernel bump silently sheds the GPU driver (the modules.dep gate below backstops).
-  # rm first: extra/ is rpm-unowned, so a re-run's cp -a would otherwise nest extra/extra.
-  rm -rf "/lib/modules/$KVER/extra"
-  cp -a "$W/rocky-img/rootfs/lib/modules/$KVER/extra" "/lib/modules/$KVER/extra"
+  # The kernel rpm carries only the kernel's own modules — the open NVIDIA .ko set arrives as the kmod
+  # rpm (#77, built by 02b). Without it a kernel bump silently sheds the GPU driver (the modules.dep
+  # gate below backstops).
+  install_kmod_rpm
   depmod "$KVER"
 else
-  echo "== driver-only: swap the open .ko set (kernel $KVER unchanged) =="
+  echo "== driver-only: swap the open .ko set via the kmod rpm (kernel $KVER unchanged) =="
   BK="/root/driver-rollback-${DRV_INSTALLED:-unknown}"
   mkdir -p "$BK"; cp -a "/lib/modules/$KVER/extra/"*.ko "$BK"/ 2>/dev/null || true
-  cp -f "$W/rocky-img/rootfs/lib/modules/$KVER/extra/"*.ko "/lib/modules/$KVER/extra/"
+  install_kmod_rpm
   depmod "$KVER"
   echo "   replaced .ko set staged at $BK (kernel-side rollback; userspace rollback needs the $DRV_INSTALLED .run)"
 fi

@@ -15,7 +15,7 @@ docker run --rm -v "$W":/host -v "$W/.dnf-cache":/var/cache/dnf -e KVER="$KVER" 
 set -euo pipefail
 R=/host/rocky-img/rootfs
 echo keepcache=1 >> /etc/dnf/dnf.conf   # persists in the mounted /var/cache/dnf across builds (#70)
-dnf install -y -q make gcc kmod findutils tar xz wget curl >/dev/null 2>&1
+dnf install -y -q make gcc kmod findutils tar xz wget curl rpm-build cpio >/dev/null 2>&1   # rpm-build/cpio: the kmod rpm (#77)
 
 echo "[gpu] container runtime repos into rootfs"
 cat >"$R/etc/yum.repos.d/docker.repo" <<EOF
@@ -49,20 +49,55 @@ echo "$DRIVER_SHA256  $RUN" | sha256sum -c - >/dev/null 2>&1 \
 echo "[gpu] .run verified against pinned DRIVER_SHA256"
 [ -d "$DRV" ] || sh "$RUN" -x >/dev/null 2>&1
 
-echo "[gpu] building + installing open .ko (against $KVER, el10 gcc-14) into rootfs"
+echo "[gpu] building the open .ko (against $KVER, el10 gcc-14)"
 cd "$DRV/kernel-open"
 make clean >/dev/null 2>&1 || true
 make modules -j"$(nproc)" SYSSRC=/host/linux-$KVER >/host/ko.log 2>&1
-mkdir -p "$R/lib/modules/$KVER/extra"
-cp *.ko "$R/lib/modules/$KVER/extra/"
-strip --strip-debug "$R/lib/modules/$KVER/extra/"*.ko 2>/dev/null || true   # ~98M unstripped -> ~15M; --strip-debug keeps vermagic
-# depmod so the freshly-copied open modules resolve. WITHOUT this, modprobe cannot find them and nothing
+# Package the .ko set as a kmod rpm (#77) and dnf-install it — /lib/modules becomes 100% rpm-owned
+# (kernel rpm + this). The kernel version rides the NAME (kernel-package convention: per-kver packages
+# coexist side-by-side, e.g. on the metal next to the fallback kernel); the driver version is the rpm
+# Version. AutoReqProv off: nvidia .ko must not generate wild auto-deps. No %post — the pipeline owns
+# depmod explicitly, same treatment as the kernel rpm. Stripped before packaging (~98M -> ~15M).
+KSAN=$(echo "$KVER" | tr - _)
+BR=/tmp/kmod-buildroot; rm -rf "$BR"; mkdir -p "$BR/lib/modules/$KVER/extra" "$BR/etc/modules-load.d"
+cp *.ko "$BR/lib/modules/$KVER/extra/"
+strip --strip-debug "$BR/lib/modules/$KVER/extra/"*.ko 2>/dev/null || true
+# The boot auto-load config rides the kmod rpm too — kernel-side nvidia config, rpm-owned.
+printf "nvidia\nnvidia-modeset\nnvidia-uvm\nnvidia-drm\n" > "$BR/etc/modules-load.d/nvidia.conf"
+cat > /tmp/kmod.spec <<SPEC
+Name: kmod-nvidia-open-$KSAN
+Version: $DRIVER_VER
+Release: 1
+Summary: NVIDIA open kernel modules for kernel $KVER (spark-rocky, built from unmodified source)
+License: MIT AND GPL-2.0-only
+AutoReqProv: no
+Requires: kernel = $KSAN
+%description
+The open NVIDIA GPU kernel modules ($DRIVER_VER), built unmodified against the exact
+kernel $KVER by the spark-rocky pipeline (02b), plus the boot auto-load config.
+Installed to /lib/modules/$KVER/extra/.
+%files
+/lib/modules/$KVER/extra/*.ko
+%config /etc/modules-load.d/nvidia.conf
+SPEC
+rpmbuild -bb --define "_topdir /tmp/kmod-rpm" --buildroot "$BR" /tmp/kmod.spec >/host/kmod-rpm.log 2>&1 \
+  || { echo "VERIFY-FAIL: kmod rpm build failed (#77) — see kmod-rpm.log"; exit 1; }
+KMODRPM=$(ls /tmp/kmod-rpm/RPMS/aarch64/kmod-nvidia-open-*.rpm | head -1)
+[ -n "$KMODRPM" ] || { echo "VERIFY-FAIL: no kmod rpm produced (#77)"; exit 1; }
+cp "$KMODRPM" /host/
+# Hand the kmod rpm name downstream (upgrade-metal, 05 vend) via build.env — same channel as KRPM.
+# sed-then-append: a 02b re-run must not accumulate duplicate lines.
+sed -i "/^KMODRPM=/d" /host/build.env 2>/dev/null || true
+echo "KMODRPM=$(basename $KMODRPM)" >> /host/build.env
+echo "[gpu] kmod rpm: $(basename $KMODRPM) ($(du -h $KMODRPM | cut -f1))"
+dnf install -y -q --installroot="$R" --releasever=$RV --nogpgcheck --setopt=tsflags=noscripts "$KMODRPM" \
+  >>/host/ko.log 2>&1 || { echo "VERIFY-FAIL: kmod rpm install into rootfs failed (#77)"; exit 1; }
+rpm --root "$R" -q "kmod-nvidia-open-$KSAN" >/dev/null 2>&1 || { echo "VERIFY-FAIL: kmod rpm not in rootfs rpm db (#77)"; exit 1; }
+# depmod so the open modules resolve. WITHOUT this, modprobe cannot find them and nothing
 # loads nvidia at boot -> nvidia-smi fails "couldnt communicate with the driver" even though the .ko is present.
 depmod -b "$R" "$KVER"
-# auto-load the stack at boot (systemd-modules-load) so the GPU is up without manual modprobe.
-mkdir -p "$R/etc/modules-load.d"
-printf "nvidia\nnvidia-modeset\nnvidia-uvm\nnvidia-drm\n" > "$R/etc/modules-load.d/nvidia.conf"
-echo "[gpu] open .ko installed: $(ls "$R/lib/modules/$KVER/extra/"*.ko | wc -l) modules ($(du -sh "$R/lib/modules/$KVER/extra" | cut -f1)); depmod + modules-load.d done"
+# (the boot auto-load config /etc/modules-load.d/nvidia.conf arrives WITH the kmod rpm — rpm-owned)
+echo "[gpu] open .ko installed via kmod rpm: $(ls "$R/lib/modules/$KVER/extra/"*.ko | wc -l) modules ($(du -sh "$R/lib/modules/$KVER/extra" | cut -f1)); depmod + modules-load.d done"
 '
 # Verify: the open .ko exists in the rootfs AND its vermagic matches $KVER exactly (the whole point).
 R="$W/rocky-img/rootfs"

@@ -136,11 +136,17 @@ rm -f "$WORK.xz"; xz -T0 -6 -v "$WORK"
 ART="$WORK.xz"
 OUTER_SHA=$(sha256sum "$ART" | cut -d' ' -f1)
 
-# #59: vend the kernel rpm alongside the image — served from the release bucket, covered by 06's signed
-# CHECKSUM (basic attestation: detached trust via the clearsigned sha256, not an embedded rpm signature).
+# #59/#77: vend the kernel + kmod rpms alongside the image — served from the release bucket, covered by
+# 06's signed CHECKSUM (basic attestation: detached trust via the clearsigned sha256, not embedded sigs).
 [ -n "${KRPM:-}" ] && [ -f "$W/$KRPM" ] || { echo "FATAL: kernel rpm missing (KRPM='${KRPM:-}') — rerun 01-build-kernel.sh"; exit 1; }
 cp -f "$W/$KRPM" "$OUTDIR/$KRPM"
 KRPM_SHA=$(sha256sum "$OUTDIR/$KRPM" | cut -d' ' -f1)
+[ -n "${KMODRPM:-}" ] && [ -f "$W/$KMODRPM" ] || { echo "FATAL: kmod rpm missing (KMODRPM='${KMODRPM:-}') — rerun 02b (#77)"; exit 1; }
+cp -f "$W/$KMODRPM" "$OUTDIR/$KMODRPM"
+KMODRPM_SHA=$(sha256sum "$OUTDIR/$KMODRPM" | cut -d' ' -f1)
+[ -n "${USRPM:-}" ] && [ -f "$W/$USRPM" ] || { echo "FATAL: userspace rpm missing (USRPM='${USRPM:-}') — rerun 02c (#77)"; exit 1; }
+cp -f "$W/$USRPM" "$OUTDIR/$USRPM"
+USRPM_SHA=$(sha256sum "$OUTDIR/$USRPM" | cut -d' ' -f1)
 
 MANIFEST="$OUTDIR/${STAMP}.BUILD-MANIFEST.txt"
 cat > "$MANIFEST" <<EOF
@@ -152,6 +158,10 @@ artifact_sha256     : ${OUTER_SHA}
 inner_image_sha256  : ${INNER_SHA}
 kernel_rpm          : ${KRPM}
 kernel_rpm_sha256   : ${KRPM_SHA}
+kmod_rpm            : ${KMODRPM}
+kmod_rpm_sha256     : ${KMODRPM_SHA}
+userspace_rpm       : ${USRPM}
+userspace_rpm_sha256: ${USRPM_SHA}
 git_describe        : ${GIT_DESC}
 git_commit          : ${GIT_COMMIT}
 built_utc           : ${DATE_UTC}
@@ -184,9 +194,11 @@ EOF
 
 echo ""
 echo "=== VENDABLE ARTIFACTS (no build required to consume) ==="
-ls -lh "$ART" "$MANIFEST" "$OUTDIR/$KRPM"
+ls -lh "$ART" "$MANIFEST" "$OUTDIR/$KRPM" "$OUTDIR/$KMODRPM" "$OUTDIR/$USRPM"
 echo "  inner sha256: $INNER_SHA"
 echo "  kernel rpm sha256: $KRPM_SHA"
+echo "  kmod rpm sha256: $KMODRPM_SHA"
+echo "  userspace rpm sha256: $USRPM_SHA"
 echo "  outer sha256: $OUTER_SHA"
 echo ""
 echo "Next: mint the release key, then sign with 06-sign-release.sh."

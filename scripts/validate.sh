@@ -36,6 +36,10 @@ chk '[ -n "$DRV" ]' "nvidia kernel module loaded"
 # #59: the kernel is a first-class rpm — the database must know the running kernel (truthful packaging).
 KPKG=$(rpm -q kernel 2>/dev/null | head -1); echo "  kernel rpm:    ${KPKG:-NOT IN RPM DB}"
 chk 'rpm -q kernel >/dev/null 2>&1' "kernel present in the rpm database (#59)"
+# #77: the NVIDIA stack is rpm-owned too — the kmod package for THIS kernel, and the driver userspace.
+KMODPKG="kmod-nvidia-open-$(uname -r | tr - _)"
+chk 'rpm -q "$KMODPKG" >/dev/null 2>&1' "open kernel modules rpm-owned ($KMODPKG, #77)"
+chk 'rpm -q nvidia-driver-userspace >/dev/null 2>&1' "driver userspace rpm-owned (nvidia-driver-userspace, #77)"
 [ -z "$EXP_D" ] || chk '[ "$DRV" = "$EXP_D" ]' "running driver matches the built driver ($EXP_D)"
 if [ -n "$EXP_PG" ]; then
   case "$EXP_PG" in 64k) WANT_PG=65536;; 4k) WANT_PG=4096;; *) WANT_PG="";; esac

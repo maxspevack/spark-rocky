@@ -47,6 +47,16 @@ if [ -n "$krpm" ]; then
 else
   say "  note: manifest predates the rpm pipeline (no kernel_rpm) — rpm checks skipped"
 fi
+# 4b (#77). same binding for the kmod + userspace rpms (manifests predating them skip).
+for pair in "kmod_rpm kmod_rpm_sha256 kmod" "userspace_rpm userspace_rpm_sha256 userspace"; do
+  set -- $pair
+  prpm=$(awk -F': *' -v k="$1" '$1 ~ "^"k" *$" {print $2; exit}' "$tmp/manifest")
+  psha=$(awk -F': *' -v k="$2" '$1 ~ "^"k" *$" {print $2; exit}' "$tmp/manifest")
+  if [ -n "$prpm" ]; then
+    chk "$GS ls '$BUCKET/$prpm' $A >/dev/null 2>&1"  "$3 rpm $prpm is served from the bucket"
+    chk "[ -n \"$psha\" ] && grep -q \"$psha\" '$tmp/CHECKSUM'"  "served $3 rpm sha ${psha:0:12}... is covered by the signed CHECKSUM"
+  fi
+done
 
 # 5. HEAD-advanced: a heads-up, never a failure (durable invariant is served == tag)
 head=$(git rev-parse HEAD 2>/dev/null)
