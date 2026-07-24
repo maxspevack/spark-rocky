@@ -19,6 +19,11 @@ LOG=/root/serve-gate.log
 
 echo "== serve-gate: kernel $(uname -r), pagesize $(getconf PAGESIZE), recipe $RECIPE =="
 docker rm -f vllm_node >/dev/null 2>&1 || true
+# Unified-memory preflight: on the GB10, cudaMemGetInfo reports host MemFree — page cache does NOT count,
+# so a big docker pull right before the gate starves vLLM's startup check ("Free memory 23/121 GiB" while
+# free -g shows 100+ available; hit live 2026-07-24, #71). Dropping caches is the community-standard fix
+# and makes the gate deterministic regardless of what ran before it.
+sync && echo 3 > /proc/sys/vm/drop_caches
 # One cleanup, on EVERY exit path (audit #70 C11): an interrupted gate (Ctrl-C, dropped ssh) must not
 # leave vllm_node serving ~90 GB of KV cache into the next build or benchmark.
 trap 'docker rm -f vllm_node >/dev/null 2>&1 || true' EXIT
