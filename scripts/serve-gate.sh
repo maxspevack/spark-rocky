@@ -43,7 +43,9 @@ if [ "$ok" != 1 ]; then
 fi
 
 # Past KV-cache allocation. Confirm the API actually serves (model listed) — a real serve, not just health.
-served=$(curl -s "http://localhost:$PORT/v1/models" 2>/dev/null | grep -c '"id"' || echo 0)
+# grep -c always prints a count (and exits 1 on zero) — no `|| echo 0`, which would append a second line
+# and turn the -ge below into an "integer expression expected" fail-by-accident (audit #70 A4).
+served=$(curl -s "http://localhost:$PORT/v1/models" 2>/dev/null | grep -c '"id"') || true
 docker rm -f vllm_node >/dev/null 2>&1 || true
 [ "$served" -ge 1 ] || { echo "GATE-FAIL: /health 200 but /v1/models served no model"; exit 1; }
 

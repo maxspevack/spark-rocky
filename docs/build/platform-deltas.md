@@ -16,29 +16,32 @@ The load-bearing fact: **GPU compute works** — `proof-of-life` runs `vectorAdd
 **We ship a 4k-page kernel** (`CONFIG_ARM64_4K_PAGES`), pinned as `PAGE_SIZE=4k` in
 [`config/versions.env`](../../config/versions.env). This is a **2026-07-17 reversal** of what had been the
 project's headline opinionated choice (64k). The reversal is a **correctness fix, not a change of opinion on
-performance**: a kernel regression from `6.18.37` on makes a 64k-page kernel **fault the vLLM serve** — a GPU
-Xid 31 MMU fault in the large (~90 GB) KV-cache allocation ([#65](https://github.com/maxspevack/spark-rocky/issues/65)).
-4k is unaffected and serves clean on `6.18.38`. **64k returns once the upstream regression is bisected and
-fixed ([#68](https://github.com/maxspevack/spark-rocky/issues/68)).**
+performance**: under 64k pages, **large CUDA allocations fault** — a GPU Xid 31 MMU fault in the large
+(~90 GB) KV-cache allocation ([#65](https://github.com/maxspevack/spark-rocky/issues/65)), reproducible in
+~15 lines of pure CUDA (`cudaMalloc` ~90 GB + write). 4k is unaffected and serves clean.
 
-**Why 64k was the choice (and why it still would be, absent the regression).** The GB10 is a concurrent
-AI-serving box. 64k pages cut TLB misses and page-table walks under large memory working sets — the regime
-this workload lives in (many concurrent sequences over long contexts → a big KV cache). 4k is the right
-default for a *general* host; 64k was the right default for *this* one — until the kernel broke it.
+**Not a kernel regression (2026-07-22).** The fault was first read as a kernel change in the `.35→.37`
+window (64k on `6.18.35` had served in June; 64k on `6.18.38` faults). Controlled reverts falsified that:
+the **exact June stack — kernel `6.18.35` + 64k + driver `610.43.02` + the June firmware — fully restored,
+still faults.** Kernel, driver, and firmware are all exonerated; the remaining suspects are host userspace,
+the CUDA toolkit, or an NVIDIA CUDA-ARM64-64k bug. The root-cause hunt is **deferred**
+([#68](https://github.com/maxspevack/spark-rocky/issues/68)); 4k is the resolution.
 
-**The performance evidence stands (2026-06-16, on the then-working `6.18.35`/64k).** Full canonical 104-cell
+**Why 64k was the choice (and why the theory still holds).** The GB10 is a concurrent AI-serving box. 64k
+pages cut TLB misses and page-table walks under large memory working sets — the regime this workload lives
+in (many concurrent sequences over long contexts → a big KV cache). 4k is the right default for a *general*
+host; 64k was the opinionated default for *this* one — until the fault surfaced.
+
+**The performance evidence stands (2026-06-16, on the June `6.18.35`/64k stack).** Full canonical 104-cell
 matrix, 35B-A3B-FP8, `6.18.35`/64k vs the 4k baseline: median +2.3%, **35 cells win ≥+5% vs 3 losses**, wins
 clustered on concurrent + deep-context cells (`tg128@d65535 (c10)` **1.30×**, `ctx_pp@d4096 (c2)` **1.38×**).
-That win was real on `6.18.35`. It is currently unreachable because 64k faults the serve on `6.18.37+` — so
-the perf gain is *parked behind a correctness bug*, not withdrawn.
-
-**The regression (2026-07-17).** 64k on `6.18.35` served; 64k on `6.18.38` faults; 4k on `6.18.38` serves —
-so it is the *interaction* of 64k page geometry with a kernel change in the `.35→.37` window, in the large
-KV-cache GPU mapping. It shipped undetected in four 64k releases because release validation only ran
-`vectorAdd` (a tiny allocation) — the serve gate that now closes that hole is
+That win was measured while the June stack still served. It is currently unreachable — the perf gain is
+*parked behind a correctness bug*, not withdrawn. (Why the June run worked at all is part of #68's open
+question.) It shipped undetected in four 64k releases because release validation only ran `vectorAdd`
+(a tiny allocation) — the serve gate that now closes that hole is
 [#67](https://github.com/maxspevack/spark-rocky/issues/67). Full isolation: [#65](https://github.com/maxspevack/spark-rocky/issues/65).
 
-**Flip back to 64k in `versions.env` (only) once #68 clears it.**
+**Flip back to 64k in `versions.env` (only) if #68's CUDA-level cause is ever found + fixed.**
 
 **How it's enforced (the process, not just a flag).** `PAGE_SIZE` is a pinned, reviewable line; `01` sets the
 `CONFIG_ARM64_4K_PAGES` / `_64K_PAGES` symbol from it (with **no** `LOCALVERSION` suffix — the kernel release

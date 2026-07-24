@@ -10,6 +10,12 @@ ships (`uname -r`).
 
 ## [spark-rocky-live-20260717b] — 2026-07-17 · `6.18.38-clk` (4k pages) — 64k reverted
 
+> **Correction (2026-07-22):** the "kernel regression from `6.18.37`" root cause below was **falsified** —
+> the exact June stack (kernel `6.18.35` + 64k + driver `.02` + June firmware), fully restored, still
+> faults. Kernel/driver/firmware exonerated; it is a CUDA-level large-allocation fault under 64k, hunt
+> deferred ([#68](https://github.com/maxspevack/spark-rocky/issues/68)). The 4k revert stands as the
+> resolution. Entry below preserved as written.
+
 **Page size reverted to 4k; this is a correctness fix over 20260717.** A kernel regression from `6.18.37`
 on faults the **vLLM serve** under 64k pages — a GPU Xid 31 MMU fault in the ~90 GB KV-cache allocation
 ([#65](https://github.com/maxspevack/spark-rocky/issues/65)). It shipped undetected in four 64k releases
