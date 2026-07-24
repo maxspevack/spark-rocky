@@ -12,6 +12,9 @@ grep PRETTY_NAME /etc/os-release; echo "kernel: $(uname -r)"
 echo "--- network (SSH reachable) ---"
 ip -br a | grep -v "^lo" | awk '{print $1, $2, $3}'
 echo "--- NVIDIA driver / GPU ---"
+# memory.total reads [N/A] on the GB10 — NORMAL, not broken: unified memory means the GPU has no
+# dedicated VRAM pool for nvidia-smi to report (the 2026-07-22 lesson; misreading it cost a "GPU
+# wedged" false alarm). The CUDA vectorAdd below is the real memory proof.
 nvidia-smi --query-gpu=name,driver_version,memory.total,temperature.gpu --format=csv 2>/dev/null || nvidia-smi 2>&1 | head -12
 echo "--- loaded nvidia modules ---"; lsmod | grep nvidia
 echo "--- CUDA toolkit ---"; (nvcc --version 2>/dev/null | tail -2) || echo "nvcc not in PATH"

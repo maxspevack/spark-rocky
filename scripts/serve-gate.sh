@@ -19,6 +19,9 @@ LOG=/root/serve-gate.log
 
 echo "== serve-gate: kernel $(uname -r), pagesize $(getconf PAGESIZE), recipe $RECIPE =="
 docker rm -f vllm_node >/dev/null 2>&1 || true
+# One cleanup, on EVERY exit path (audit #70 C11): an interrupted gate (Ctrl-C, dropped ssh) must not
+# leave vllm_node serving ~90 GB of KV cache into the next build or benchmark.
+trap 'docker rm -f vllm_node >/dev/null 2>&1 || true' EXIT
 ( cd "$SVD" && nohup ./run-recipe.sh "$RECIPE" --solo > "$LOG" 2>&1 & )
 
 ok=0
@@ -30,7 +33,6 @@ for i in $(seq 1 45); do
     echo "GATE-FAIL: serve container died after $((i*15))s — KV-cache/serve fault (the #65 class)."
     grep -iE "Xid|illegal memory|AcceleratorError|CUDA error|RuntimeError" "$LOG" 2>/dev/null | tail -4
     dmesg 2>/dev/null | grep -i "Xid" | tail -1
-    docker rm -f vllm_node >/dev/null 2>&1 || true
     exit 1
   fi
 done
@@ -38,7 +40,6 @@ done
 if [ "$ok" != 1 ]; then
   echo "GATE-FAIL: /health never reached 200 within the window (serve did not come up)."
   tail -5 "$LOG" 2>/dev/null
-  docker rm -f vllm_node >/dev/null 2>&1 || true
   exit 1
 fi
 
@@ -46,7 +47,6 @@ fi
 # grep -c always prints a count (and exits 1 on zero) — no `|| echo 0`, which would append a second line
 # and turn the -ge below into an "integer expression expected" fail-by-accident (audit #70 A4).
 served=$(curl -s "http://localhost:$PORT/v1/models" 2>/dev/null | grep -c '"id"') || true
-docker rm -f vllm_node >/dev/null 2>&1 || true
 [ "$served" -ge 1 ] || { echo "GATE-FAIL: /health 200 but /v1/models served no model"; exit 1; }
 
 echo "GATE-PASS: vLLM served on $(uname -r) ($(getconf PAGESIZE)-byte pages) — KV cache allocated, model on the API. Releasable."

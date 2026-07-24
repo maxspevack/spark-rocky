@@ -4,9 +4,9 @@ name: drift-check
 # sporadic DRIVER_VER move) is a definite rebuild trigger. This runs scripts/drift-check.sh weekly and
 # on-demand; on DRIFT it opens/updates ONE 'pin-drift' tracking issue and closes it when the pins match.
 #
-# Detect-and-signal ONLY. It never edits versions.env, never opens a PR, never merges. The evidence-backed
-# pin bump is #26 (built + Tier-A validated on the Spark) — CI can't build aarch64 + GPU, so it doesn't
-# pretend to. Substrate is GitHub Actions, deliberately: always-on, free on a public repo, delegable (it
+# Detect-and-signal ONLY. It never edits versions.env, never opens a PR, never merges. The pin bump is
+# MANUAL by decision (2026-06-29; #26 closed): a human reads the delta, bumps, builds + validates on the
+# Spark — CI can't build aarch64 + GPU, so it doesn't pretend to. Substrate is GitHub Actions, deliberately: always-on, free on a public repo, delegable (it
 # lives in the repo, not on anyone's laptop). A personal-machine systemd timer was the wrong idea.
 
 on:
@@ -33,12 +33,16 @@ jobs:
           echo "$out"
           { echo 'report<<EOF'; echo "$out"; echo 'EOF'; } >> "$GITHUB_OUTPUT"
           echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          # A crashed or fetch-failed sensor must be RED, not silently green (audit #70 A12/A13):
+          # rc 0 (match) and 2 (drift) are the handled outcomes; 3 (CHECK-FAIL) and anything else fail
+          # the run so a dead sensor is visible — the exact failure mode a sensor exists to avoid.
+          case "$rc" in 0|2) ;; *) echo "sensor did not produce a verdict (rc=$rc) — failing the run"; exit "$rc";; esac
       - name: Open or update the drift issue
         if: steps.c.outputs.rc == '2'
         env:
           REPORT: ${{ steps.c.outputs.report }}   # via env, not inline ${{ }}, to avoid shell injection
         run: |
-          body=$(printf 'Upstream moved past a pinned version. Sensor (#24) output:\n\n```\n%s\n```\n\nTake it through the evidence-backed pin bump (#26): build + Tier-A validate on the Spark, then merge. Auto-updated weekly until the pins match.' "$REPORT")
+          body=$(printf 'Upstream moved past a pinned version. Sensor (#24) output:\n\n```\n%s\n```\n\nThe pin bump is MANUAL by decision (2026-06-29; #26 closed): read the upstream delta, bump the pin in config/versions.env, build + validate on the Spark (serve-gate included), then release. Auto-updated weekly until the pins match.' "$REPORT")
           n=$(gh issue list --repo "$GITHUB_REPOSITORY" --label pin-drift --state open --json number --jq '.[0].number // empty')
           if [ -n "$n" ]; then gh issue comment "$n" --repo "$GITHUB_REPOSITORY" --body "$body"
           else gh issue create --repo "$GITHUB_REPOSITORY" --title 'Pin drift — upstream moved past our pin' --label pin-drift --body "$body"; fi

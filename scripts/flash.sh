@@ -8,9 +8,8 @@
 #   [base-url]    release location, e.g. https://storage.googleapis.com/spark-rocky
 #                 Omit to read RELEASE_BASE_URL from config/release.env.
 #
-# The release URL is gated until public launch (#12) and is intentionally NOT committed. Internal
-# validators: take it from your validation invite and pass it as arg 2 (or set it in config/release.env
-# locally, uncommitted). Downloads land in the current directory and are reused on re-run; override
+# The release URL is committed in config/release.env (a public bucket has nothing to hide) — omit arg 2
+# and it is read from there. Downloads land in the current directory and are reused on re-run; override
 # with FLASH_DLDIR=.
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -19,11 +18,13 @@ FPR="71C16676F9D40A4CE0C6EB6608B14BC398311101"   # pinned release-signing finger
 DEV="${1:-}"; BASE="${2:-}"
 [ -n "$BASE" ] || BASE="$(. "$HERE/../config/release.env" 2>/dev/null; printf '%s' "${RELEASE_BASE_URL:-}")"
 [ -n "$DEV" ]  || { echo "usage: sudo $0 <usb-device> [base-url]"; exit 2; }
-[ -n "$BASE" ] || { echo "FATAL: no release URL. Pass it as arg 2, or set RELEASE_BASE_URL in config/release.env (get it from your validation invite)."; exit 2; }
+[ -n "$BASE" ] || { echo "FATAL: no release URL. Pass it as arg 2, or set RELEASE_BASE_URL in config/release.env."; exit 2; }
 [ "$(id -u)" = 0 ] || { echo "FATAL: must run as root (it writes a block device): sudo $0 $*"; exit 2; }
 for t in curl gpg sha256sum xz; do command -v "$t" >/dev/null || { echo "FATAL: missing required tool: $t"; exit 2; }; done
 
-DL="${FLASH_DLDIR:-$PWD}"; mkdir -p "$DL"; cd "$DL"
+# Canonicalize BEFORE the cd: a relative FLASH_DLDIR would otherwise resolve to DL/DL/IMG at the write
+# step below (audit #70 A5).
+DL="${FLASH_DLDIR:-$PWD}"; mkdir -p "$DL"; DL="$(cd "$DL" && pwd)"; cd "$DL"
 GNUPGHOME="$(mktemp -d)"; export GNUPGHOME; trap 'rm -rf "$GNUPGHOME"' EXIT   # throwaway keyring; never touch the user's
 
 echo "=== fetch signed metadata from $BASE ==="

@@ -12,16 +12,22 @@
 #   ROCKY   Rocky mirror directory listing                    (INFORMATIONAL: a new 10.x notifies, never triggers)
 #
 # CUDA is PINNED (config/versions.env CUDA_VER) — a deliberate hold at the serving-container version (#28),
-# NOT a drift-tracked feed: bumping it is a reviewable #26 diff, never an auto-pickup, so there is no DRIFT
+# NOT a drift-tracked feed: bumping it is a reviewable diff, never an auto-pickup, so there is no DRIFT
 # row to fire. container-toolkit + docker DO float from the gpgcheck'd repos (a rebuild picks up current for
 # free — no pin, no scraper to rot), so they are deliberately absent here.
-# Runs on a dev box (needs curl + python3 + gh); it is a sensor for the human who authors the #26 pin-bump PR.
+# Runs on a dev box (needs curl + python3 + gh); it is a sensor for the human who does the manual pin bump
+# (the by-hand flow, decided 2026-06-29 — #26 closed).
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 source "$HERE/../config/versions.env"   # CLK_COMMIT, KVER, DRIVER_VER, ROCKY_RELEASEVER
 
-drift=0
-row(){ local s="MATCH"; if [ "$2" != "$3" ]; then s="DRIFT"; drift=2; fi
+drift=0; checkfail=0
+# A fetch failure is NOT drift (audit #70 A13): "upstream moved past our pin" and "the sensor could not
+# reach upstream" are different diagnoses — the first opens a pin-drift issue, the second must fail the
+# run loudly (exit 3) so a network blip or API change never files a false drift report.
+row(){ local s="MATCH"
+  if [ "$3" = "FETCH-FAIL" ]; then s="CHECK-FAIL"; checkfail=1
+  elif [ "$2" != "$3" ]; then s="DRIFT"; drift=2; fi
   printf '%-8s current=%-12s upstream=%-12s [%s]\n' "$1" "$2" "$3" "$s"; }
 
 # CLK_COMMIT — the SHIPPING pin: ciq-6.18.y branch tip. kernel-src-tree is public, but org SAML can
@@ -56,4 +62,9 @@ rup=$(curl -fsSL --max-time 15 https://dl.rockylinux.org/pub/rocky/ 2>/dev/null 
   | grep -oE 'href="1[0-9]\.[0-9]+/"' | grep -oE '1[0-9]\.[0-9]+' | sort -V | tail -1)
 printf '%-8s current=%-12s upstream=%-12s [INFO]\n' "ROCKY" "$ROCKY_RELEASEVER (10.2)" "${rup:-FETCH-FAIL}"
 
-exit $drift
+# Exit contract: 0 = pins match; 2 = real drift (the workflow opens/updates the pin-drift issue);
+# 3 = a tracked row could not be verified (the workflow goes RED — fix the sensor, not the pins).
+# A verified drift outranks a fetch failure: it is actionable regardless.
+[ "$drift" = 2 ] && exit 2
+[ "$checkfail" = 1 ] && exit 3
+exit 0

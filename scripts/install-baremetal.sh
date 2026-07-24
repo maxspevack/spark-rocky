@@ -4,9 +4,10 @@
 # Uses parted (present in rootfs); installs dosfstools+rsync from BaseOS; cp -ax fallback if rsync absent.
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-source "$HERE/../config/versions.env"          # KVER, DRIVER_VER, ROCKY_RELEASEVER
+source "$HERE/../config/versions.env"          # ROCKY_RELEASEVER (banner); kernel truth = the RUNNING system
 TGT=/dev/nvme0n1
-echo "=== Rocky $ROCKY_RELEASEVER + $KVER -> bare metal on $TGT ==="
+RUNK=$(uname -r)   # this script copies the RUNNING system — its kernel, not the versions.env pin (audit #70 D1)
+echo "=== Rocky $ROCKY_RELEASEVER + $RUNK (the running system) -> bare metal on $TGT ==="
 SRC=$(findmnt -no SOURCE /); echo "running root: $SRC"
 PSRC=$(lsblk -no pkname "$SRC" 2>/dev/null | head -1)   # parent disk of the running root (e.g. sda from /dev/sda2)
 { [ -n "$PSRC" ] && [ "$(lsblk -dno TRAN /dev/$PSRC 2>/dev/null)" = usb ] && [ "$(lsblk -dno RM /dev/$PSRC 2>/dev/null)" = 1 ]; } \
@@ -60,11 +61,19 @@ mkdir -p /boot/efi/EFI/rocky
 grub2-mkconfig -o /boot/efi/EFI/rocky/grub.cfg 2>&1 | tail -2
 grub2-mkconfig -o /boot/grub2/grub.cfg 2>&1 | tail -1
 EFIBIN=\$([ -f /boot/efi/EFI/rocky/shimaa64.efi ] && echo '\\\\EFI\\\\rocky\\\\shimaa64.efi' || echo '\\\\EFI\\\\rocky\\\\grubaa64.efi')
-efibootmgr -c -d $TGT -p 1 -L 'Rocky-10.2-GB10' -l \"\$EFIBIN\" 2>&1 | tail -1 || true
+efibootmgr -c -d $TGT -p 1 -L 'Rocky-10.2-GB10' -l \"\$EFIBIN\" 2>&1 | tail -1 \
+  || echo 'WARN: efibootmgr failed -- create the NVRAM boot entry MANUALLY (BIOS boot menu or efibootmgr from the LiveUSB) or the box will not find this install'
 echo '--- ESP ---'; ls -R /boot/efi/EFI 2>/dev/null | head -25
-echo -n '--- grub.cfg $KVER entries: '; grep -c $KVER /boot/efi/EFI/rocky/grub.cfg 2>/dev/null || echo 0
+echo -n '--- grub.cfg $RUNK entries: '; grep -cF '$RUNK' /boot/efi/EFI/rocky/grub.cfg 2>/dev/null || echo 0
 echo '--- boot order ---'; efibootmgr 2>/dev/null | grep -iE 'BootOrder|Rocky'
 "
+# Boot-critical gate (audit #70 A6): a DESTRUCTIVE install must not print INSTALL-DONE unless the target
+# actually carries a bootloader + a grub.cfg that names our kernel. The dnf/grub steps above soft-fail
+# individually (network blips get a WARN) -- this is the hard floor before we call it done.
+{ [ -f /mnt/tgt/boot/efi/EFI/rocky/shimaa64.efi ] || [ -f /mnt/tgt/boot/efi/EFI/rocky/grubaa64.efi ]; } \
+  || { echo "FATAL: no bootloader on the ESP (shimaa64.efi/grubaa64.efi missing) -- the grub dnf step failed; NOT bootable, do not reboot to $TGT"; exit 1; }
+grep -q "vmlinuz" /mnt/tgt/boot/efi/EFI/rocky/grub.cfg 2>/dev/null \
+  || { echo "FATAL: ESP grub.cfg missing/empty (no vmlinuz entry) -- NOT bootable, do not reboot to $TGT"; exit 1; }
 for d in dev/pts dev sys proc run; do umount /mnt/tgt/$d 2>/dev/null; done
 sync; umount /mnt/tgt/boot/efi; umount /mnt/tgt
 echo "=== INSTALL-DONE: bare-metal Rocky on $TGT ==="

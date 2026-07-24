@@ -11,6 +11,12 @@
 set +e
 PORT="${1:?usage: $0 <port> <hf-model> <out.csv>}"; MODEL="${2:?need an HF model path}"; OUT="${3:?need an output csv path}"
 
+# Sibling-script resolver (audit #70 A3): prefer the repo checkout this script runs from; fall back to a
+# /root copy. The 2026-07-23 #61 receipt went throttle-INDETERMINATE because a hardcoded /root/templog.sh
+# picked up a stale June copy while the current sampler sat beside this script — never again.
+HERE="$(cd "$(dirname "$0")" && pwd)"
+sib() { if [ -x "$HERE/$1" ]; then echo "$HERE/$1"; elif [ -x "/root/$1" ]; then echo "/root/$1"; fi; }
+
 # Wait for vLLM serve-ready; fail fast (and dump logs) if the container died.
 for i in $(seq 1 60); do
   [ "$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:$PORT/health" 2>/dev/null)" = 200 ] && { echo "READY @ poll $i"; break; }
@@ -23,13 +29,15 @@ done
 # that is caught post-hoc from this trace -- the benchmark-integrity path -- not by a mid-run kill.)
 TLOG="${OUT%.csv}-templog.csv"; TPID=""
 trap '[ -n "$TPID" ] && kill "$TPID" 2>/dev/null' EXIT
-if [ -x /root/templog.sh ]; then /root/templog.sh 5 "$TLOG" & TPID=$!; echo "templog armed -> $TLOG (pid $TPID)"
-else echo "WARNING: /root/templog.sh absent -- no forensic thermal trace for this run"; fi
+TEMPLOG=$(sib templog.sh)
+if [ -n "$TEMPLOG" ]; then "$TEMPLOG" 5 "$TLOG" & TPID=$!; echo "templog armed ($TEMPLOG) -> $TLOG (pid $TPID)"
+else echo "WARNING: templog.sh absent (repo + /root) -- no forensic thermal trace for this run"; fi
 
 echo "running the full canonical matrix for $MODEL ..."
 # Canonical matrix: depth sweep 0..100000, prefill pp2048, decode tg128, concurrency 1/2/5/10, prefix caching.
 # Do not change these without re-anchoring the parity comparison — they define "the full matrix".
-/root/.local/bin/uvx 'llama-benchy==0.3.8' --base-url "http://localhost:$PORT/v1" --model "$MODEL" \
+UVX=$(command -v uvx || echo /root/.local/bin/uvx)
+"$UVX" 'llama-benchy==0.3.8' --base-url "http://localhost:$PORT/v1" --model "$MODEL" \
   --depth 0 4096 8192 16384 32768 65535 100000 --pp 2048 --tg 128 \
   --enable-prefix-caching --concurrency 1 2 5 10 --save-result "$OUT" --format csv
 rc=$?
@@ -68,8 +76,9 @@ fi
 # it CANNOT false-trip a good run. Composes with the grid check above. check-throttle exit: 0 clean/warn,
 # 1 throttled→discard, 3 indeterminate (no signal in trace)→keep+warn.
 [ -n "$TPID" ] && { kill "$TPID" 2>/dev/null; TPID=""; sleep 1; }
-if [ -x /root/check-throttle.sh ] && [ -f "$TLOG" ]; then
-  /root/check-throttle.sh "$TLOG"; thr=$?
+CHKTHR=$(sib check-throttle.sh)
+if [ -n "$CHKTHR" ] && [ -f "$TLOG" ]; then
+  "$CHKTHR" "$TLOG"; thr=$?
   if [ "$thr" = 1 ]; then
     mv "$OUT" "$OUT.THROTTLED"
     echo "MATRIX-INVALID: GPU thermally throttled during the sweep -> ${OUT}.THROTTLED (run discarded, #43)"
