@@ -33,7 +33,10 @@ asha=$(awk -F': *' '/^artifact_sha256/{print $2; exit}' "$tmp/manifest")
 
 say "=== verify (fail-closed) ==="
 # 1. served == tag (the invariant that drifted)
-[ "$servedc" = "$tagc" ]; res $? "served commit ${servedc:0:7} == tag $TAG (${tagc:0:7})"
+# 12-char display, deliberately: a 7-char prefix MASKED a real mismatch at the 20260723 cut (a
+# hand-typed GIT_COMMIT shared the 7-char prefix with the tag commit; the gate failed correctly but
+# the message showed two identical strings).
+[ "$servedc" = "$tagc" ]; res $? "served commit ${servedc:0:12} == tag $TAG (${tagc:0:12})"
 # 2. the served CHECKSUM is authentically OURS — pinned fingerprint, not merely "a" Good signature
 # (review MINOR-7: any-key grep would accept a signature from any key in the local keyring; flash.sh
 # has pinned VALIDSIG since day one — same standard here).
