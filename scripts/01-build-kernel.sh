@@ -143,19 +143,21 @@ for s in ARM_SMMU_V3 ARM_SMMU_V3_SVA ARM_SMMU_V3_IOMMUFD TEGRA241_CMDQV IOMMU_SV
   echo "CONFIG_$s = ${v:-ABSENT}"
 done
 echo "===BUILD-START==="
-make -j"$(nproc)" Image modules >/work/build-$KVER.log 2>&1
+# ONE build invocation (#70, Max: no double-building): binrpm-pkg compiles
+# Image + modules itself (rpmbuild --build-in-place; the arm64 default target includes Image), then
+# packages. The old flow ran `make Image modules` first and binrpm-pkg RE-linked vmlinux — a wasted
+# link pass, and .version bumped to Release=2; single-invocation is faster and Release=1 deterministic.
+# The appliance kernel is a first-class package (#59): rpm -q truthful on the box, dnf-managed
+# install/rollback, NEVRA provenance in 05. INSTALL_MOD_STRIP=1 is REQUIRED: unstripped modules
+# balloon the rpm ~0.5G -> ~1.5G. RPMs land in rpmbuild/ inside the tree (the kernel Makefile sets
+# _topdir to the objtree); the main kernel rpm is copied to $W for 02/upgrade-metal. The objtree stays
+# fully built for 03 (Module.symvers, headers). kernel-headers/kernel-devel subpackages are built too
+# but deliberately NOT shipped (the open .ko builds against the tree, not the rpm — deliberate).
+make -j"$(nproc)" INSTALL_MOD_STRIP=1 binrpm-pkg >/work/build-$KVER.log 2>&1
 echo "BUILD-RC=$?"
-stage make-image-modules
+stage build-and-binrpm
 [ -f arch/arm64/boot/Image ] && echo "KERNEL-BUILT $KVER ($(ls -la arch/arm64/boot/Image | awk "{print \$5}") bytes)"
 cp .config /work/config-$KVER
-# Package the built kernel as an RPM (#59): the appliance kernel is a first-class package — rpm -q
-# truthful on the box, dnf-managed install/rollback, NEVRA provenance in 05. INSTALL_MOD_STRIP=1 is
-# REQUIRED: unstripped modules balloon the rpm ~0.5G -> ~1.5G. RPMs land in rpmbuild/ inside the tree
-# (kernel Makefile sets _topdir to the objtree); the main kernel rpm is copied to $W for 02/upgrade-metal.
-# kernel-headers/kernel-devel subpackages are built too but deliberately NOT shipped (the open .ko
-# builds against the tree, not the rpm — the decoupling is deliberate, see docs/build/build.md).
-make -j"$(nproc)" INSTALL_MOD_STRIP=1 binrpm-pkg >/work/binrpm-$KVER.log 2>&1
-stage binrpm-pkg
 KRPM=$(ls rpmbuild/RPMS/aarch64/kernel-[0-9]*.rpm 2>/dev/null | head -1)
 [ -n "$KRPM" ] || { echo "FATAL: binrpm-pkg produced no kernel rpm (#59) — see binrpm-$KVER.log"; exit 1; }
 cp "$KRPM" /work/
