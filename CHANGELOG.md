@@ -8,7 +8,7 @@ The release invariant is **served == tag == HEAD** (enforced by `scripts/07-veri
 bytes in the bucket match the git tag they were built from. Each release below names the kernel release it
 ships (`uname -r`).
 
-## [Unreleased]
+## [spark-rocky-live-20260724] — 2026-07-24 · `6.18.39-clk` (4k pages) — benchmark provenance
 
 **The benchmark-provenance release: parity re-proven on a runtime anyone can pull byte-identically.**
 Kernel, driver, and platform firmware are unchanged and remain upstream-latest (`6.18.39-clk` ·
