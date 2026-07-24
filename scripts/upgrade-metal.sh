@@ -86,6 +86,21 @@ else
 fi
 grep -q "extra/nvidia.ko" "/lib/modules/$KVER/modules.dep" || { echo "FATAL: nvidia.ko not in modules.dep after depmod"; exit 1; }
 
+# Provenance stamp: the upgraded metal is SELF-DESCRIBING — the doctor (validate.sh) reads this to
+# confirm the box runs what was built. 05 stamps images; this is the metal's equivalent (found missing
+# by the doctor after the 2026-07-23 .39 upgrade — audit #70).
+cat > /etc/spark-rocky-release <<EOF
+spark-rocky metal (in-place upgrade)
+build_id=metal-upgrade-$(date -u +%Y%m%d)
+kernel=$KVER
+kernel_rpm=$(rpm -qf "/lib/modules/$KVER/vmlinuz" 2>/dev/null || echo not-rpm-managed)
+kernel_source=$KERNEL_SOURCE
+clk_commit=${CLK_COMMIT:-}
+page_size=$PAGE_SIZE
+driver=$DRIVER_VER
+upgraded_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+EOF
+
 if [ "$DCH" = 1 ]; then
   echo "== driver userspace ${DRV_INSTALLED:-none} -> $DRIVER_VER (.run, sha256-gated) =="
   RUN="$W/driver-610/NVIDIA-Linux-aarch64-$DRIVER_VER.run"
