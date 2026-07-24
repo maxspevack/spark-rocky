@@ -8,6 +8,38 @@ The release invariant is **served == tag == HEAD** (enforced by `scripts/07-veri
 bytes in the bucket match the git tag they were built from. Each release below names the kernel release it
 ships (`uname -r`).
 
+## [Unreleased]
+
+**The benchmark-provenance release: parity re-proven on a runtime anyone can pull byte-identically.**
+Kernel, driver, and platform firmware are unchanged and remain upstream-latest (`6.18.39-clk` ·
+610.43.03 · LVFS-current, all drift rows MATCH); the payload delta is a fresh Rocky 10.2 userspace at
+build time and the serving/benchmark stack maturing around the image.
+
+### Added
+- **Serving pins, generation 2** (#71): the benchmark runtime now pins a **permanent dated
+  [`spark-arena/dgx-vllm`](https://github.com/spark-arena/dgx-vllm) mirror tag + digest**
+  (`config/serving-images.env`; vLLM 0.23.1, FlashInfer 0.6.15) — the "spark-arena pins no vLLM
+  version" confound is closed from our side. The June digests stay as the receipt-era baseline.
+- **Parity holds on the current runtime**: full 104-cell 0.8B matrix on `6.18.39-clk` + the pinned
+  image — **median 1.010× vs published** (decode 1.010×, prefill 1.011×), throttle-check CLEAN
+  (`receipts/reproduce-Qwen3.5-0.8B-gen2-2026-07-24.txt`). The June prefill deficit (0.75–0.93×) is
+  thereby proven **vLLM-version drift, not the host**; #18 narrowed to one localized residual.
+- **The board's own harness validated on this host** (#72): sparkrun 0.2.40 end-to-end — registry
+  recipes, serve orchestration, the official spark-arena-v2 profile through llama-benchy 0.4.0,
+  `arena --local-test` account-free. Divergences documented (`docs/benchmark/sparkrun-harness.md`);
+  one real upstream bug found and filed with root cause:
+  [spark-arena/sparkrun#225](https://github.com/spark-arena/sparkrun/issues/225).
+- **Drift sensor `SERVING` row** (#24/#71): the mirror-tag pin's age is watched (INFO under 31 days,
+  DRIFT past a month) — validated locally and in a live Actions run.
+
+### Changed
+- **`serve-gate.sh` drops page caches in preflight**: on unified memory `cudaMemGetInfo` reports
+  `MemFree`, so a large image pull before the gate starved vLLM's startup check (hit live during #71).
+  The gate is now deterministic regardless of what ran before it.
+- **Docs currency pass**: all index/benchmark docs reflect the above; the gen-2 recipe variant is
+  committed (`recipes/qwen3.5-0.8b-arena-2026072302.yaml`); `THIRD_PARTY.md` is the supply-chain map
+  (prose-pin rule, test-enforced) with the spark-arena ecosystem forked and mirror-synced.
+
 ## [spark-rocky-live-20260723] — 2026-07-23 · `6.18.39-clk` (4k pages) — everything as RPMs
 
 **The release-engineering release: every byte on the box answers to `rpm -qf`.** The kernel, the open
