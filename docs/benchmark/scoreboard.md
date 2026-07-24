@@ -22,7 +22,7 @@ The consistent shape across the **three June full-matrix** models (Qwen-35B, Qwe
 **proven to be vLLM-version drift, not the host**: on the current pinned runtime (gen-2 row above) the
 prefill median vs published moves 0.75–0.93× → **1.011×**. The runtime variable itself is no longer
 uncontrolled on our side — the image is pinned to a permanent dated mirror tag (#71). What remains is one
-localized residual (single-user contextual `pp2048 (c1)` cells at 0.77–0.82×, [#18](https://github.com/maxspevack/spark-rocky/issues/18)).
+localized residual (single-user contextual `pp2048 (c1)` cells at 0.68–0.82× — deeper context, lower ratio, [#18](https://github.com/maxspevack/spark-rocky/issues/18)).
 Not "faster"; reproduced at parity.
 
 ## Target backlog — historical snapshot (2026-06-10 entries; the live queue is #71–#76)

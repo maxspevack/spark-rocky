@@ -11,7 +11,7 @@ before/after of the host swap.
 | `rocky-6.18.34-gb10.config` | **The base kernel `.config` for the stock-kernel.org path** — upstream 6.18 with GB10 enablement. The filename pins the release it was first captured from (6.18.34); it **carries forward** to newer `$KVER` via `olddefconfig`. The *only* kernel input we author — configuration, not a source patch. (The CLK default builds with CLK's own aarch64 config.) Hash recorded in receipts. |
 | `dgx-reference.txt` | Stock DGX OS capture (2026-06-08): kernel `6.17.0-1021-nvidia`, open driver `580.159.03`, `nvidia-smi`, ATS addressing mode. The baseline the swap is measured against. |
 | `dgx-lsmod.txt` | Stock DGX OS loaded-module list — reference for what the vendored kernel ships. |
-| `debug-authorized_keys` | The maintainer public key the baked debug hatch enables — see [`docs/build/debug-hatch.md`](../docs/build/debug-hatch.md). Public key only; nothing secret lives in this repo. |
+| `debug-authorized_keys` | The maintainer public key the baked debug hatch enables — see the debug-hatch section of [`docs/build/build.md`](../docs/build/build.md). Public key only; nothing secret lives in this repo. |
 
 Used by [`docs/build/software-stack.md`](../docs/build/software-stack.md) (the layer-by-layer swap vs DGX OS) and the
 build pipeline in [`../scripts/`](../scripts/) (step 1 feeds this `.config` to the kernel build; the base

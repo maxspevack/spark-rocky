@@ -42,7 +42,7 @@ if grep -qF 'BUILD_KERNEL_SOURCE=$KERNEL_SOURCE' scripts/01-build-kernel.sh && g
 if grep -qE '[0-9a-f]{12,40}|sha256[:]' THIRD_PARTY.md; then no "THIRD_PARTY.md carries an inline pin value — pins live in env files only"; else ok "THIRD_PARTY.md carries no pin values (prose-pin rule)"; fi
 if grep -qF 'config/versions.env' THIRD_PARTY.md && grep -qF 'config/serving-images.env' THIRD_PARTY.md; then ok "THIRD_PARTY.md points at both authoritative pin files"; else no "THIRD_PARTY.md missing a pin-file pointer"; fi
 if grep -qF 'Maintenance protocol' THIRD_PARTY.md; then ok "THIRD_PARTY.md carries its own maintenance protocol"; else no "THIRD_PARTY.md has no maintenance protocol — not AI-maintainable"; fi
-if grep -qF 'THIRD_PARTY.md' docs/build/release.md; then ok "release runbook runs the third-party currency check at cut"; else no "release runbook missing the THIRD_PARTY.md currency step"; fi
+if grep -qF 'THIRD_PARTY.md' docs/build/build.md; then ok "release runbook runs the third-party currency check at cut"; else no "release runbook missing the THIRD_PARTY.md currency step"; fi
 
 # Script-review hardening (2026-07-23 Gafton pass): absent build.env is FATAL (M2), 06 refuses an
 # ambiguous vend dir (M8 — two images would let flash.sh pick the older one with a valid signature),
@@ -120,7 +120,7 @@ if grep -qF 'kernel_source=${KERNEL_SOURCE}' scripts/05-package-image.sh; then o
 if grep -qF 'ciq-6.18.y' scripts/drift-check.sh && grep -qF 'row CLK' scripts/drift-check.sh; then ok "drift-check: CLK branch tip is the trigger row"; else no "drift-check missing the CLK trigger row"; fi
 # Serve gate (#67): exists, fails closed on a dead container, and is a documented pre-sign release step.
 if [ -f scripts/serve-gate.sh ] && grep -qF 'GATE-PASS' scripts/serve-gate.sh && grep -qF 'GATE-FAIL' scripts/serve-gate.sh; then ok "serve-gate.sh present + pass/fail-closed (#67)"; else no "serve-gate.sh missing or not fail-closed (#67)"; fi
-if grep -qF 'serve-gate.sh' docs/build/release.md; then ok "release runbook requires the serve gate pre-sign (#67)"; else no "release.md does not mandate the serve gate (#67)"; fi
+if grep -qF 'serve-gate.sh' docs/build/build.md; then ok "release runbook requires the serve gate pre-sign (#67)"; else no "the release runbook (build.md) does not mandate the serve gate (#67)"; fi
 # The MT7925 WiFi/BT firmware is RPM-PURE (#64): 02 dnf-installs the stock Rocky subpackages
 # (mt7xxx-firmware + wireless-regdb) into the rootfs — no hand-decompressed files — and 01 enables
 # FW_LOADER_COMPRESS_ZSTD so the kernel can load el10's compressed blobs regardless of .xz/.zst era.

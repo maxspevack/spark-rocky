@@ -1,6 +1,6 @@
 # Build the Live USB from source
 
-How deliverable #1 is made, and how to rebuild it yourself. Everything carries **zero source patches** — the only inputs we author are a kernel `.config` and these scripts. To install the result on the NVMe, see [`../use/install.md`](../use/install.md); to package and sign a release, see [`release.md`](release.md).
+How deliverable #1 is made, and how to rebuild it yourself. Everything carries **zero source patches** — the only inputs we author are a kernel `.config` and these scripts. To install the result on the NVMe, see [`../use/install.md`](../use/install.md); the release process and the debug hatch are sections at the end of this page.
 
 ## Prerequisites (build host)
 - An **aarch64** Linux host with **Docker** — the kernel and the open module build in `rockylinux:10` containers, so the host toolchain doesn't matter. A second DGX Spark, or any ARM box, works.
@@ -135,3 +135,81 @@ not clean-room but end-to-end on the reference box: full `01`→`04` build at HE
 the dnf/rpm path (`6.18.38-clk` → `6.18.39-clk`), rebooted — `rpm -q kernel` truthful, doctor PASS,
 dmesg gate PASS, vLLM serve-gate GATE-PASS. **Honest edge:** `install-baremetal.sh` (the NVMe install)
 is not clean-room-validated — see [`../use/install.md`](../use/install.md).
+
+## Release process
+
+How a verified spark-rocky release is cut. The invariant this process exists to protect: **the bytes served == the git tag == the commit that built them.** The failure it prevents is the served image drifting behind the code (a stale, broken image being served while the fixes sit in `main`).
+
+### Cut a release
+
+Run on the Spark (aarch64 — `05` chroots into the image):
+
+1. **Build from HEAD.** `01`→`05` (or `04`+`05` when the kernel, rootfs, and driver are unchanged). The `05` packaging gate is fail-closed: it re-verifies every hardening step against the mounted image and the manifest, and aborts without emitting a checksum if anything is wrong. **`GIT_COMMIT` is RESOLVED, never typed:** `GIT_COMMIT=$(git rev-list -n1 <the release commit/tag>)` — at the 20260723 cut a hand-typed SHA sharing a 7-char prefix with the real commit put wrong provenance in the manifest; `07-verify` caught it, a re-package fixed it, and this sentence prevents it. **Third-party currency:** run the maintenance protocol in [`THIRD_PARTY.md`](../../THIRD_PARTY.md) (fork mirrors pure + current, pin files agree with the box, no pending-issue rows gone stale) — findings fix in the release commit, not after.
+2. **SERVE GATE (mandatory since #65/#67).** Put the built kernel on the metal (`upgrade-metal.sh`), reboot to a clean GPU pool, and run:
+   ```
+   scripts/serve-gate.sh          # brings up the pinned vllm-node, waits for /health 200 + a served model
+   ```
+   It must print `GATE-PASS`. This exercises the large (~90 GB) KV-cache allocation that `05` and `validate.sh`'s `vectorAdd` do **not** — the exact path the 64k regression ([#65](https://github.com/maxspevack/spark-rocky/issues/65)) faulted on. **A release that has not passed the serve gate on its own kernel is not signable.** `vectorAdd` green is necessary, not sufficient.
+3. **Sign**, on the host that holds the release key: `OUTDIR=<vend-dir> scripts/06-sign-release.sh`. Produces the GPG-clearsigned `CHECKSUM` and exports the public key. The passphrase comes from the human via pinentry; it is never scripted.
+4. **Tag the build commit:**
+   ```
+   git tag -f spark-rocky-live-<YYYYMMDD> <commit>
+   git push -f origin spark-rocky-live-<YYYYMMDD>
+   ```
+5. **Upload** the artifacts (`.raw.xz`, the **three rpms** — kernel #59, `kmod-nvidia-open` + `nvidia-driver-userspace` #77, `CHECKSUM`, `BUILD-MANIFEST.txt`, public key) to the release bucket.
+6. **Verify, fail-closed:**
+   ```
+   scripts/07-verify-release.sh spark-rocky-live-<YYYYMMDD>
+   ```
+   It must print `RELEASE-INTEGRITY: OK` — served commit == tag, Good signature from the release key, and the served image's sha is the one inside the signed CHECKSUM. **Do not announce a release until this is green.**
+
+### The tag's contract
+
+`spark-rocky-live-<YYYYMMDD>` points at the commit that built the served image. `07-verify-release.sh` is its only consumer and its enforcer: `served == tag`. HEAD advancing past the tag is allowed — you can release tag N and keep committing toward N+1 — so `07-verify` treats that as a warning, not a failure. Re-cut and re-tag deliberately when those commits should ship.
+
+### Rollback
+
+Re-point the tag at the prior commit, re-upload the prior artifacts, and run `07-verify-release.sh` against the tag. It confirms the rollback the same way it confirms a release. Minutes, not hours.
+
+## Debug access strategy
+
+The vended image is **locked by default**: no `authorized_keys`, `PasswordAuthentication no`, root SSH key-only (`prohibit-password`). Nobody — not even the maintainer — can SSH in unless access is explicitly granted. That's deliberate; a vended image shouldn't trust anyone.
+
+But debugging has to be **easy**, or a stuck test user just gives up. So there are two paths, both using a **dedicated** debug key (`config/debug-authorized_keys`, public; the private key is the maintainer's, off-repo, and is *not* a personal key).
+
+### For the test user — the happy path needs nothing
+
+Boot the USB → it **auto-logs-in to a root shell** (no typing) → run `validate.sh` → file the result. No SSH, no keys, no passwords. That's the whole experience.
+
+### For the test user — if something breaks and we need to look
+
+**Run one line** (we'll give it to you in the issue):
+
+```
+bash /root/spark-rocky-debug-enable.sh
+```
+
+It authorizes the maintainer's dedicated debug key and prints what to do next (tell us the box's IP). Then we SSH in and debug. Undo any time: `rm /root/.ssh/authorized_keys`. That's it — one command, no key to type. The image stays locked until you choose to run it.
+
+### For the maintainer — debugging our own builds
+
+Build with `DEBUG=1`:
+
+```
+DEBUG=1 scripts/04-build-image.sh     # injects the dedicated debug key + an /etc/spark-rocky-debug-hatch marker
+```
+
+The debug key is baked in, so we SSH straight into our own test boots. **The marker makes the image un-releasable:** `05-package-image.sh` aborts (no checksum, no signature) if `/etc/spark-rocky-debug-hatch` is present and `DEBUG` isn't explicitly set — a debug build can never be signed and shipped as a release by accident.
+
+### The key
+
+- `config/debug-authorized_keys` — public keys only, one per authorized debugger. Safe to commit.
+- The matching **private** keys live with each debugger (the maintainer's is in `~/.ssh`, generated for this purpose, **not** a personal key). No shared private key.
+- **Revoke** by deleting a line and rebuilding. No PKI, no CA — right-sized for one maintainer + a handful of validators.
+
+### Shipping posture (decided 2026-06-29)
+
+The release posture is soft-launched and unsupported with no broadcast (#29 closed 2026-06-29), and the
+hatch **ships as-is**: a documented maintainer opt-in, locked by default, with the un-releasable-DEBUG-build
+gate in `05` holding regardless. Revisit only if the broadcast posture ever changes — the question then is
+whether the convenience opt-in ships to strangers, and this section is where that decision gets recorded.

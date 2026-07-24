@@ -3,7 +3,7 @@
 What an unmodified 6.18 kernel tree (the shipped **CLK** default or the stock-mainline A/B path — this
 repo patches neither) + the open NVIDIA driver surface on the DGX Spark (GB10) at boot, each line
 classified and decided. The project starts from a zero-carried-patch clean room; every divergence is a
-deliberate, data-justified tweak — **carried** (tracked here + in [`third-party.md`](third-party.md)) or
+deliberate, data-justified tweak — **carried** (tracked here + in [`THIRD_PARTY.md`](../../THIRD_PARTY.md)) or
 **upstreamed**. The pitch is auditability: every tweak is named and reasoned, not inherited from an opaque
 vendor image. (The dmesg census below was recorded on the stock-mainline host; the CLK baseline is in
 [`dmesg-baseline.md`](dmesg-baseline.md).)
