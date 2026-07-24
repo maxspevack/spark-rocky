@@ -10,9 +10,11 @@ W="${W:-$(dirname "$HERE")}"
 source "$HERE/lib/build-env-gate.sh"   # fail-closed staleness gate on 01's build.env (one impl — audit #70 C1)
 [ -d "$W/rocky-img/rootfs" ] || { echo "FATAL: rootfs missing — run 02-build-rootfs.sh first"; exit 1; }
 
-docker run --rm -v "$W":/host -e KVER="$KVER" -e DRIVER_VER="$DRIVER_VER" -e DRIVER_SHA256="$DRIVER_SHA256" -e RV="$ROCKY_RELEASEVER" rockylinux/rockylinux:10 bash -c '
+mkdir -p "$W/.dnf-cache"   # persistent dnf cache shared with 01/03 (#70 build-speed)
+docker run --rm -v "$W":/host -v "$W/.dnf-cache":/var/cache/dnf -e KVER="$KVER" -e DRIVER_VER="$DRIVER_VER" -e DRIVER_SHA256="$DRIVER_SHA256" -e RV="$ROCKY_RELEASEVER" rockylinux/rockylinux:10 bash -c '
 set -euo pipefail
 R=/host/rocky-img/rootfs
+echo keepcache=1 >> /etc/dnf/dnf.conf   # persists in the mounted /var/cache/dnf across builds (#70)
 dnf install -y -q make gcc kmod findutils tar xz wget curl >/dev/null 2>&1
 
 echo "[gpu] container runtime repos into rootfs"

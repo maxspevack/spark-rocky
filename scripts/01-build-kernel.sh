@@ -30,7 +30,11 @@ case "$KERNEL_SOURCE" in
 esac
 
 mkdir -p "$W"
-docker run --rm -v "$W":/work \
+# Persistent dnf cache (#70 build-speed): the toolchain install re-downloaded every build. keepcache=1
+# is set inside; the mount survives across runs. (ccache was evaluated and rejected: EPEL-only on el10,
+# and EPEL stays out of the kernel-build container — same supply-chain rule as the image.)
+mkdir -p "$W/.dnf-cache"
+docker run --rm -v "$W":/work -v "$W/.dnf-cache":/var/cache/dnf \
   -e KERNEL_SOURCE="$KERNEL_SOURCE" -e KVER="$KVER" -e KERNEL_SHA256="$KERNEL_SHA256" \
   -e PAGE_SIZE="$PAGE_SIZE" -e CLK_COMMIT="${CLK_COMMIT:-}" \
   rockylinux/rockylinux:10 bash -c '
@@ -38,6 +42,7 @@ set -e
 # Stage stopwatch (#70 build-speed): each STAGE-TIME line = seconds since the previous one. The speed
 # work is measurement-driven — these lines are the measurements.
 T0=$SECONDS; stage(){ echo "STAGE-TIME $1 $((SECONDS-T0))s"; T0=$SECONDS; }
+echo keepcache=1 >> /etc/dnf/dnf.conf   # packages persist in the mounted /var/cache/dnf across builds
 echo "[build] installing toolchain..."
 dnf install -y -q gcc make flex bison bc openssl openssl-devel elfutils-libelf-devel elfutils-devel \
   ncurses-devel dwarves perl diffutils xz wget tar gawk findutils rsync which python3 zlib-devel \

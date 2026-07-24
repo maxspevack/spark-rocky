@@ -14,8 +14,10 @@ LOG="$W/nvbuild.full.log"
 KO="$W/driver-610/NVIDIA-Linux-aarch64-$DRIVER_VER/kernel-open"
 [ -d "$KO" ] || { echo "FATAL: $KO missing — run 02b first (it downloads+extracts the driver)"; exit 1; }
 echo "=== build open module in rockylinux:10 (matching gcc-14 el10) against $KVER ==="
-docker run --rm -v "$W":/kbuild -e KVER="$KVER" -e DRIVER_VER="$DRIVER_VER" rockylinux/rockylinux:10 bash -c '
+mkdir -p "$W/.dnf-cache"   # persistent dnf cache shared with 01/02b (#70 build-speed)
+docker run --rm -v "$W":/kbuild -v "$W/.dnf-cache":/var/cache/dnf -e KVER="$KVER" -e DRIVER_VER="$DRIVER_VER" rockylinux/rockylinux:10 bash -c '
   set -e
+  echo keepcache=1 >> /etc/dnf/dnf.conf   # persists in the mounted /var/cache/dnf across builds (#70)
   dnf -y install gcc make kmod findutils >/dev/null 2>&1
   echo "container gcc: $(gcc --version | head -1)"
   cd /kbuild/driver-610/NVIDIA-Linux-aarch64-$DRIVER_VER/kernel-open
