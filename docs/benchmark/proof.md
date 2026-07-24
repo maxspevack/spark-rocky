@@ -54,7 +54,7 @@ Everything swapped in is stock, current, and built from source — the exact coo
 | Layer | This stack |
 |---|---|
 | OS | Rocky Linux 10.2 |
-| Kernel | CIQ Linux Kernel **6.18.38-clk**, **4k pages** — **benchmark-validated at parity on this exact kernel** (Qwen3.5-0.8B full matrix, median 1.007× vs the June stock-host baseline; receipt `reproduce-Qwen3.5-0.8B-clk4k-2026-07-23.txt`, #61). *64k was an opinionated tuning choice, reverted 2026-07-17 pending a 64k-only kernel serve regression ([#65](https://github.com/maxspevack/spark-rocky/issues/65)); stock kernel.org stays one pin-flip away (`KERNEL_SOURCE=kernelorg`).* |
+| Kernel | CIQ Linux Kernel **6.18.39-clk**, **4k pages** (shipped 2026-07-23; a routine stable bump over the benchmarked `.38`, serve-gated) — **CLK benchmark-validated at parity** (Qwen3.5-0.8B full matrix, median 1.007× vs the June stock-host baseline; receipt `reproduce-Qwen3.5-0.8B-clk4k-2026-07-23.txt`, #61). *64k was an opinionated tuning choice, reverted 2026-07-17 pending a 64k-only kernel serve regression ([#65](https://github.com/maxspevack/spark-rocky/issues/65)); stock kernel.org stays one pin-flip away (`KERNEL_SOURCE=kernelorg`).* |
 | Driver | open NVIDIA **610.43.03**, built from source unmodified (June parity receipts benched on 610.43.02; the CLK/4k receipt, #61, on 610.43.03) |
 | CUDA | **13.0** |
 

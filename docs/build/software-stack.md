@@ -22,7 +22,7 @@ gate PASS, vLLM serve-gate GATE-PASS):
 ```
 ENV 1 — HOST (ours, the swapped layer)
   OS                       Rocky Linux 10.2 (Red Quartz)
-  kernel                   6.18.39-clk  CIQ Linux Kernel (CLK), 4k pages, zero patches carried here  (rpm-installed, #59; the released image ships 6.18.38-clk; parity benched on stock 6.18.34/4k + CLK/4k (#61). 64k reverted 2026-07-17 — serve regression #65)
+  kernel                   6.18.39-clk  CIQ Linux Kernel (CLK), 4k pages, zero patches carried here  (rpm-installed, #59; the released image ships it too since spark-rocky-live-20260723; parity benched on stock 6.18.34/4k + CLK 6.18.38-clk/4k (#61). 64k reverted 2026-07-17 — serve regression #65)
   GPU driver               610.43.03 open module, WE built it            (the shipped driver; parity was benched on 610.43.02)
   platform firmware        NVIDIA's latest, via public fwupd/LVFS      (see build.md → Firmware)
   docker                   29.6.1 ; nvidia-container-toolkit 1.19.1
@@ -68,7 +68,7 @@ Everything we changed is **below** the container boundary (the host). Everything
 |---|---|---|---|
 | **GPU silicon** | GB10 (sm_121), 121 GB unified | *same* | **CONSTANT** — the leaderboard is keyed to "DGX Spark" |
 | **OS userspace** | Ubuntu 24.04.4 LTS | **Rocky Linux 10.2** | **OURS** |
-| **Kernel** | `6.17.0-1021-nvidia` (vendored, NVIDIA-patched, gcc 13.3.0) | **CIQ Linux Kernel `6.18.38-clk`, zero patches carried here, 4k pages** (gcc 14.3.1; the public GPL `ctrliq/kernel-src-tree`, commit-pinned) — parity benched on stock `6.18.34`/4k; stock kernel.org stays the A/B knob. 64k reverted (#65) | **OURS** — vendor kernel → a public, pinnable 6.18 tree |
+| **Kernel** | `6.17.0-1021-nvidia` (vendored, NVIDIA-patched, gcc 13.3.0) | **CIQ Linux Kernel `6.18.39-clk`, zero patches carried here, 4k pages** (gcc 14.3.1; the public GPL `ctrliq/kernel-src-tree`, commit-pinned) — parity benched on stock `6.18.34`/4k; stock kernel.org stays the A/B knob. 64k reverted (#65) | **OURS** — vendor kernel → a public, pinnable 6.18 tree |
 | **GPU kernel driver** | open `580.159.03` (NVIDIA-built) | **open `610.43.03`, WE built** (in `rockylinux:10`, against the stock tree, zero source patches) — parity benched on `610.43.02` | **OURS** — both *open*; our delta is version + that we built it against a stock kernel |
 | **Driver userspace** (`libcuda.so`) | 580.159.03 | **610.43.03** (host; injected into the container) | **OURS** |
 | **Platform firmware** | NVIDIA, via DGX OS OTA | **NVIDIA's latest, via public fwupd/LVFS** | **CONSTANT** — same firmware, different delivery path (no DGX OS needed) |

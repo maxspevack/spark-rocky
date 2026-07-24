@@ -37,9 +37,9 @@ exercised the retired file-copy mechanisms.)*
 > re-run clean-room against the current image** (decided and closed, #34; the clean-room re-run is parked with productization). It
 > now requires a **typed confirmation** before it touches the disk.
 
-1. **Boot the Spark off the USB** on **wired Ethernet** — the released image (`20260717b`) ships no
-   MT7925 WiFi firmware, so the radios cannot come up on it (fixed at HEAD, #64 — images cut after
-   2026-07-23 carry the firmware as stock Rocky rpms; see [`../build/platform-deltas.md`](../build/platform-deltas.md)).
+1. **Boot the Spark off the USB** — wired Ethernet is the benchmark default; since
+   `spark-rocky-live-20260723` the MT7925 WiFi/BT radios initialize too (the firmware ships as stock
+   Rocky rpms, #64; see [`../build/platform-deltas.md`](../build/platform-deltas.md)).
 2. **Get `install-baremetal.sh` onto the booted box** (deliberately not baked into the image) and run it:
    ```
    git clone https://github.com/maxspevack/spark-rocky

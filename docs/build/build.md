@@ -61,13 +61,12 @@ installs the kernel **from that rpm, via dnf** — `02` into the image rootfs (`
   rpm forbids dashes in `Version`, so the `-clk` lineage suffix sanitizes to `_clk` **in the NEVRA
   only**; module paths, `/boot` file names, and `uname -r` all keep the true `6.18.38-clk`.
 - **dnf-native rollback semantics on the metal**, alongside the GRUB fallback entry.
-- **A served, attested artifact — from the first release cut after 2026-07-23.** The kernel rpm is
-  vended by `05` next to the image, uploaded to the release bucket, and covered by `06`'s
-  **clearsigned CHECKSUM** — the same detached-GPG trust model as the image (basic attestation by
-  design: the rpm itself carries no embedded signature; the signed CHECKSUM is the trust anchor,
-  `07-verify` binds served rpm ↔ manifest ↔ signature fail-closed). A downstream can then consume just
-  the kernel — `dnf install` the rpm on any GB10 Rocky host — without flashing the image. **The
-  currently served release (`20260717b`) predates the rpm pipeline and carries no rpm.**
+- **A served, attested artifact — since `spark-rocky-live-20260723`.** The kernel rpm (and the #77
+  kmod + userspace rpms) are vended by `05` next to the image, uploaded to the release bucket, and
+  covered by `06`'s **clearsigned CHECKSUM** — the same detached-GPG trust model as the image (basic
+  attestation by design: the rpms carry no embedded signature; the signed CHECKSUM is the trust
+  anchor, `07-verify` binds each served rpm ↔ manifest ↔ signature fail-closed). A downstream can
+  consume just the kernel — `dnf install` the rpm on any GB10 Rocky host — without flashing the image.
 
 Two deliberate boundaries: the rpm's `%post` (`kernel-install`/BLS registration) is **skipped**
 (`tsflags=noscripts`) because this image owns its boot plumbing — a static GRUB config and our dracut

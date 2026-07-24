@@ -22,7 +22,7 @@ HEAD advancing *past* the tag afterward is a **warning, not a failure** — so p
 | `…-<date>.BUILD-MANIFEST.txt` | provenance: `git_commit`, `artifact_sha256`, kernel release, page size, driver, CUDA, the resolved `.config` sha256 | `gs://spark-rocky` |
 | `CHECKSUM` | one GPG-clearsigned file covering the artifacts (Fedora model — no unsigned duplicate to swap) | `gs://spark-rocky` |
 | `spark-rocky-release-key.asc` | the release public key | the repo (`keys/`) + the bucket |
-| the three rpms (#59/#77) — `kernel-…`, `kmod-nvidia-open-…`, `nvidia-driver-userspace-…` | the kernel + the full NVIDIA stack as dnf-installable packages, each sha256-bound into the manifest and the signed CHECKSUM | `gs://spark-rocky` — **releases cut after 2026-07-23** (the served `20260717b` predates them) |
+| the three rpms (#59/#77) — `kernel-…`, `kmod-nvidia-open-…`, `nvidia-driver-userspace-…` | the kernel + the full NVIDIA stack as dnf-installable packages, each sha256-bound into the manifest and the signed CHECKSUM | `gs://spark-rocky` — since `spark-rocky-live-20260723` |
 
 ### What you pin, and how
 **Pin the git tag as your source of truth** (e.g. as a submodule / manifest ref), and record the release's

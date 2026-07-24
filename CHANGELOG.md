@@ -8,22 +8,45 @@ The release invariant is **served == tag == HEAD** (enforced by `scripts/07-veri
 bytes in the bucket match the git tag they were built from. Each release below names the kernel release it
 ships (`uname -r`).
 
-## [Unreleased] — built + metal-validated at HEAD; the cut is deliberately held (2026-07-23)
+## [spark-rocky-live-20260723] — 2026-07-23 · `6.18.39-clk` (4k pages) — everything as RPMs
 
-Merged, hardware-validated on the reference GB10, and **not yet in any served release** (the currently
-served `spark-rocky-live-20260717b` predates all of it):
+**The release-engineering release: every byte on the box answers to `rpm -qf`.** The kernel, the open
+NVIDIA modules, the driver userspace + GSP firmware, and the WiFi firmware are all dnf-installable
+packages — built by the pipeline or pulled from Rocky — vended next to the image and bound into the
+signed CHECKSUM. Plus a stay-current kernel bump and two full-repo review passes.
 
+### Changed
 - **Kernel `6.18.38-clk` → `6.18.39-clk`** (`CLK_COMMIT` → `ceb41d6`, the drift sensor's trigger, #69).
-- **The kernel ships as an RPM** (#59): built in one `binrpm-pkg` invocation, dnf-installed into the
-  image and onto the metal — `rpm -q kernel` is truthful on the booted box; vended + CHECKSUM-attested.
-- **The NVIDIA stack is RPM-owned** (#77): `kmod-nvidia-open-<kver>` (the open `.ko` set + boot
-  auto-load config) and `nvidia-driver-userspace` (the `.run` payload incl. GSP firmware, packaged from
-  the install's ground-truth path-diff) — every NVIDIA byte answers to `rpm -qf`.
+  A routine 6.18.y stable bump: the `01` SIGNAL-READOUT is symbol-for-symbol identical to `.38`;
+  serve-gated on the metal. Parity remains benched on `.38-clk` (#61) + the June stock host.
+- **The kernel ships as an RPM** (#59): built in one `binrpm-pkg` invocation (`Release=1`
+  deterministic), dnf-installed into the image and onto the metal — **`rpm -q kernel` is truthful on
+  the booted box**; NEVRA in the manifest + provenance stamp; served from the bucket, CHECKSUM-bound,
+  `07-verify`-enforced. NEVRA note: rpm forbids dashes in `Version`, so `6.18.39-clk` sanitizes to
+  `kernel-6.18.39_clk-N` in the package name only; uname/module paths//boot names keep the true `-clk`.
+- **The NVIDIA stack is RPM-owned** (#77): `kmod-nvidia-open-<kver>` (the open `.ko` set + the boot
+  auto-load config; kver in the Name for kernel-style coexistence) and `nvidia-driver-userspace`
+  (the `.run` payload incl. GSP firmware, packaged from the ground-truth path-diff of the actual
+  install — self-regenerating per driver bump). glvnd comes from Rocky's `libglvnd-*` rpms, not the
+  installer (rpm itself caught the first attempt's file conflict on the metal — working as designed).
 - **MT7925 WiFi/BT firmware, rpm-pure** (#64): stock Rocky `mt7xxx-firmware` + `wireless-regdb`, with
   `FW_LOADER_COMPRESS_ZSTD` enabled (the actual root cause — the "platform early-probe quirk" was a
-  misdiagnosis); the radios initialize at boot.
-- The doctor gains the 8 GiB managed-memory check (#63) and rpm-ownership checks; the full #70 audit
-  (33 findings + a 559 GB metal purge + build-speed work) landed.
+  misdiagnosis); the radios initialize at boot (dmesg census 19 → 18, the radio-failure class gone).
+- The doctor gains the 8 GiB managed-memory check (#63) and the three rpm-ownership checks; the full
+  #70 audit landed (33 findings fixed, a 559 GB metal debris purge, build-speed work: single-invocation
+  binrpm, dnf-cache mounts, per-stage timing); two independent full-repo reviews (scripts + docs)
+  fixed 1 doc-CRITICAL + 22 MAJORs — incl. fail-closed config asserts on the two documented mines,
+  a no-eval `07-verify` with a pinned signature fingerprint, and a single-release vend gate in `06`.
+
+### Validated
+- Metal in-place upgrade via the dnf/rpm path (`6.18.38-clk` → `6.18.39-clk`), rebooted: `rpm -q`
+  truthful for kernel + kmod + userspace, doctor PASS (incl. vectorAdd + the full-8-GiB managed-memory
+  round-trip), dmesg gate PASS (19 → 18, every delta explained), **vLLM serve-gate GATE-PASS** (#67).
+- The image: rootfs fully rpm-owned with fail-closed verifies at every install; `IMAGE-VERIFY-OK`.
+
+### Notes
+- Supersedes [spark-rocky-live-20260717b]. Same `served == tag == HEAD` gate (`07-verify`, #35), now
+  also binding the three served rpms.
 
 ## [spark-rocky-live-20260717b] — 2026-07-17 · `6.18.38-clk` (4k pages) — 64k reverted
 
