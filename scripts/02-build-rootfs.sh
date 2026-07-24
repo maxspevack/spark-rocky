@@ -48,19 +48,20 @@ cp /etc/yum.repos.d/cuda.repo "$R/etc/yum.repos.d/cuda.repo"
 echo "[rootfs] installing minimal CUDA (nvcc + cudart) ..."
 dnf -y --installroot="$R" --releasever="$RV" --setopt=install_weak_deps=False install \
   cuda-nvcc-${CUDA_VER} cuda-cudart-devel-${CUDA_VER} >>/host/rocky-img/rootfs.log 2>&1
-# MediaTek MT7925 WiFi/BT firmware (#64). The shipped image carried NO firmware, so the GB10 radios
-# never came up (dmesg -2, hardware init failed). Ship the mt7925 + regulatory blobs — UNCOMPRESSED
-# (~2M): linux-firmware provides them as .zst, but a .zst load fails at the driver`s early boot probe
-# on this platform while a plain .bin loads cleanly at the early driver probe (verified on the metal
-# 2026-07-22). mt7925e loads
-# post-switch-root, so rootfs .bin is found. Targeted copy, not the full ~hundreds-of-MB linux-firmware.
-echo "[rootfs] installing MT7925 WiFi/BT firmware (uncompressed, #64) ..."
-dnf install -y -q linux-firmware zstd >/dev/null 2>&1
-mkdir -p "$R/usr/lib/firmware/mediatek/mt7925"
-for f in /usr/lib/firmware/mediatek/mt7925/*.zst; do zstd -d -f -q "$f" -o "$R/usr/lib/firmware/mediatek/mt7925/$(basename "${f%.zst}")"; done
-[ -f /usr/lib/firmware/regulatory.db.zst ] && zstd -d -f -q /usr/lib/firmware/regulatory.db.zst -o "$R/usr/lib/firmware/regulatory.db"
-[ -f /usr/lib/firmware/regulatory.db.p7s ] && cp /usr/lib/firmware/regulatory.db.p7s "$R/usr/lib/firmware/regulatory.db.p7s" 2>/dev/null || true
-echo "[rootfs] mt7925 fw: $(ls "$R/usr/lib/firmware/mediatek/mt7925/"*.bin 2>/dev/null | wc -l) files, regulatory.db $([ -f "$R/usr/lib/firmware/regulatory.db" ] && echo present || echo MISSING)"
+# MediaTek MT7925 WiFi/BT firmware (#64) — stock Rocky RPMs, zero hand-copied files. el10_2 splits
+# firmware per vendor: mt7xxx-firmware owns the mt7925 blobs (~9M, requires only the whence license
+# file — NOT the full linux-firmware set) and wireless-regdb owns regulatory.db. Blobs ship compressed
+# (.xz in el10_2; .zst in other builds) and the KERNEL decompresses at request time — XZ support was
+# inherited, ZSTD is enabled by 01. The original "a .zst load fails at the driver early-boot probe on
+# this platform" (2026-07-22) was a MISDIAGNOSIS: the kernel simply lacked FW_LOADER_COMPRESS_ZSTD.
+# mt7925e loads post-switch-root, so rootfs RPMs are found. Everything here is rpm-owned: rpm -qf
+# answers for every blob on the box.
+echo "[rootfs] installing MT7925 WiFi/BT firmware RPMs (mt7xxx-firmware + wireless-regdb, #64) ..."
+dnf install -y -q --installroot="$R" --releasever=$RV mt7xxx-firmware wireless-regdb >>/host/rocky-img/rootfs.log 2>&1 \
+  || { echo "VERIFY-FAIL: firmware rpm install failed (#64) — see rootfs.log"; exit 1; }
+ls "$R/usr/lib/firmware/mediatek/mt7925/"WIFI_RAM_CODE* >/dev/null 2>&1 || { echo "VERIFY-FAIL: no mt7925 blobs in rootfs (#64)"; exit 1; }
+[ -e "$R/usr/lib/firmware/regulatory.db" ] || { echo "VERIFY-FAIL: regulatory.db missing (#64)"; exit 1; }
+echo "[rootfs] mt7925 fw: $(ls "$R/usr/lib/firmware/mediatek/mt7925/" | wc -l) blobs (rpm-owned: mt7xxx-firmware), regulatory.db present"
 
 echo "[rootfs] installing our $KVER kernel from the RPM (#59): $KRPM ..."
 # dnf-install (not cp + modules_install): the kernel lands in the image RPM database — rpm -q kernel is

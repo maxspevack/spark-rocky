@@ -106,6 +106,11 @@ fi
 scripts/config --set-str SYSTEM_TRUSTED_KEYS "" --set-str SYSTEM_REVOCATION_KEYS "" \
   --set-str MODULE_SIG_KEY "" --disable MODULE_SIG --disable MODULE_SIG_ALL \
   --disable SECURITY_LOCKDOWN_LSM 2>/dev/null || true
+# Firmware loads straight from Rocky'"'"'s .zst-compressed firmware RPMs (#64): el10 ships blobs as .zst,
+# and both inherited configs enable only XZ decompression — the exact gap that made the MT7925 radios
+# dead-on-boot until 2026-07-23. The kernel decompresses at request time; the rootfs installs the stock
+# firmware subpackages via dnf, no hand-decompressed files. A .config choice, not a source patch.
+scripts/config --enable FW_LOADER_COMPRESS_ZSTD 2>/dev/null || true
 # Page-size variant (default 4k). 64k flips the ARM64 page-size choice; olddefconfig recomputes
 # PAGE_SHIFT/PGTABLE_LEVELS. NOTE: page size NEVER rides uname — it lives in the .config symbol +
 # the provenance stamp. (Lineage DOES ride uname: the clk path sets LOCALVERSION="-clk" above.)
@@ -128,7 +133,7 @@ for s in ARM_SMMU_V3 ARM_SMMU_V3_SVA ARM_SMMU_V3_IOMMUFD TEGRA241_CMDQV IOMMU_SV
   ZONE_DEVICE HMM_MIRROR DEVICE_PRIVATE DEVICE_MIGRATION MEMORY_HOTPLUG \
   TEGRA_BPMP CLK_TEGRA_BPMP RESET_TEGRA_BPMP SOC_TEGRA_CBB TEGRA_MC TEGRA_HSP_MBOX \
   NVGRACE_EGM NVGRACE_GPU_VFIO_PCI NVIDIA_TEGRA410_C2C_PMU \
-  R8169 MLX5_CORE MT7925E NVME_CORE ARM64_4K_PAGES ARM64_64K_PAGES ARM64_PAGE_SHIFT PGTABLE_LEVELS; do
+  R8169 MLX5_CORE MT7925E NVME_CORE FW_LOADER_COMPRESS_ZSTD ARM64_4K_PAGES ARM64_64K_PAGES ARM64_PAGE_SHIFT PGTABLE_LEVELS; do
   v=$(grep -E "^CONFIG_$s=" .config | cut -d= -f2)
   echo "CONFIG_$s = ${v:-ABSENT}"
 done

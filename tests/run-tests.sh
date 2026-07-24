@@ -85,8 +85,12 @@ if grep -qF 'ciq-6.18.y' scripts/drift-check.sh && grep -qF 'row CLK' scripts/dr
 # Serve gate (#67): exists, fails closed on a dead container, and is a documented pre-sign release step.
 if [ -f scripts/serve-gate.sh ] && grep -qF 'GATE-PASS' scripts/serve-gate.sh && grep -qF 'GATE-FAIL' scripts/serve-gate.sh; then ok "serve-gate.sh present + pass/fail-closed (#67)"; else no "serve-gate.sh missing or not fail-closed (#67)"; fi
 if grep -qF 'serve-gate.sh' docs/build/release.md; then ok "release runbook requires the serve gate pre-sign (#67)"; else no "release.md does not mandate the serve gate (#67)"; fi
-# 02 ships the MT7925 WiFi/BT firmware uncompressed into the rootfs (#64) — the shipped image had none.
-if grep -qF 'mediatek/mt7925' scripts/02-build-rootfs.sh && grep -qF 'zstd -d' scripts/02-build-rootfs.sh; then ok "02 ships MT7925 firmware uncompressed (#64)"; else no "02 missing the MT7925 firmware step (#64)"; fi
+# The MT7925 WiFi/BT firmware is RPM-PURE (#64): 02 dnf-installs the stock Rocky subpackages
+# (mt7xxx-firmware + wireless-regdb) into the rootfs — no hand-decompressed files — and 01 enables
+# FW_LOADER_COMPRESS_ZSTD so the kernel can load el10's compressed blobs regardless of .xz/.zst era.
+if grep -qE 'dnf install .*mt7xxx-firmware wireless-regdb' scripts/02-build-rootfs.sh; then ok "02 installs the MT7925 firmware as stock RPMs (#64)"; else no "02 firmware install is not rpm-pure (#64)"; fi
+if grep -qF 'zstd -d' scripts/02-build-rootfs.sh; then no "02 still hand-decompresses firmware — the rpm-pure fix removed this (#64)"; else ok "02 carries no hand-decompression of firmware (#64)"; fi
+if grep -qF -- '--enable FW_LOADER_COMPRESS_ZSTD' scripts/01-build-kernel.sh; then ok "01 enables FW_LOADER_COMPRESS_ZSTD (#64 — the real root cause)"; else no "01 missing FW_LOADER_COMPRESS_ZSTD — .zst firmware cannot load (#64)"; fi
 # Debug hatch reads the script-relative config (the W-vs-HERE bug that silently skipped baking it).
 if grep -qF 'HERE/../config/debug-authorized_keys' scripts/04-build-image.sh && ! grep -qF 'W/config/debug-authorized_keys' scripts/04-build-image.sh; then ok "04 debug hatch reads HERE/../config (not W/config)"; else no "04 debug hatch path bug present"; fi
 # zstd is gated + content-verified, not silently swallowed (#44).

@@ -3,13 +3,13 @@
 What an unmodified 6.18 kernel tree (the shipped **CLK** default or the stock-mainline A/B path — this
 repo patches neither) + the open NVIDIA driver surface on the DGX Spark (GB10) at boot, each line
 classified and decided. The project starts from a zero-carried-patch clean room; every divergence is a
-deliberate, data-justified tweak — **carried** (tracked here + in [`THIRD_PARTY.md`](third-party.md)) or
+deliberate, data-justified tweak — **carried** (tracked here + in [`third-party.md`](third-party.md)) or
 **upstreamed**. The pitch is auditability: every tweak is named and reasoned, not inherited from an opaque
 vendor image. (The dmesg census below was recorded on the stock-mainline host; the CLK baseline is in
 [`dmesg-baseline.md`](dmesg-baseline.md).)
 
 The load-bearing fact: **GPU compute works** — `proof-of-life` runs `vectorAdd` on the GB10 (compute 12.1,
-130.7 GB) on the LiveUSB boot of 6.18.35. Everything below is peripheral to that.
+130.7 GB) on the LiveUSB boot of every shipped release since 6.18.35. Everything below is peripheral to that.
 
 ## Page size — currently 4k (64k REVERTED, #65)
 
@@ -44,8 +44,8 @@ question.) It shipped undetected in four 64k releases because release validation
 **Flip back to 64k in `versions.env` (only) if #68's CUDA-level cause is ever found + fixed.**
 
 **How it's enforced (the process, not just a flag).** `PAGE_SIZE` is a pinned, reviewable line; `01` sets the
-`CONFIG_ARM64_4K_PAGES` / `_64K_PAGES` symbol from it (with **no** `LOCALVERSION` suffix — the kernel release
-stays plain `$KVER`, the standard distro convention); `05`'s fail-closed gate **aborts the release if the
+`CONFIG_ARM64_4K_PAGES` / `_64K_PAGES` symbol from it (the page size adds **no** uname suffix — source
+lineage does: `-clk` on the default path); `05`'s fail-closed gate **aborts the release if the
 resolved `.config` page size does not match the pin** (the current `4k` pin cannot ship a 64k image, and vice
 versa); the provenance stamp records `page_size=4k`; and the `validate.sh` doctor asserts the running
 `getconf PAGESIZE` (`4096`) matches what was built. The page size lives in the `.config` symbol + the stamp,
@@ -72,11 +72,11 @@ capsule-on-disk with stock `fwupd`, `fwupdmgr get-updates` clean after. GPU VBIO
 | ID | Delta (dmesg) | Decision | Notes |
 |----|---------------|----------|-------|
 | L1 | open driver didn't auto-load → `nvidia-smi` failed | **CARRY (assembly), fixed** | `02b` now runs `depmod` + writes `/etc/modules-load.d/nvidia.conf`; build gates assert nvidia is in `modules.dep` |
-| L2 | `GPT: alt header not at end of disk` | **CARRY (assembly), fixed** | `04` runs `sgdisk -e` after `dd` (cosmetic; we `dd` a sized image onto a larger stick) |
+| L2 | `GPT: alt header not at end of disk` | **CARRY (assembly), fixed** | `04` relocates the GPT backup header with `sfdisk` after `dd` — fail-closed since #60; the old `sgdisk` path failed open (cosmetic delta; we `dd` a sized image onto a larger stick) |
 | L3 | `arm-smmu-v3: PRI will be broken / msi_domain absent` | **BENIGN on current firmware** | Persists at latest firmware; configs are `=y`, so it's the platform ACPI/IORT. The GB10 GPU is NVLink-C2C-coherent (not the PCIe SMMU-SVA path) — compute is unaffected (observed) |
 | L4 | `NVDA8800:00 device-creation -16` | **BENIGN on current firmware** | 1 of ~30 NVDA Grace platform devices; the only one that fails (resource conflict); non-critical to compute |
 | L5 | `EM: CPUs … same capacity` (×15) | **MEASURE** | Platform ACPI doesn't feed cpu `capacity-dmips-mhz` to the energy model; may change EAS scheduling across X925 vs A725 → possible perf. Quantify with a before/after spark-arena run |
-| L6 | `mt7925` WiFi/BT firmware missing | **FIXED (#64)** | `02` now ships the MT7925 + `regulatory.db` blobs **uncompressed** into the rootfs (~2M targeted, not the full `linux-firmware`). A `.zst` load fails at the driver's early probe on this platform; plain `.bin` loads at boot (metal-verified 2026-07-22 — `WM Firmware Version` at ~6.7s, `wlP9s9` up). Wired stays the benchmark default; the radios are now *available*. |
+| L6 | `mt7925` WiFi/BT firmware missing | **FIXED (#64), rpm-pure since 2026-07-23** | `02` dnf-installs the stock Rocky subpackages (`mt7xxx-firmware` + `wireless-regdb`) into the rootfs; `01` enables `FW_LOADER_COMPRESS_ZSTD` so the kernel decompresses el10's compressed blobs at load time. **Correction:** the 2026-07-22 "a `.zst` load fails at the driver's early probe on this platform" was a misdiagnosis — the kernel config simply lacked ZSTD firmware decompression (`_XZ` was on, `_ZSTD` off); nothing platform-specific. The interim hand-decompressed-`.bin` fix worked for that reason and is retired. Wired stays the benchmark default; the radios are *available* (metal-verified 2026-07-22: `WM Firmware Version` at ~6.7s, `wlP9s9` up). |
 | L7 | `mlx5` ConnectX-7 loads unwanted (unused cluster NIC; on bare hardware it can flood dmesg / "insufficient power") | **CARRY (assembly), fixed** | Multi-node is out of scope, so we don't want the driver loaded. A rootfs blacklist alone is **insufficient**: in a `--no-hostonly` initramfs mlx5 coldplug-loads at ~2s, *before* the blacklist applies. `04` **omits mlx5 from the initramfs** (`--omit-drivers`) so it cannot load early; the rootfs blacklist keeps it off post-switch-root (#30). Re-enable + ship the mlx5 firmware if you ever cable it for clustering |
 | L8 | `GICv3 [Firmware Bug] GSI8`, `FF-A IRQ mapping` | **BENIGN on current firmware** | Firmware↔kernel friction the kernel flags and works around; no observed impact |
 | L9 | `PCI: OF: of_root NULL` (×8) | **NO-OP** | PCI host bridges come from ACPI on this hybrid ACPI+DT boot; expected |
