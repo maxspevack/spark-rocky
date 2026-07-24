@@ -13,6 +13,14 @@ the container tag). Reproducing an entry means running *its* recipe, not one we 
 | `gemma-3-1b-it-arena.yaml` | gemma-3-1b-it (`sub1779455882567`) | `vllm-node-tf5` | HF-gated (token required to download) |
 | `gpt-oss-120b-arena.yaml` | gpt-oss-120b | `vllm-node-mxfp4` | MXFP4 `--mxfp4-backend CUTLASS`, fp8 KV, flashinfer, ray |
 
+**One deliberate exception to "not ours" — pinned variants**, suffixed with a dgx-vllm mirror tag: the
+same recipe byte-for-byte except `container:` names the permanent gen-2 tag (and `description:` says so).
+Same serve, pinned runtime (#71).
+
+| File | Derived from | Container |
+|---|---|---|
+| `qwen3.5-0.8b-arena-2026072302.yaml` | `qwen3.5-0.8b-arena.yaml` (one-line container delta, verified) | `ghcr.io/spark-arena/dgx-vllm-eugr-nightly:2026072302` — behind `reproduce-Qwen3.5-0.8B-gen2-2026-07-24.txt` |
+
 ## Add a recipe
 
 ```bash

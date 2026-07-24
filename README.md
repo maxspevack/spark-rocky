@@ -26,8 +26,8 @@ Then boot the Spark from the USB and run `/root/validate.sh`. Full steps and the
 | Boots | Rocky 10.2 + CLK 6.18 on the GB10 — **6.18.39-clk**, 4k pages (the released Live USB); stock kernel.org 6.18.34/.35/.37/.38 equally proven | **PROVEN** |
 | GPU + CUDA | the open driver builds and loads; the GPU computes | **PROVEN** |
 | Bare metal | installed on the NVMe (reference box) | **PROVEN** — install is destructive, not yet clean-room-validated elsewhere |
-| Benchmark | reproduce published single-host entries | **5 reproduced** — 3 at full-matrix-median parity (35B-A3B-FP8 1.01×, 0.8B 0.96×, gemma-3-1b 1.05×); 2 single-cell. → [`docs/benchmark/scoreboard.md`](docs/benchmark/scoreboard.md) |
-| Leaderboard | peer-reviewed, third-party-reproduced, then submitted | not started |
+| Benchmark | reproduce published single-host entries | **5 reproduced** — 3 at full-matrix-median parity (35B-A3B-FP8 1.01×, 0.8B 0.96×, gemma-3-1b 1.05×); 2 single-cell; **parity re-confirmed on the current pinned runtime, 2026-07-24 (0.8B median 1.010×)**. → [`docs/benchmark/scoreboard.md`](docs/benchmark/scoreboard.md) |
+| Leaderboard | peer-reviewed, third-party-reproduced, then submitted | **harness validated** (the board's own sparkrun + official profile run here end-to-end, #72 → [`docs/benchmark/sparkrun-harness.md`](docs/benchmark/sparkrun-harness.md)); submission itself deliberately not started |
 
 ## Zero patches, and what's novel
 
@@ -39,7 +39,7 @@ Kernel: the **CIQ Linux Kernel** — CLK 6.18, the public GPL tree at [`ctrliq/k
 |---|---|
 | [`docs/`](docs/) | the three stories: [use](docs/use/) · [build](docs/build/) · [benchmark](docs/benchmark/) |
 | [`scripts/`](scripts/) | `flash`, `validate`, `install-baremetal`, and the `01`→`07` build/release pipeline |
-| [`config/`](config/) | the kernel `.config` and the pinned `versions.env` |
+| [`config/`](config/) | the kernel `.config` and the pin files — `versions.env` (build) + `serving-images.env` (benchmark stack) |
 | [`recipes/`](recipes/) · [`data/`](data/) · [`receipts/`](receipts/) | benchmark recipes, the leaderboard snapshot, committed results |
 | [`keys/`](keys/) | the release signing public key |
 

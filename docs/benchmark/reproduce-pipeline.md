@@ -47,8 +47,12 @@ This yaml is the authoritative reproducer — the exact `vllm serve` command, de
 
 ```bash
 cd /root/spark-vllm-docker
-# Build the container the recipe names, if not already present, e.g.:
-#   ./build-and-copy.sh --tf5        # -> vllm-node-tf5   (stock is vllm-node)
+# Serving image, two generations (config/serving-images.env, #71):
+#   gen 1 (behind the June receipts): local builds — ./build-and-copy.sh [--tf5] -> vllm-node[-tf5]
+#   gen 2 (current, preferred): pull the PINNED permanent mirror tag instead of building —
+#     docker pull ghcr.io/spark-arena/dgx-vllm-eugr-nightly@$SERVING_IMAGE_DIGEST
+#     and run a recipe VARIANT whose container: names that tag (recipes/*-<TAG>.yaml).
+#     Upstream's --tf5 lineage collapsed 2026-07 — one gen-2 image serves both.
 ./run-recipe.sh <name> --solo -d     # applies serve flags + mods + env from the recipe; host networking
 until [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/health)" = 200 ]; do sleep 5; done
 ```
@@ -63,7 +67,8 @@ uvx llama-benchy --base-url http://localhost:8000/v1 --model <HF/path> \
   --pp 2048 --tg 128 --concurrency 1 --runs 5
 ```
 
-(Equivalent single command using the org's official runner: `sparkrun run @spark-arena/<UUID>`.)
+(The org's official runner is also validated on this host — install, gotchas, and the official
+v2 profile: [`sparkrun-harness.md`](sparkrun-harness.md).)
 
 For the **full matrix** — the ~104-cell sweep the parity claim rests on (depth × prefill × decode ×
 concurrency) — do not retype the params; run the canonical script. It pins `llama-benchy==0.3.8` and encodes
@@ -79,12 +84,17 @@ Commit a receipt in `receipts/` (see `reproduce-LFM2.5-350M-2026-06-10.txt` for 
 benchmark stack versions, the exact recipe, the exact commands, raw N≥5 output, the published number, and
 every confound. The standing confound on every cross-date entry: **spark-arena does not pin a vLLM version**
 (spark-vllm-docker builds latest vLLM at image-build time), so a date gap between our image and the entry is
-a real runtime-version difference. Match the recipe's `container:` tag to minimize it; state what remains.
+a real runtime-version difference. **Our side is closed (#71):** pin the gen-2 dated mirror tag and the
+receipt names a byte-identical runtime; what remains is the entry's side — state it.
 
 ## Sensors / gotchas
 
 - **Driver leaks GPU memory on container stop/crash** (open 610). Reboot to a clean pool before each serve
   series; `free -g` should read ~3u/118a before serving.
+- **Page cache starves CUDA's free-memory read** (unified memory: `cudaMemGetInfo` sees `MemFree`, not
+  `MemAvailable`). A big `docker pull` right before serving fails vLLM's startup check while `free -g`
+  shows plenty available — `sync && echo 3 > /proc/sys/vm/drop_caches` first (the serve-gate does this
+  itself since 2026-07-24; hit live during #71).
 - **HuggingFace token: not required** for public models (verify `curl -s -o /dev/null -w '%{http_code}'
   https://huggingface.co/api/models/<repo>` → 200). Gated models would need a token; none of our targets are.
 - **gpu-memory-utilization is the total unified-memory budget** (fraction × 121 GB = model + KV). Too low →

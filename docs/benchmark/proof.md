@@ -4,7 +4,7 @@
 
 ## The proof
 
-A full `llama-benchy` matrix sweeps the whole performance surface – **decode** (single-user generation), **prefill** (prompt processing), and **concurrency** (throughput as users stack up). No single cell is "the" number; the honest summary is the **median vs 1.0× (parity)**. Decode lands at or just above parity, prefill below it (~0.75–0.93× at the `pp2048` cell across the three models).
+A full `llama-benchy` matrix sweeps the whole performance surface – **decode** (single-user generation), **prefill** (prompt processing), and **concurrency** (throughput as users stack up). No single cell is "the" number; the honest summary is the **median vs 1.0× (parity)**. Decode lands at or just above parity; prefill ran below it on the June runtime (~0.75–0.93× at the `pp2048` cell) — **re-measured 2026-07-24 on the current pinned runtime, that prefill deficit closes (median 1.011× vs published): it was vLLM version drift, not the host** ([#18](https://github.com/maxspevack/spark-rocky/issues/18) tracks the one residual cell class).
 
 | Model | Scope | Full-matrix median vs published |
 |---|---|:---:|
@@ -45,7 +45,7 @@ graph LR
 ```
 
 
-One variable still differs between the published run and ours: **the vLLM build, not the host.** spark-arena pins no runtime version, so the published entry and our run compiled vLLM on different dates.
+One variable differed between the published runs and the June receipts: **the vLLM build, not the host** — spark-arena pins no runtime version, so entry and reproduction compiled vLLM on different dates. **Closed from our side on 2026-07-24:** the serving image is now pinned to a permanent dated [`spark-arena/dgx-vllm`](https://github.com/spark-arena/dgx-vllm) mirror tag ([`config/serving-images.env`](../../config/serving-images.env), #71), and the full 0.8B matrix on that current runtime lands **median 1.010× vs published — decode 1.010×, prefill 1.011×** (receipt `reproduce-Qwen3.5-0.8B-gen2-2026-07-24.txt`). The parity claim survives the runtime catching up.
 
 ## What the host actually is
 
@@ -54,7 +54,7 @@ Everything swapped in is stock, current, and built from source — the exact coo
 | Layer | This stack |
 |---|---|
 | OS | Rocky Linux 10.2 |
-| Kernel | CIQ Linux Kernel **6.18.39-clk**, **4k pages** (shipped 2026-07-23; a routine stable bump over the benchmarked `.38`, serve-gated) — **CLK benchmark-validated at parity** (Qwen3.5-0.8B full matrix, median 1.007× vs the June stock-host baseline; receipt `reproduce-Qwen3.5-0.8B-clk4k-2026-07-23.txt`, #61). *64k was an opinionated tuning choice, reverted 2026-07-17 pending a 64k-only kernel serve regression ([#65](https://github.com/maxspevack/spark-rocky/issues/65)); stock kernel.org stays one pin-flip away (`KERNEL_SOURCE=kernelorg`).* |
+| Kernel | CIQ Linux Kernel **6.18.39-clk**, **4k pages** (shipped 2026-07-23) — **CLK benchmark-validated at parity twice**: `.38-clk` full matrix at median 1.007× vs the June baseline (receipt `reproduce-Qwen3.5-0.8B-clk4k-2026-07-23.txt`, #61), and `.39-clk` itself carries the current-runtime full-matrix receipt at median 1.010× vs published (`reproduce-Qwen3.5-0.8B-gen2-2026-07-24.txt`, #71). *64k was an opinionated tuning choice, reverted 2026-07-17 pending a 64k-only kernel serve regression ([#65](https://github.com/maxspevack/spark-rocky/issues/65)); stock kernel.org stays one pin-flip away (`KERNEL_SOURCE=kernelorg`).* |
 | Driver | open NVIDIA **610.43.03**, built from source unmodified (June parity receipts benched on 610.43.02; the CLK/4k receipt, #61, on 610.43.03) |
 | CUDA | **13.0** |
 
