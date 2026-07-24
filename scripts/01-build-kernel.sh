@@ -35,10 +35,14 @@ docker run --rm -v "$W":/work \
   -e PAGE_SIZE="$PAGE_SIZE" -e CLK_COMMIT="${CLK_COMMIT:-}" \
   rockylinux/rockylinux:10 bash -c '
 set -e
+# Stage stopwatch (#70 build-speed): each STAGE-TIME line = seconds since the previous one. The speed
+# work is measurement-driven — these lines are the measurements.
+T0=$SECONDS; stage(){ echo "STAGE-TIME $1 $((SECONDS-T0))s"; T0=$SECONDS; }
 echo "[build] installing toolchain..."
 dnf install -y -q gcc make flex bison bc openssl openssl-devel elfutils-libelf-devel elfutils-devel \
   ncurses-devel dwarves perl diffutils xz wget tar gawk findutils rsync which python3 zlib-devel \
   rpm-build cpio kmod >/dev/null 2>&1   # openssl/rpm-build/cpio/kmod: binrpm-pkg build deps (#59)
+stage toolchain-install
 cd /work
 # Kernel SOURCE dispatch (the which-kernel knob). Each source produces a ./linux-$KVER tree.
 case "$KERNEL_SOURCE" in
@@ -119,6 +123,7 @@ if [ "$PAGE_SIZE" = 64k ]; then
   echo "[build] 64k page-size variant (CONFIG_ARM64_64K_PAGES; no uname suffix)"
 fi
 make olddefconfig >/work/olddefconfig-$KVER.log 2>&1
+stage source-extract-config
 # From here on KVER IS the kernel RELEASE (make kernelrelease = version + LOCALVERSION), not the
 # bare pin: 6.18.38 for kernelorg, 6.18.38-clk for clk. The modules dir, vermagic, vmlinuz name,
 # GRUB title, and provenance stamp all follow via build.env. Rename the tree dir to match so every
@@ -140,6 +145,7 @@ done
 echo "===BUILD-START==="
 make -j"$(nproc)" Image modules >/work/build-$KVER.log 2>&1
 echo "BUILD-RC=$?"
+stage make-image-modules
 [ -f arch/arm64/boot/Image ] && echo "KERNEL-BUILT $KVER ($(ls -la arch/arm64/boot/Image | awk "{print \$5}") bytes)"
 cp .config /work/config-$KVER
 # Package the built kernel as an RPM (#59): the appliance kernel is a first-class package — rpm -q
@@ -149,6 +155,7 @@ cp .config /work/config-$KVER
 # kernel-headers/kernel-devel subpackages are built too but deliberately NOT shipped (the open .ko
 # builds against the tree, not the rpm — the decoupling is deliberate, see docs/build/build.md).
 make -j"$(nproc)" INSTALL_MOD_STRIP=1 binrpm-pkg >/work/binrpm-$KVER.log 2>&1
+stage binrpm-pkg
 KRPM=$(ls rpmbuild/RPMS/aarch64/kernel-[0-9]*.rpm 2>/dev/null | head -1)
 [ -n "$KRPM" ] || { echo "FATAL: binrpm-pkg produced no kernel rpm (#59) — see binrpm-$KVER.log"; exit 1; }
 cp "$KRPM" /work/
