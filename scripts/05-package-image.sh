@@ -141,6 +141,12 @@ rm -f "$WORK.xz"; xz -T0 -6 -v "$WORK"
 ART="$WORK.xz"
 OUTER_SHA=$(sha256sum "$ART" | cut -d' ' -f1)
 
+# #59: vend the kernel rpm alongside the image — served from the release bucket, covered by 06's signed
+# CHECKSUM (basic attestation: detached trust via the clearsigned sha256, not an embedded rpm signature).
+[ -n "${KRPM:-}" ] && [ -f "$W/$KRPM" ] || { echo "FATAL: kernel rpm missing (KRPM='${KRPM:-}') — rerun 01-build-kernel.sh"; exit 1; }
+cp -f "$W/$KRPM" "$OUTDIR/$KRPM"
+KRPM_SHA=$(sha256sum "$OUTDIR/$KRPM" | cut -d' ' -f1)
+
 MANIFEST="$OUTDIR/${STAMP}.BUILD-MANIFEST.txt"
 cat > "$MANIFEST" <<EOF
 spark-rocky live image — build manifest
@@ -149,6 +155,8 @@ build_id            : ${STAMP}
 artifact            : $(basename "$ART")
 artifact_sha256     : ${OUTER_SHA}
 inner_image_sha256  : ${INNER_SHA}
+kernel_rpm          : ${KRPM}
+kernel_rpm_sha256   : ${KRPM_SHA}
 git_describe        : ${GIT_DESC}
 git_commit          : ${GIT_COMMIT}
 built_utc           : ${DATE_UTC}
@@ -181,8 +189,9 @@ EOF
 
 echo ""
 echo "=== VENDABLE ARTIFACTS (no build required to consume) ==="
-ls -lh "$ART" "$MANIFEST"
+ls -lh "$ART" "$MANIFEST" "$OUTDIR/$KRPM"
 echo "  inner sha256: $INNER_SHA"
+echo "  kernel rpm sha256: $KRPM_SHA"
 echo "  outer sha256: $OUTER_SHA"
 echo ""
 echo "Next: mint the release key, then sign with 06-sign-release.sh."

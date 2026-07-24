@@ -37,7 +37,18 @@ chk "gpg --verify '$tmp/CHECKSUM' 2>&1 | grep -q 'Good signature'"  "served CHEC
 # 3. the served image's sha is the one inside that signed CHECKSUM (binds manifest <-> signed bytes)
 chk "[ -n \"$asha\" ] && grep -q \"$asha\" '$tmp/CHECKSUM'"  "served image sha ${asha:0:12}... is covered by the signed CHECKSUM"
 
-# 4. HEAD-advanced: a heads-up, never a failure (durable invariant is served == tag)
+# 4 (#59). the served kernel rpm: present in the bucket, and its sha is inside the signed CHECKSUM.
+# Manifests older than the rpm pipeline have no kernel_rpm line — skipped, not failed (old releases verify).
+krpm=$(awk -F': *' '/^kernel_rpm  /{print $2; exit}' "$tmp/manifest")
+ksha=$(awk -F': *' '/^kernel_rpm_sha256/{print $2; exit}' "$tmp/manifest")
+if [ -n "$krpm" ]; then
+  chk "$GS ls '$BUCKET/$krpm' $A >/dev/null 2>&1"  "kernel rpm $krpm is served from the bucket"
+  chk "[ -n \"$ksha\" ] && grep -q \"$ksha\" '$tmp/CHECKSUM'"  "served kernel rpm sha ${ksha:0:12}... is covered by the signed CHECKSUM"
+else
+  say "  note: manifest predates the rpm pipeline (no kernel_rpm) — rpm checks skipped"
+fi
+
+# 5. HEAD-advanced: a heads-up, never a failure (durable invariant is served == tag)
 head=$(git rev-parse HEAD 2>/dev/null)
 [ "$head" = "$tagc" ] || say "  WARN: HEAD (${head:0:7}) is past the released tag $TAG (${tagc:0:7}). Fine if those commits are not meant to ship yet; re-cut + re-tag before the next release if they are."
 

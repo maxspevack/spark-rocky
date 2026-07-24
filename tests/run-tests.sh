@@ -59,6 +59,12 @@ if grep -qE 'rpm --root "\$R" -q kernel' scripts/02-build-rootfs.sh; then ok "02
 if grep -qF 'rm -rf "/lib/modules/$KVER/extra"' scripts/upgrade-metal.sh && grep -qF 'rootfs/lib/modules/$KVER/extra" "/lib/modules/$KVER/extra"' scripts/upgrade-metal.sh; then ok "upgrade-metal re-carries the nvidia extra/ tree after the rpm install (#59)"; else no "upgrade-metal kernel path sheds the GPU driver — the rpm carries no extra/ (#59)"; fi
 if grep -qF 'kernel_rpm=' scripts/05-package-image.sh; then ok "05 stamps the kernel NEVRA into the image provenance (#59)"; else no "05 provenance carries no kernel NEVRA (#59)"; fi
 if grep -qF 'kernel present in the image rpm database' scripts/05-package-image.sh; then ok "05 fails closed if the image rpm db lacks the kernel (#59)"; else no "05 does not gate the image rpm db (#59)"; fi
+# The rpm is a SERVED, ATTESTED artifact: 05 vends it fail-closed, 06's signed CHECKSUM covers *.rpm,
+# 07 binds served rpm <-> manifest <-> signature (skipping pre-rpm manifests, not failing them).
+if grep -qF 'kernel rpm missing (KRPM=' scripts/05-package-image.sh; then ok "05 vends the kernel rpm fail-closed (#59)"; else no "05 does not vend the kernel rpm (#59)"; fi
+if grep -qF 'kernel_rpm_sha256' scripts/05-package-image.sh; then ok "05 manifest carries the kernel rpm sha256 (#59)"; else no "05 manifest lacks the rpm sha — 07 cannot bind it (#59)"; fi
+if grep -qE 'ARTS=\(.*\*\.rpm' scripts/06-sign-release.sh; then ok "06 signed CHECKSUM covers *.rpm (#59)"; else no "06 CHECKSUM does not cover the kernel rpm (#59)"; fi
+if grep -qF 'kernel_rpm_sha256' scripts/07-verify-release.sh && grep -qF 'predates the rpm pipeline' scripts/07-verify-release.sh; then ok "07 verifies the served rpm against the signed CHECKSUM (pre-rpm manifests skip) (#59)"; else no "07 does not verify the served kernel rpm (#59)"; fi
 if grep -qF 'kernel present in the rpm database' scripts/validate.sh; then ok "doctor checks rpm -q kernel on the booted box (#59)"; else no "doctor does not check the rpm database (#59)"; fi
 # 01's build container must carry the binrpm build deps (rpm-build/cpio/kmod/openssl-the-binary).
 if grep -qE 'rpm-build cpio kmod' scripts/01-build-kernel.sh; then ok "01 installs the binrpm-pkg build deps (#59)"; else no "01 container lacks rpm-build/cpio/kmod — binrpm-pkg dies (#59)"; fi

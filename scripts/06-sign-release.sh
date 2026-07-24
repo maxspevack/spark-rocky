@@ -10,7 +10,7 @@ OUTDIR="${OUTDIR:-$W/vend}"
 KEY="${KEY:-spark-rocky release signing}"     # uid substring of the signing key
 cd "$OUTDIR"
 shopt -s nullglob
-ARTS=( *.raw.xz *.BUILD-MANIFEST.txt *.packages.txt )
+ARTS=( *.raw.xz *.rpm *.BUILD-MANIFEST.txt *.packages.txt )   # *.rpm: the kernel rpm rides the same signed CHECKSUM (#59)
 [ ${#ARTS[@]} -gt 0 ] || { echo "FATAL: no release artifacts in $OUTDIR — run 05 first"; exit 1; }
 gpg --list-secret-keys "$KEY" >/dev/null 2>&1 || { echo "FATAL: no secret key matching '$KEY' — mint it first"; exit 1; }
 

@@ -18,7 +18,7 @@ Run on the Spark (aarch64 — `05` chroots into the image):
    git tag -f spark-rocky-live-<YYYYMMDD> <commit>
    git push -f origin spark-rocky-live-<YYYYMMDD>
    ```
-4. **Upload** the artifacts (`.raw.xz`, `CHECKSUM`, `BUILD-MANIFEST.txt`, public key) to the release bucket.
+4. **Upload** the artifacts (`.raw.xz`, the kernel `.rpm` (#59), `CHECKSUM`, `BUILD-MANIFEST.txt`, public key) to the release bucket.
 5. **Verify, fail-closed:**
    ```
    scripts/07-verify-release.sh spark-rocky-live-<YYYYMMDD>
