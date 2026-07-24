@@ -36,6 +36,14 @@ for s in 02-build-rootfs.sh 02b-install-gpu-docker.sh 03-build-nvidia-open.sh 04
 done
 # build.env is stale-gated: 01 stamps source+commit; every downstream consumer fails closed on a mismatch.
 if grep -qF 'BUILD_KERNEL_SOURCE=$KERNEL_SOURCE' scripts/01-build-kernel.sh && grep -qF 'BUILD_CLK_COMMIT' scripts/01-build-kernel.sh; then ok "01 stamps build.env with source + CLK commit"; else no "01 build.env missing the source/commit stamps"; fi
+# THIRD_PARTY.md is AI-maintainable BY CONSTRUCTION: prose never carries a pin (inline SHAs in the
+# roster rotted twice in the week of 2026-07-24) — volatile coordinates live in the env files, and the
+# registry maps input -> role -> pin location. The release runbook carries the maintenance protocol.
+if grep -qE '[0-9a-f]{12,40}|sha256[:]' THIRD_PARTY.md; then no "THIRD_PARTY.md carries an inline pin value — pins live in env files only"; else ok "THIRD_PARTY.md carries no pin values (prose-pin rule)"; fi
+if grep -qF 'config/versions.env' THIRD_PARTY.md && grep -qF 'config/serving-images.env' THIRD_PARTY.md; then ok "THIRD_PARTY.md points at both authoritative pin files"; else no "THIRD_PARTY.md missing a pin-file pointer"; fi
+if grep -qF 'Maintenance protocol' THIRD_PARTY.md; then ok "THIRD_PARTY.md carries its own maintenance protocol"; else no "THIRD_PARTY.md has no maintenance protocol — not AI-maintainable"; fi
+if grep -qF 'THIRD_PARTY.md' docs/build/release.md; then ok "release runbook runs the third-party currency check at cut"; else no "release runbook missing the THIRD_PARTY.md currency step"; fi
+
 # Script-review hardening (2026-07-23 Gafton pass): absent build.env is FATAL (M2), 06 refuses an
 # ambiguous vend dir (M8 — two images would let flash.sh pick the older one with a valid signature),
 # 07 pins the release fingerprint (any-key "Good signature" is not ours) and evals no served data (M9).
