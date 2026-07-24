@@ -43,6 +43,25 @@ done
 # the default key path — a tarball build would embed an ephemeral cert = nondeterministic Image bytes).
 if grep -qF 'Neutralize distro signing/cert baggage on BOTH paths' scripts/01-build-kernel.sh; then ok "01 neutralizes signing baggage on both kernel sources"; else no "01 signing neutralization is not both-paths"; fi
 if grep -qF -- '--disable MODULE_SIG_ALL' scripts/01-build-kernel.sh; then ok "01 disables MODULE_SIG_ALL explicitly (CLK decouples it from MODULE_SIG)"; else no "01 missing the MODULE_SIG_ALL disable — CLK modules_install SIGN step dies on the empty key"; fi
+# The kernel-as-RPM pipeline (#59): 01 builds a STRIPPED kernel rpm and fails closed if none is produced;
+# 02 dnf-installs it into the rootfs (rpm db truthful) with %post skipped (we own boot plumbing) and the
+# %post file copies replicated; upgrade-metal installs via dnf on the metal and re-carries the nvidia
+# extra/ tree (the rpm ships only the kernel's own modules — losing extra/ = losing the GPU driver).
+if grep -qE 'INSTALL_MOD_STRIP=1 binrpm-pkg' scripts/01-build-kernel.sh; then ok "01 builds the kernel rpm stripped (binrpm-pkg, #59)"; else no "01 missing INSTALL_MOD_STRIP=1 binrpm-pkg — unstripped rpm is ~1.5G (#59)"; fi
+if grep -qF 'binrpm-pkg produced no kernel rpm' scripts/01-build-kernel.sh; then ok "01 fails closed when binrpm-pkg produces no rpm (#59)"; else no "01 does not fail closed on a missing kernel rpm (#59)"; fi
+if grep -qF 'echo "KRPM=$KRPM"' scripts/01-build-kernel.sh; then ok "01 hands KRPM to downstream via build.env (#59)"; else no "01 does not persist KRPM in build.env (#59)"; fi
+for s in 02-build-rootfs.sh upgrade-metal.sh; do
+  if grep -qF 'KRPM not set' "scripts/$s"; then ok "$s fails closed when build.env lacks KRPM (#59)"; else no "$s does not gate a pre-rpm build.env (#59)"; fi
+  if grep -qF 'tsflags=noscripts' "scripts/$s"; then ok "$s skips the rpm %post (we own boot plumbing) (#59)"; else no "$s runs the rpm %post — kernel-install/BLS would fight our static GRUB (#59)"; fi
+  if grep -qE 'for f in vmlinuz System.map config' "scripts/$s"; then ok "$s replicates the skipped %post file copies (#59)"; else no "$s misses the %post vmlinuz/System.map/config copies (#59)"; fi
+done
+if grep -qE 'rpm --root "\$R" -q kernel' scripts/02-build-rootfs.sh; then ok "02 verifies the kernel landed in the image rpm database (#59)"; else no "02 does not verify the image rpm db knows the kernel (#59)"; fi
+if grep -qF 'rm -rf "/lib/modules/$KVER/extra"' scripts/upgrade-metal.sh && grep -qF 'rootfs/lib/modules/$KVER/extra" "/lib/modules/$KVER/extra"' scripts/upgrade-metal.sh; then ok "upgrade-metal re-carries the nvidia extra/ tree after the rpm install (#59)"; else no "upgrade-metal kernel path sheds the GPU driver — the rpm carries no extra/ (#59)"; fi
+if grep -qF 'kernel_rpm=' scripts/05-package-image.sh; then ok "05 stamps the kernel NEVRA into the image provenance (#59)"; else no "05 provenance carries no kernel NEVRA (#59)"; fi
+if grep -qF 'kernel present in the image rpm database' scripts/05-package-image.sh; then ok "05 fails closed if the image rpm db lacks the kernel (#59)"; else no "05 does not gate the image rpm db (#59)"; fi
+if grep -qF 'kernel present in the rpm database' scripts/validate.sh; then ok "doctor checks rpm -q kernel on the booted box (#59)"; else no "doctor does not check the rpm database (#59)"; fi
+# 01's build container must carry the binrpm build deps (rpm-build/cpio/kmod/openssl-the-binary).
+if grep -qE 'rpm-build cpio kmod' scripts/01-build-kernel.sh; then ok "01 installs the binrpm-pkg build deps (#59)"; else no "01 container lacks rpm-build/cpio/kmod — binrpm-pkg dies (#59)"; fi
 # The uname doctrine, refined 2026-07-17: uname carries SOURCE LINEAGE ("-clk", distro convention),
 # NEVER config properties (the 64k-suffix ban stays). Exactly ONE LOCALVERSION site is allowed: 01's
 # clk branch setting "-clk". No KREL variable — KVER itself is the derived kernel release.

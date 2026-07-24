@@ -12,8 +12,8 @@ All versions are pinned in one place, [`../../config/versions.env`](../../config
 
 | Step | Script | Produces |
 |---|---|---|
-| 1 | `01-build-kernel.sh` | the pinned upstream kernel (`KVER`) built with the GB10 `.config`, in `rockylinux:10` |
-| 2 | `02-build-rootfs.sh` | a current Rocky rootfs (`ROCKY_RELEASEVER`) with that kernel |
+| 1 | `01-build-kernel.sh` | the pinned upstream kernel (`KVER`) built with the GB10 `.config`, in `rockylinux:10` — **plus a kernel RPM** (`binrpm-pkg`, stripped; see *The kernel is an RPM* below) |
+| 2 | `02-build-rootfs.sh` | a current Rocky rootfs (`ROCKY_RELEASEVER`) with that kernel, **dnf-installed from 01's RPM** |
 | 2b | `02b-install-gpu-docker.sh` | CUDA + container runtime + the open `.ko` (vermagic-checked == `KVER`) |
 | 2c | `02c-driver-userspace.sh` | driver userspace `DRIVER_VER` (`.run --no-kernel-modules`) |
 | 3 | `03-build-nvidia-open.sh` | the open kernel module, built in `rockylinux:10` (el10 gcc 14.3.1); asserts vermagic == `KVER` |
@@ -43,6 +43,31 @@ Consequences, stated plainly: **Secure Boot must be disabled on the box** (the v
 If a signed-boot requirement ever materializes, the path is a MOK-enrolled signing key + signed kernel
 and modules — a deliberate future project, not a pin-flip; nothing in the current pipeline pretends
 otherwise.
+
+## The kernel is an RPM (#59)
+
+`01` finishes by packaging the built kernel with the kernel's own `make INSTALL_MOD_STRIP=1 binrpm-pkg`
+(stripped is mandatory — unstripped modules balloon the rpm ~61M → ~1.5G), and everything downstream
+installs the kernel **from that rpm, via dnf** — `02` into the image rootfs (`--installroot`),
+`upgrade-metal.sh` onto the metal. What that buys:
+
+- **A truthful package database.** `rpm -q kernel` on the booted box names the exact kernel running —
+  no more file-copied kernels invisible to rpm. The doctor (`validate.sh`) checks it; `05` refuses to
+  package an image whose rpm database doesn't know its kernel, and stamps the NEVRA into
+  `/etc/spark-rocky-release` and the build manifest.
+- **NEVRA provenance.** The rpm is named by the kernel's own mkspec: `kernel-6.18.38_clk-2.aarch64` —
+  rpm forbids dashes in `Version`, so the `-clk` lineage suffix sanitizes to `_clk` **in the NEVRA
+  only**; module paths, `/boot` file names, and `uname -r` all keep the true `6.18.38-clk`.
+- **dnf-native rollback semantics on the metal**, alongside the GRUB fallback entry.
+
+Two deliberate boundaries: the rpm's `%post` (`kernel-install`/BLS registration) is **skipped**
+(`tsflags=noscripts`) because this image owns its boot plumbing — a static GRUB config and our dracut
+initramfs, both built in `04` — and the scripts replicate the `%post` file copies
+(`vmlinuz`/`System.map`/`config` → `/boot`) deterministically instead. And the rpm carries only the
+kernel's own modules: the open NVIDIA `.ko` set (`03`) stays a separate tree in
+`/lib/modules/$KVER/extra/`, re-carried explicitly on a metal kernel bump (fail-closed `modules.dep`
+check backstops it). The `kernel-headers`/`kernel-devel` subpackages are built but not shipped — the
+open module builds against the kernel *tree*, not the rpm, and that decoupling is deliberate.
 
 ## Staying current
 The refresh trigger is **CLK, not kernel.org** (the clk default, 2026-07-17): the drift sensor fires when

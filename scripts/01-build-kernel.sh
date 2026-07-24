@@ -36,8 +36,9 @@ docker run --rm -v "$W":/work \
   rockylinux/rockylinux:10 bash -c '
 set -e
 echo "[build] installing toolchain..."
-dnf install -y -q gcc make flex bison bc openssl-devel elfutils-libelf-devel elfutils-devel \
-  ncurses-devel dwarves perl diffutils xz wget tar gawk findutils rsync which python3 zlib-devel >/dev/null 2>&1
+dnf install -y -q gcc make flex bison bc openssl openssl-devel elfutils-libelf-devel elfutils-devel \
+  ncurses-devel dwarves perl diffutils xz wget tar gawk findutils rsync which python3 zlib-devel \
+  rpm-build cpio kmod >/dev/null 2>&1   # openssl/rpm-build/cpio/kmod: binrpm-pkg build deps (#59)
 cd /work
 # Kernel SOURCE dispatch (the which-kernel knob). Each source produces a ./linux-$KVER tree.
 case "$KERNEL_SOURCE" in
@@ -136,10 +137,22 @@ make -j"$(nproc)" Image modules >/work/build-$KVER.log 2>&1
 echo "BUILD-RC=$?"
 [ -f arch/arm64/boot/Image ] && echo "KERNEL-BUILT $KVER ($(ls -la arch/arm64/boot/Image | awk "{print \$5}") bytes)"
 cp .config /work/config-$KVER
-# Write the resolved-KVER handoff for the host + downstream scripts (02/02b/03/04). For kernelorg
-# KVER equals the pin; for CLK it is derived from the source Makefile. The source + commit stamps
-# let downstream fail closed on a STALE build.env (mode or pin moved since this build ran).
-{ echo "KVER=$KVER"; echo "BUILD_KERNEL_SOURCE=$KERNEL_SOURCE"; echo "BUILD_CLK_COMMIT=${CLK_COMMIT:-}"; } > /work/build.env
+# Package the built kernel as an RPM (#59): the appliance kernel is a first-class package — rpm -q
+# truthful on the box, dnf-managed install/rollback, NEVRA provenance in 05. INSTALL_MOD_STRIP=1 is
+# REQUIRED: unstripped modules balloon the rpm ~0.5G -> ~1.5G. RPMs land in rpmbuild/ inside the tree
+# (kernel Makefile sets _topdir to the objtree); the main kernel rpm is copied to $W for 02/upgrade-metal.
+# kernel-headers/kernel-devel subpackages are built too but deliberately NOT shipped (the open .ko
+# builds against the tree, not the rpm — the decoupling is deliberate, see docs/build/build.md).
+make -j"$(nproc)" INSTALL_MOD_STRIP=1 binrpm-pkg >/work/binrpm-$KVER.log 2>&1
+KRPM=$(ls rpmbuild/RPMS/aarch64/kernel-[0-9]*.rpm 2>/dev/null | head -1)
+[ -n "$KRPM" ] || { echo "FATAL: binrpm-pkg produced no kernel rpm (#59) — see binrpm-$KVER.log"; exit 1; }
+cp "$KRPM" /work/
+KRPM=$(basename "$KRPM")
+echo "KERNEL-RPM $KRPM ($(du -h /work/$KRPM | cut -f1))"
+# Write the resolved-KVER handoff for the host + downstream scripts (02/02b/03/04/05/upgrade-metal).
+# For kernelorg KVER equals the pin; for CLK it is derived from the source Makefile. The source +
+# commit stamps let downstream fail closed on a STALE build.env (mode or pin moved since this build).
+{ echo "KVER=$KVER"; echo "BUILD_KERNEL_SOURCE=$KERNEL_SOURCE"; echo "BUILD_CLK_COMMIT=${CLK_COMMIT:-}"; echo "KRPM=$KRPM"; } > /work/build.env
 '
 # Source the resolved KVER from the container (may differ from versions.env for CLK builds)
 [ -f "$W/build.env" ] && source "$W/build.env"

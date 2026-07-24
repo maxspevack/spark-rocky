@@ -16,8 +16,11 @@ if [ -f "$W/build.env" ]; then
   [ "$KERNEL_SOURCE" != clk ] || [ "${BUILD_CLK_COMMIT:-}" = "$CLK_COMMIT" ] || { echo "FATAL: stale build.env (CLK_COMMIT moved) — rerun 01-build-kernel.sh"; exit 1; }
 fi
 [ -d "$W/linux-$KVER" ] || { echo "FATAL: kernel tree $W/linux-$KVER missing — run 01-build-kernel.sh first"; exit 1; }
+# #59: the kernel installs from 01's rpm — KRPM (from build.env) is required, and the file must exist.
+[ -n "${KRPM:-}" ] || { echo "FATAL: KRPM not set — build.env predates the rpm pipeline; rerun 01-build-kernel.sh"; exit 1; }
+[ -f "$W/$KRPM" ]  || { echo "FATAL: kernel rpm $W/$KRPM missing — rerun 01-build-kernel.sh"; exit 1; }
 
-docker run --rm -v "$W":/host -e KVER="$KVER" -e RV="$ROCKY_RELEASEVER" -e CUDA_VER="$CUDA_VER" rockylinux/rockylinux:10 bash -c '
+docker run --rm -v "$W":/host -e KVER="$KVER" -e KRPM="$KRPM" -e RV="$ROCKY_RELEASEVER" -e CUDA_VER="$CUDA_VER" rockylinux/rockylinux:10 bash -c '
 set -euo pipefail
 dnf install -y -q make kmod findutils >/dev/null 2>&1   # base image lacks these; needed for modules_install/depmod
 R=/host/rocky-img/rootfs; rm -rf "$R"; mkdir -p "$R" /host/rocky-img
@@ -59,16 +62,27 @@ for f in /usr/lib/firmware/mediatek/mt7925/*.zst; do zstd -d -f -q "$f" -o "$R/u
 [ -f /usr/lib/firmware/regulatory.db.p7s ] && cp /usr/lib/firmware/regulatory.db.p7s "$R/usr/lib/firmware/regulatory.db.p7s" 2>/dev/null || true
 echo "[rootfs] mt7925 fw: $(ls "$R/usr/lib/firmware/mediatek/mt7925/"*.bin 2>/dev/null | wc -l) files, regulatory.db $([ -f "$R/usr/lib/firmware/regulatory.db" ] && echo present || echo MISSING)"
 
-echo "[rootfs] installing our $KVER kernel + modules (stripped) ..."
-cp /host/linux-$KVER/arch/arm64/boot/Image "$R/boot/vmlinuz-$KVER"
-# INSTALL_MOD_STRIP=1: strip debug symbols on install. Without it the modules tree is ~8.9G of debug-laden
-# .ko (and the --no-hostonly initramfs then packs all of it); stripped it is ~0.5G. Functionally identical.
-make -C /host/linux-$KVER modules_install INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH="$R" >>/host/rocky-img/rootfs.log 2>&1
+echo "[rootfs] installing our $KVER kernel from the RPM (#59): $KRPM ..."
+# dnf-install (not cp + modules_install): the kernel lands in the image RPM database — rpm -q kernel is
+# truthful on the booted box, and the NEVRA is provenance. tsflags=noscripts because the rpm %post runs
+# kernel-install/BLS, and this image deliberately owns its own boot plumbing (static GRUB + our dracut in
+# 04); we replicate the %post file copies ourselves below, deterministically. Modules arrive pre-stripped
+# (01 builds the rpm with INSTALL_MOD_STRIP=1 — unstripped would be ~8.9G vs ~0.5G).
+dnf install -y -q --installroot="$R" --releasever=$RV --nogpgcheck \
+  --setopt=tsflags=noscripts /host/$KRPM >>/host/rocky-img/rootfs.log 2>&1 \
+  || { echo "VERIFY-FAIL: dnf install of $KRPM failed — see rootfs.log"; exit 1; }
+# The skipped %post copies vmlinuz/System.map/config from /lib/modules/$KVER/ to /boot; do it ourselves.
+for f in vmlinuz System.map config; do
+  cp "$R/lib/modules/$KVER/$f" "$R/boot/$f-$KVER" || { echo "VERIFY-FAIL: $f missing from the kernel rpm"; exit 1; }
+done
+depmod -b "$R" "$KVER"
 echo "[rootfs] DONE — size: $(du -sh $R | cut -f1)"
 '
 # Verify artifacts, not the banner (a soft-failed dnf step would otherwise pass silently).
 R="$W/rocky-img/rootfs"
 [ -f "$R/boot/vmlinuz-$KVER" ] || { echo "VERIFY-FAIL: no vmlinuz-$KVER in rootfs"; exit 1; }
 [ -d "$R/lib/modules/$KVER" ] || { echo "VERIFY-FAIL: no /lib/modules/$KVER in rootfs"; exit 1; }
+# #59: the kernel must be IN the image rpm database (the point of the rpm pipeline — truthful rpm -q).
+rpm --root "$R" -q kernel >/dev/null 2>&1 || { echo "VERIFY-FAIL: kernel not in the rootfs rpm database"; exit 1; }
 [ -e "$R/usr/local/cuda/bin/nvcc" ] || [ -e "$R/usr/local/cuda-13.0/bin/nvcc" ] || echo "WARN: nvcc not in rootfs (check rootfs.log)"
 echo "ROOTFS-OK $KVER ($(du -sh "$R" | cut -f1))"

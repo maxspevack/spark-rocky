@@ -77,6 +77,7 @@ build_id=${STAMP}
 git_describe=${GIT_DESC}
 git_commit=${GIT_COMMIT}
 kernel=${KVER}
+kernel_rpm=$(rpm --root "$MNT" -q kernel 2>/dev/null | head -1)
 kernel_source=${KERNEL_SOURCE}
 clk_commit=${CLK_COMMIT:-}
 page_size=${PAGE_SIZE}
@@ -125,6 +126,7 @@ chk '[ "$(readlink "$MNT/etc/systemd/system/swap.target")" = /dev/null ]'      "
 chk '[ "$(readlink "$MNT/etc/systemd/system/systemd-firstboot.service")" = /dev/null ]'  "boot: systemd-firstboot masked (no interactive tz prompt at first boot)"
 chk 'grep -q -- "--autologin root" "$MNT/etc/systemd/system/getty@tty1.service.d/autologin.conf"'  "boot: console autologin configured"
 chk '[ -s "$MNT/etc/spark-rocky-release" ]'                              "provenance stamp written"
+chk 'rpm --root "$MNT" -q kernel >/dev/null 2>&1'                        "kernel present in the image rpm database (#59 — rpm -q must be truthful on the booted box)"
 chk '[ ! -e "$MNT/etc/spark-rocky-debug-hatch" ]'                        "no DEBUG hatch marker (a DEBUG build is un-releasable)"
 chk '[ -f "$W/config-$KVER" ]'                                           "resolved config-$KVER present (manifest hashes the real build config, not a guessed base glob)"
 chk 'grep -q "$WANT_PG" "$CFG"'                                          "page size matches the pin: $PAGE_SIZE ($WANT_PG) — a 64k pin cannot ship a 4k image"
@@ -158,6 +160,7 @@ os                  : ${OS_VER}
 kernel modules dir  : ${KMODS}
 kernel source       : ${KERNEL_SOURCE} $([ "$KERNEL_SOURCE" = clk ] && echo "(CIQ Linux Kernel, ctrliq/kernel-src-tree @ ${CLK_COMMIT:0:12})" || echo "(kernel.org tarball, GPG-verified SHA256 pin)")
 kernel release      : ${KVER} (uname -r; the -clk suffix = CLK lineage)
+kernel rpm (NEVRA)  : $(rpm --root "$MNT" -q kernel 2>/dev/null | head -1 || echo UNKNOWN) (#59 — built by 01 binrpm-pkg, dnf-installed by 02)
 page size           : ${PAGE_SIZE} (CONFIG_ARM64 page-size choice, pinned in versions.env)
 nvidia driver       : ${DRIVER_VER} (open kernel module, built in rockylinux:10 / gcc 14.3.1)
 cuda packages       : ${CUDA_PKGS:-none}

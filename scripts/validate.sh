@@ -33,6 +33,9 @@ DRV=$(modinfo nvidia 2>/dev/null | awk -F: '/^version:/{gsub(/[[:space:]]/,"",$2
 echo "  nvidia driver: ${DRV:-NOT LOADED}"
 chk '[ -n "$DRV" ]' "nvidia kernel module loaded"
 [ -z "$EXP_K" ] || chk '[ "$K" = "$EXP_K" ]'   "running kernel matches the built kernel ($EXP_K)"
+# #59: the kernel is a first-class rpm — the database must know the running kernel (truthful packaging).
+KPKG=$(rpm -q kernel 2>/dev/null | head -1); echo "  kernel rpm:    ${KPKG:-NOT IN RPM DB}"
+chk 'rpm -q kernel >/dev/null 2>&1' "kernel present in the rpm database (#59)"
 [ -z "$EXP_D" ] || chk '[ "$DRV" = "$EXP_D" ]' "running driver matches the built driver ($EXP_D)"
 if [ -n "$EXP_PG" ]; then
   case "$EXP_PG" in 64k) WANT_PG=65536;; 4k) WANT_PG=4096;; *) WANT_PG="";; esac

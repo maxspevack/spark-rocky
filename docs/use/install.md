@@ -20,7 +20,8 @@ On the running metal (which is also the build host), after a successful `01`→`
 sudo scripts/upgrade-metal.sh
 ```
 It converges the metal on the freshly-built tree, dispatching on what differs. A **kernel bump** installs the
-freshly-built `$KVER` (kernel + modules + open `.ko` + a zstd initramfs) **alongside** the running kernel,
+freshly-built `$KVER` **via dnf from the build's kernel rpm** (#59 — `rpm -q kernel` stays truthful; the open
+`.ko` set and a zstd initramfs ride alongside) **next to** the running kernel,
 makes it the GRUB default, and **keeps the currently-running kernel as a labeled fallback**. A **driver-only
 bump** (same kernel) swaps the open `.ko` set, installs the matched `.run` userspace (sha256-gated against
 `DRIVER_SHA256`), and rebuilds the initramfs — GRUB untouched, the replaced `.ko` set staged under

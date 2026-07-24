@@ -61,10 +61,26 @@ command -v zstd >/dev/null || { echo "FATAL: zstd missing (initramfs would silen
 [ -f "$GRUBCFG" ]         || { echo "FATAL: $GRUBCFG not found — is this the spark-rocky metal?"; exit 1; }
 
 if [ "$KCH" = 1 ]; then
-  echo "== install kernel + modules =="
-  [ -f "$W/linux-$KVER/arch/arm64/boot/Image" ] || { echo "FATAL: kernel Image missing in $W/linux-$KVER — run 01-04 first"; exit 1; }
-  cp -f "$W/linux-$KVER/arch/arm64/boot/Image" "/boot/vmlinuz-$KVER"
-  rm -rf "/lib/modules/$KVER"; cp -a "$W/rocky-img/rootfs/lib/modules/$KVER" "/lib/modules/$KVER"; depmod "$KVER"
+  echo "== install kernel from the rpm (#59): ${KRPM:-UNSET} =="
+  # dnf-install (not file copies): the metal's rpm database stays truthful — rpm -q kernel names what
+  # actually boots. tsflags=noscripts: the rpm %post runs kernel-install/BLS; this box owns its own boot
+  # plumbing (static GRUB + our dracut below), so we replicate the %post file copies ourselves.
+  [ -n "${KRPM:-}" ] || { echo "FATAL: KRPM not set — build.env predates the rpm pipeline; rerun 01-build-kernel.sh"; exit 1; }
+  [ -f "$W/$KRPM" ]  || { echo "FATAL: kernel rpm $W/$KRPM missing — rerun 01-build-kernel.sh"; exit 1; }
+  NEVRA=$(rpm -qp --qf '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}' "$W/$KRPM")
+  if rpm -q "$NEVRA" >/dev/null 2>&1; then DNFOP=reinstall; else DNFOP=install; fi   # idempotent re-run
+  dnf -y -q --nogpgcheck --setopt=tsflags=noscripts "$DNFOP" "$W/$KRPM" \
+    || { echo "FATAL: dnf $DNFOP of $KRPM failed"; exit 1; }
+  # The skipped %post copies vmlinuz/System.map/config from /lib/modules/$KVER/ to /boot; do it ourselves.
+  for f in vmlinuz System.map config; do
+    cp -f "/lib/modules/$KVER/$f" "/boot/$f-$KVER" || { echo "FATAL: $f missing from the kernel rpm"; exit 1; }
+  done
+  # The rpm carries only the kernel's own modules — the open NVIDIA .ko set (03) rides the rootfs tree.
+  # Without this copy a kernel bump silently sheds the GPU driver (the modules.dep gate below backstops).
+  # rm first: extra/ is rpm-unowned, so a re-run's cp -a would otherwise nest extra/extra.
+  rm -rf "/lib/modules/$KVER/extra"
+  cp -a "$W/rocky-img/rootfs/lib/modules/$KVER/extra" "/lib/modules/$KVER/extra"
+  depmod "$KVER"
 else
   echo "== driver-only: swap the open .ko set (kernel $KVER unchanged) =="
   BK="/root/driver-rollback-${DRV_INSTALLED:-unknown}"
