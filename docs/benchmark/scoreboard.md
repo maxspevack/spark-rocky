@@ -71,10 +71,11 @@ Every measured run on this box carries a 2-second thermal trace (`scripts/templo
 [#43](https://github.com/maxspevack/spark-rocky/issues/43) detector (`scripts/check-throttle.sh`)
 issues a CLEAN/THROTTLED verdict post-hoc. **A THROTTLED run never becomes a receipt** — two full 35B
 matrices have been discarded under this rule (2026-07-24, 2026-07-25). The structural fact behind both:
-a ~55-minute sustained 35B sweep saturates the GB10's cooling regardless of ambient — the second
-discard happened at 2 AM — while single cells with cooldown gaps ran CLEAN all night. Even a
-clean-window cell inside a hot matrix reads ~6% below a fresh serve (the warm-box penalty: "no throttle
-flag" ≠ cold). The receipt protocol for sustained sweeps is therefore **chunked**: the same v2 cells in
+a ~55-minute sustained 35B sweep saturated the GB10's cooling in both attempts (mid-afternoon and
+evening ambient) — the deep×concurrent tail alone holds the GPU at 82–88°C for ~25 minutes with
+headroom exhausted — while single cells with cooldown gaps ran CLEAN throughout those same windows.
+Even a clean-window cell inside a hot matrix reads ~6% below a fresh serve (the warm-box penalty: "no
+throttle flag" ≠ cold). The receipt protocol for sustained sweeps is therefore **chunked**: the same v2 cells in
 segments, cool-to-≤55°C gaps between segments, each segment's trace CLEAN, headline cells N≥5 on a
 fresh serve.
 
