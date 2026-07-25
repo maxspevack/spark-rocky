@@ -1,0 +1,108 @@
+THE FRONTIER RECEIPT — Qwen3.6-35B-A3B-NVFP4 + MTP, official v2 cells, chunked-clean (#74)
+Date: 2026-07-25
+
+WHAT WE MEASURED
+  The current leaderboard meta (NVFP4 quantization + MTP speculative decoding) on the board's own
+  recipe lineage, single host, receipt-grade: every cell of the official spark-arena-v2 profile
+  measured with a zero-throttle-sample trace. This is the first receipt through the CHUNKED
+  protocol (scoreboard.md chapter 3): both prior sustained full-matrix attempts on this model
+  (2026-07-24 mid-afternoon, 2026-07-24 evening PT) were discarded THROTTLED by the #43 detector;
+  chunking the same 28 cells into 11 segments with cool-to-<=55C gaps produced a CLEAN run.
+
+HOST STACK
+  Rocky Linux 10.2 · kernel 6.18.39-clk (4k pages) · open driver 610.43.03 · single GB10
+  (the spark-rocky-live-20260724 release stack; cluster size 1 — no second node involved).
+  Serving container: ghcr.io/spark-arena/dgx-vllm-eugr-nightly:2026072302
+    digest sha256:200979f304bfc688a4ed1f00895c6a22c2372065837f79de65dd35b5b4a446ef
+    vLLM 0.23.1rc1.dev1408+ga354a9055.d20260723 · FlashInfer 0.6.15 · torch 2.11.0+cu130
+  Harness: sparkrun 0.2.40, two-step flow (run --no-follow -> readiness poll -> benchmark
+  --skip-run), resume-state cleared before every segment (both per reproduce-pipeline.md,
+  "35B-class models" section). Thermal trace: templog.sh at 2s + check-throttle.sh per segment.
+
+THE RECIPE (board lineage, semantics verbatim)
+  recipes/qwen3.6-35b-a3b-nvfp4-board-2026072302.yaml — the recipe behind the board's two top
+  vLLM entries for this model (permalink 1199b578-cfa4-47cd-b1fa-374fd4815565; entries
+  sub1782803609803 = 118.91 t/s and sub1782724431960 = 109.3 t/s, both cluster=1), re-expressed
+  in sparkrun v2 template syntax with flag semantics preserved verbatim:
+  nvidia/Qwen3.6-35B-A3B-NVFP4 (ModelOpt checkpoint) · --moe-backend marlin · --async-scheduling
+  · --enable-chunked-prefill · MTP nst=3 with draft moe_backend triton · flashinfer attention ·
+  fp8 KV · gpu-memory-utilization 0.65 · max-num-seqs 4 · fastsafetensors.
+  (The v1 original as published does NOT run under sparkrun 0.2.40: its {{...}} brace escaping
+  passes through the v2 renderer literally and vllm dies at argparse. Conversion is syntax-only.)
+
+COMMANDS (one fresh serve; segments seg-00..seg-10 = the 28 official cells; headline first, N=5)
+  sparkrun run <recipe> --hosts localhost --rootful --image <pinned tag> --no-follow
+  # per segment: cool to <=55C; rm -rf ~/.cache/sparkrun/benchmarks; templog 2s on;
+  sparkrun benchmark <recipe> --hosts localhost --rootful --image <pinned tag> \
+    --profile seg-NN.yaml --skip-run --output seg-NN-results.yaml
+  # templog off; check-throttle.sh seg-NN-templog.csv
+  (Runner: session artifact receipt-chunked.sh; segment profiles carry the official v2 cell
+  params — pp2048, tg128, prefix_caching on, runs=3; seg-00 = d0 c1 alone at runs=5.)
+
+RESULT — receipts/qwen3.6-35b-a3b-nvfp4-mtp-matrix-2026-07-25.csv
+  Headline tg128 (c1) @ d0, N=5, fresh serve, CLEAN (max 56C, headroom 39C):
+    100.10 ± 6.18 t/s   raw: 100.33, 96.70, 107.61, 105.46, 90.40
+
+  All 28 cells (tg = decode t/s aggregate, pp = prefill t/s; runs=3 unless noted):
+
+  cell               tg t/s    std    pp t/s  runs
+  d0       c1        100.1    6.2    4532.3  5
+  d0       c2        159.6    7.9    5715.5  3
+  d0       c5        142.8   59.7    2299.2  3
+  d0       c10       174.0    7.3    2918.9  3
+  d4096    c1        107.9    4.2    1918.0  3
+  d4096    c2        169.7    9.0    2072.1  3
+  d4096    c5        153.2    5.2    1566.4  3
+  d4096    c10       116.1    2.3    1576.7  3
+  d8192    c1        108.3   10.6    1808.1  3
+  d8192    c2        168.8    7.0    1933.5  3
+  d8192    c5        149.2    2.8    1512.3  3
+  d8192    c10       113.1    2.5    1525.3  3
+  d16384   c1        107.5    2.7    1657.5  3
+  d16384   c2        172.5    6.6    1773.3  3
+  d16384   c5        131.8    0.5    1391.2  3
+  d16384   c10       100.8    0.8    1391.7  3
+  d32768   c1        101.3    6.1    1454.4  3
+  d32768   c2        157.3    9.9    1536.5  3
+  d32768   c5        108.9    0.4    1259.2  3
+  d32768   c10        87.5    0.7    1245.9  3
+  d65535   c1        102.0    4.6     905.3  3
+  d65535   c2        145.5    7.4     958.9  3
+  d65535   c5         78.0    2.0     840.6  3
+  d65535   c10        60.7    0.4     843.0  3
+  d100000  c1         94.6    5.7     667.0  3
+  d100000  c2        128.5    2.5     712.8  3
+  d100000  c5         63.3    1.0     646.6  3
+  d100000  c10        47.3    0.4     646.6  3
+
+  Thermal verdicts (check-throttle.sh, per segment): 11/11 CLEAN — zero thermal-slowdown samples
+  across the entire sweep. Four deep segments are near-throttle WARNs (numbers valid, box ran
+  hot): seg-06 d32k c5/c10 (headroom 4C, max 84C), seg-07 d65k c1/c2 (4C, 83C), seg-09 d100k
+  c1/c2 (4C, 84C), seg-10 d100k c5/c10 (3C, 82C).
+
+COMPARISON — the board's single-node vLLM field for this model+test (live snapshot
+2026-07-25T04:30Z; every entry below is cluster=1):
+    118.91 · 109.30 · 109.29 · 109.29 · 105.13 · 102.35   (dual-node entries run LOWER: 101.66, 97.88)
+  Our clean-run per-serve means on this host, same test:
+    100.10 (this receipt, N=5) · 102.2 (2026-07-24 clean-window, other config) · 109.05 (probe
+    P3, config: flashinfer default MoE + nst=3) · 118.29 (probe P5b, this recipe, N=3:
+    124.94/122.96/106.97)
+  READING: our clean-run field (100-118 in means; single runs 90-125) and the board's field
+  (105-119) have the same center and the same spread structure. The 118.91 board-best and our
+  118.29 probe are the same phenomenon — a favorable run of a high-variance config — not a
+  configuration gap. Parity with the field, receipt-grade; not "faster."
+
+CAVEATS (honest)
+  - RUN VARIANCE IS THE STORY at c1: this config's per-serve means span 100.1-118.3 on identical
+    hardware/software, all throttle-CLEAN. Board entries are single submissions of the same
+    runs=3 methodology and show the same spread. Any single-number comparison at c1 is +/-15%.
+  - max-num-seqs 4 is the recipe's own choice, kept verbatim — it caps the c5/c10 aggregate cells
+    (our 2026-07-24 indicative run on a different config measured d0 c10 at 384 t/s vs 174 here).
+    This recipe is a single-user-lane specialist; the board's c1 column is what it optimizes.
+  - d0 c5 std=59.7: one degenerate-slow run of three (first-contact warmup suspected); raw values
+    in the CSV; the cell's trace is CLEAN.
+  - The four WARN segments ran 3-4C from the throttle line. A cooler ambient or longer gaps would
+    widen the margin; the verdict standard (zero slowdown samples) is met as-is.
+  - Standing cross-date confound, entry side: our image is pinned (tag above); the board entries'
+    vLLM builds are whatever their submitters compiled. Ours is public and byte-reproducible.
+  - MTP engagement verified in-serve: SpecDecoding mean acceptance length 3.19 (draft nst=3).

@@ -20,11 +20,11 @@ Same serve, pinned runtime (#71).
 |---|---|---|
 | `qwen3.5-0.8b-arena-2026072302.yaml` | `qwen3.5-0.8b-arena.yaml` (one-line container delta, verified) | `ghcr.io/spark-arena/dgx-vllm-eugr-nightly:2026072302` — behind `reproduce-Qwen3.5-0.8B-gen2-2026-07-24.txt` |
 
-**And one deliberate config of ours — the #74 winner:**
+**And the frontier receipt config — the board's own lineage, converted to run:**
 
 | File | Derivation | Container |
 |---|---|---|
-| `qwen3.6-35b-a3b-nvfp4-mtp-nst3-2026072302.yaml` | The official `qwen3.6-35b-a3b-fp8-mtp` shape with two probe-isolated swaps (2026-07-25, #74): the `nvidia/` ModelOpt NVFP4 checkpoint (+48% vs the compressed-tensors quant swap) and `num_speculative_tokens` 2→3 (+19%). Fresh-serve `tg128 (c1)` 109.1 — in the community band. | pinned gen-2 tag |
+| `qwen3.6-35b-a3b-nvfp4-board-2026072302.yaml` | The recipe behind the board's two top vLLM entries for Qwen3.6-35B-A3B-NVFP4 (permalink `1199b578`, entries 118.91 + 109.3, both single-node), re-expressed in sparkrun v2 template syntax — flag semantics verbatim; the published v1 form fails under sparkrun 0.2.40 (`{{…}}` escaping passes through to argparse). Behind `reproduce-Qwen3.6-35B-A3B-NVFP4-mtp-2026-07-25.txt` (#74). | pinned gen-2 tag |
 
 ## Add a recipe
 

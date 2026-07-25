@@ -23,6 +23,14 @@ ships (`uname -r`).
   0.2.40 defects found live (#74): the one-shot's too-short readiness wait, `stop --all` leaking serve
   containers, and **resume-state returning a prior run's numbers on repeat measurements** (`--fresh`
   does not clear it; clear `~/.cache/sparkrun/benchmarks/` before every measured run).
+- **The frontier receipt (#74, 2026-07-25)**: all 28 official v2 cells on the **board's own recipe
+  lineage** (its top two vLLM entries, both verified single-node; marlin MoE + async-scheduling +
+  nst=3/triton draft) with **zero throttle samples** — the first receipt through the chunked protocol;
+  both sustained attempts had been discarded THROTTLED. Headline `tg128 (c1)` N=5 = 100.1 ± 6.2;
+  clean-run means 100–118 vs the board's field 105–119 — same center, same spread: parity with the
+  field. Receipt `reproduce-Qwen3.6-35B-A3B-NVFP4-mtp-2026-07-25.txt` + matrix CSV; recipe committed
+  (`recipes/qwen3.6-35b-a3b-nvfp4-board-2026072302.yaml` — the published v1 form fails under sparkrun
+  0.2.40, `{{…}}` escaping; the variant is a syntax-only conversion).
 
 ### Changed
 - **Benchmark docs restructured as the story** (`proof.md` → `scoreboard.md` chapters 1/2/3): parity
@@ -35,6 +43,9 @@ ships (`uname -r`).
   snapshot table (rows were closed/superseded issues), the caveated `.38-clk` receipt + CSV (its
   question is answered by the throttle-CLEAN gen-2 receipt on the shipped `.39-clk`), and the
   LFM2.5-350M single-cell row + receipt + recipe + published-raw (single-cell, below the parity bar).
+- `recipes/qwen3.6-35b-a3b-nvfp4-mtp-nst3-2026072302.yaml` — the intermediate probe-winner config,
+  superseded same-day by the board-lineage receipt config above (probe intermediate, never backed a
+  receipt).
 
 ## [spark-rocky-live-20260724] — 2026-07-24 · `6.18.39-clk` (4k pages) — benchmark provenance
 

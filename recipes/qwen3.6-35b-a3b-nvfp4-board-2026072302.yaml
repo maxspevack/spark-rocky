@@ -1,0 +1,59 @@
+recipe_version: "2"
+model: nvidia/Qwen3.6-35B-A3B-NVFP4
+runtime: vllm
+container: ghcr.io/spark-arena/dgx-vllm-eugr-nightly:2026072302
+
+metadata:
+  description: >-
+    The board lineage recipe (its 118.91 + 109.3 entries; permalink 1199b578) re-expressed
+    in sparkrun v2 template syntax, flag semantics verbatim (marlin MoE, async-scheduling,
+    chunked prefill, nst=3 + triton draft, gpu-mem 0.65, max-num-seqs 4, fastsafetensors). The v1
+    original fails under sparkrun 0.2.40 ({{...}} escaping passes through). Receipt config behind
+    receipts/reproduce-Qwen3.6-35B-A3B-NVFP4-mtp-2026-07-25.txt. Container pinned (gen 2).
+
+mods:
+  - mods/fix-qwen3.6-chat-template
+
+defaults:
+  port: 8000
+  host: 0.0.0.0
+  tensor_parallel: 1
+  gpu_memory_utilization: 0.65
+  max_model_len: 262144
+  max_num_batched_tokens: 32768
+  max_num_seqs: 4
+  load_format: fastsafetensors
+  kv_cache_dtype: fp8
+  attention_backend: flashinfer
+  tool_call_parser: qwen3_coder
+  reasoning_parser: qwen3
+  speculative_config: '{"method":"mtp","num_speculative_tokens":3,"moe_backend":"triton"}'
+  chat_template_kwargs: '{"preserve_thinking":true}'
+  generation_config: '{"temperature":0.6,"top_p":0.95,"top_k":20,"min_p":0.0,"presence_penalty":0.0,"repetition_penalty":1.0}'
+
+env:
+  VLLM_MARLIN_USE_ATOMIC_ADD: "1"
+
+command: |
+  vllm serve {model} \
+    --host {host} \
+    --port {port} \
+    --tensor-parallel-size {tensor_parallel} \
+    --trust-remote-code \
+    --kv-cache-dtype {kv_cache_dtype} \
+    --attention-backend {attention_backend} \
+    --moe-backend marlin \
+    --gpu-memory-utilization {gpu_memory_utilization} \
+    --max-model-len {max_model_len} \
+    --max-num-seqs {max_num_seqs} \
+    --max-num-batched-tokens {max_num_batched_tokens} \
+    --enable-chunked-prefill \
+    --async-scheduling \
+    --enable-prefix-caching \
+    --speculative-config '{speculative_config}' \
+    --load-format {load_format} \
+    --reasoning-parser {reasoning_parser} \
+    --tool-call-parser {tool_call_parser} \
+    --enable-auto-tool-choice \
+    --default-chat-template-kwargs '{chat_template_kwargs}' \
+    --override-generation-config '{generation_config}'
