@@ -26,7 +26,20 @@ tagc=$(git rev-list -n1 "$TAG" 2>/dev/null) || { say "FATAL: tag '$TAG' not foun
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 
 say "=== fetch served release metadata from $BUCKET ==="
-$GS cat "$BUCKET"/*BUILD-MANIFEST.txt $A > "$tmp/manifest" 2>/dev/null || { say "FATAL: cannot read served manifest"; exit 1; }
+# The manifest object is derived from the tag's release suffix so a superseded sibling can never
+# shadow it (#78: at the 20260724 cut a bare *BUILD-MANIFEST.txt wildcard concatenated the stale
+# 20260723 manifest and produced four VERIFY-FAILs against a correctly-served release). Exactly one
+# match is required — more means the bucket still holds a superseded pair; fail loudly, name them.
+rsuffix="${TAG##*-}"
+mans=$($GS ls "$BUCKET/*-${rsuffix}.BUILD-MANIFEST.txt" $A 2>/dev/null)
+nman=$(printf '%s\n' "$mans" | grep -c .)
+if [ "$nman" != 1 ]; then
+  say "FATAL: expected exactly 1 manifest matching *-${rsuffix}.BUILD-MANIFEST.txt in $BUCKET, found $nman."
+  [ -n "$mans" ] && say "$mans"
+  say "Superseded release objects must be removed as part of the upload step — clean the bucket, then re-verify."
+  exit 1
+fi
+$GS cat "$mans" $A > "$tmp/manifest" 2>/dev/null || { say "FATAL: cannot read served manifest"; exit 1; }
 $GS cat "$BUCKET/CHECKSUM" $A > "$tmp/CHECKSUM" 2>/dev/null || { say "FATAL: cannot read served CHECKSUM"; exit 1; }
 servedc=$(awk -F': *' '/^git_commit/{print $2; exit}' "$tmp/manifest")
 asha=$(awk -F': *' '/^artifact_sha256/{print $2; exit}' "$tmp/manifest")

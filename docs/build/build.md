@@ -156,7 +156,7 @@ Run on the Spark (aarch64 — `05` chroots into the image):
    git tag -f spark-rocky-live-<YYYYMMDD> <commit>
    git push -f origin spark-rocky-live-<YYYYMMDD>
    ```
-5. **Upload** the artifacts (`.raw.xz`, the **three rpms** — kernel #59, `kmod-nvidia-open` + `nvidia-driver-userspace` #77, `CHECKSUM`, `BUILD-MANIFEST.txt`, public key) to the release bucket.
+5. **Upload** the artifacts (`.raw.xz`, the **three rpms** — kernel #59, `kmod-nvidia-open` + `nvidia-driver-userspace` #77, `CHECKSUM`, `BUILD-MANIFEST.txt`, public key) to the release bucket. **Removing the superseded image + manifest pair is part of this step, not optional cleanup** — a stale sibling manifest in the bucket makes `07-verify` fail loudly by design (#78: at the 20260724 cut the leftover 20260723 pair produced four VERIFY-FAILs against a correctly-served release and sent the diagnosis chasing the wrong suspect).
 6. **Verify, fail-closed:**
    ```
    scripts/07-verify-release.sh spark-rocky-live-<YYYYMMDD>
