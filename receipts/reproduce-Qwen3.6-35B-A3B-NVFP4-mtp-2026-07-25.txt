@@ -101,8 +101,9 @@ CAVEATS (honest)
     This recipe is a single-user-lane specialist; the board's c1 column is what it optimizes.
   - d0 c5 std=59.7: one degenerate-slow run of three (first-contact warmup suspected); raw values
     in the CSV; the cell's trace is CLEAN.
-  - The four WARN segments ran 3-4C from the throttle line. A cooler ambient or longer gaps would
-    widen the margin; the verdict standard (zero slowdown samples) is met as-is.
+  - The four WARN segments ran 3-4C from the throttle line. Smaller segments or longer cool-gaps
+    would widen the margin — cooling saturation tracks sustained-load duration; the box runs at
+    effectively constant indoor ambient. The verdict standard (zero slowdown samples) is met as-is.
   - Standing cross-date confound, entry side: our image is pinned (tag above); the board entries'
     vLLM builds are whatever their submitters compiled. Ours is public and byte-reproducible.
   - MTP engagement verified in-serve: SpecDecoding mean acceptance length 3.19 (draft nst=3).
