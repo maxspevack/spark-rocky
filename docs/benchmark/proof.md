@@ -14,23 +14,23 @@ A full `llama-benchy` matrix sweeps the whole performance surface – **decode**
 
 Medians spanning **0.96×–1.05×** straddle parity, the signature of a transparent host swap. Raw per-cell numbers and the prefill/decode breakdown are committed: [`receipts/`](../../receipts/) · [`scoreboard.md`](scoreboard.md).
 
-<sub>**Also reproduced – single-cell `tg128 (c1)` only; a parity claim requires the full matrix:**</sub>
-
-| Model | Published (t/s) | Ours (t/s) | State |
-|---|---:|---:|---|
-| LFM2.5-350M | 222.8 | 246.0 | single cell – full matrix not yet run |
-| gpt-oss-120b | 58.8 | 62.6 | single cell – **full matrix parked** ([#6](https://github.com/maxspevack/spark-rocky/issues/6)) |
+**And the story continues on the current leaderboard meta.** On NVFP4 + MTP (Qwen3.6-35B-A3B, the
+board's live headline lane), the same host lands **inside the community band — 109.1 `tg128 (c1)` vs
+the 105–130 band** — and the decomposition that got there is the parity thesis restated: every point of
+movement was serving config (checkpoint format +48%, speculative depth +19%), never the host. The
+probe-grid receipts, the winner recipe, and what still separates indicative from receipt-grade:
+[`scoreboard.md`](scoreboard.md).
 
 ## We changed only the host
 
-The benchmark runs in a serving container built from the spark-arena project's **own Dockerfile, unmodified** (vLLM + the model + the spark-arena recipe). We swapped only the **host beneath it** – Rocky 10.2 + an unmodified 6.18 kernel (stock kernel.org for the June receipts, the shipped CLK default for the 2026-07-23 receipt — zero patches either way) + the open driver we built – and the host's `libcuda` is injected into that container at runtime. Same Dockerfile, same recipe, same GB10 silicon.
+The benchmark runs in a serving container built from the spark-arena project's **own Dockerfile, unmodified** (vLLM + the model + the spark-arena recipe). We swapped only the **host beneath it** – Rocky 10.2 + an unmodified 6.18 kernel (stock kernel.org for the June receipts, the shipped CLK default for the 2026-07-24 gen-2 receipt — zero patches either way) + the open driver we built – and the host's `libcuda` is injected into that container at runtime. Same Dockerfile, same recipe, same GB10 silicon.
 
 ```mermaid
 graph LR
     subgraph held["HELD CONSTANT — NVIDIA's, unmodified"]
         direction TB
         A["GB10 silicon"]
-        B["GSP + platform firmware, via public LVFS<br/>(June receipts 610.43.02; CLK/4k receipt 610.43.03)"]
+        B["GSP + platform firmware, via public LVFS<br/>(June receipts 610.43.02; current receipts 610.43.03)"]
         C["CUDA libraries +<br/>the open driver's source"]
         D["spark-arena Dockerfile<br/>+ vLLM + recipe + model"]
     end
@@ -54,8 +54,8 @@ Everything swapped in is stock, current, and built from source — the exact coo
 | Layer | This stack |
 |---|---|
 | OS | Rocky Linux 10.2 |
-| Kernel | CIQ Linux Kernel **6.18.39-clk**, **4k pages** (shipped 2026-07-23) — **CLK benchmark-validated at parity twice**: `.38-clk` full matrix at median 1.007× vs the June baseline (receipt `reproduce-Qwen3.5-0.8B-clk4k-2026-07-23.txt`, #61), and `.39-clk` itself carries the current-runtime full-matrix receipt at median 1.010× vs published (`reproduce-Qwen3.5-0.8B-gen2-2026-07-24.txt`, #71). *64k was an opinionated tuning choice, reverted 2026-07-17 pending a 64k-only kernel serve regression ([#65](https://github.com/maxspevack/spark-rocky/issues/65)); stock kernel.org stays one pin-flip away (`KERNEL_SOURCE=kernelorg`).* |
-| Driver | open NVIDIA **610.43.03**, built from source unmodified (June parity receipts benched on 610.43.02; the CLK/4k receipt, #61, on 610.43.03) |
+| Kernel | CIQ Linux Kernel **6.18.39-clk**, **4k pages** (shipped 2026-07-23) — **CLK benchmark-validated at parity on the current runtime**: the `.39-clk` full-matrix receipt lands median 1.010× vs published, throttle-check CLEAN (`reproduce-Qwen3.5-0.8B-gen2-2026-07-24.txt`, #71/#61). *64k was an opinionated tuning choice, reverted 2026-07-17 pending a 64k-only kernel serve regression ([#65](https://github.com/maxspevack/spark-rocky/issues/65)); stock kernel.org stays one pin-flip away (`KERNEL_SOURCE=kernelorg`).* |
+| Driver | open NVIDIA **610.43.03**, built from source unmodified (June parity receipts benched on 610.43.02; current receipts on 610.43.03) |
 | CUDA | **13.0** |
 
 **CUDA — the layer that actually moves inference numbers — is held identical to the stack the published entries ran on**, so the reproduced parity is a property of the OS/kernel/driver swap, not a CUDA artifact. Parity is not superiority.

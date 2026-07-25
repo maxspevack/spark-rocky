@@ -7,7 +7,6 @@ the container tag). Reproducing an entry means running *its* recipe, not one we 
 
 | File | Entry | Container | Notes |
 |---|---|---|---|
-| `lfm2.5-350m-arena.yaml` | LFM2.5-350M (`6a9c9b76`) | `vllm-node` | flash_attn, fastsafetensors, gpu-util 0.8 |
 | `qwen3.5-35b-a3b-fp8-arena.yaml` | Qwen3.5-35B-A3B-FP8 (`28879af7`) | `vllm-node-tf5` | flashinfer, fp8 KV, `mods/fix-qwen3.5-autoround` |
 | `qwen3.5-0.8b-arena.yaml` | Qwen3.5-0.8B (`sub1777633319098`) | `vllm-node` | public model, no token |
 | `gemma-3-1b-it-arena.yaml` | gemma-3-1b-it (`sub1779455882567`) | `vllm-node-tf5` | HF-gated (token required to download) |
@@ -20,6 +19,12 @@ Same serve, pinned runtime (#71).
 | File | Derived from | Container |
 |---|---|---|
 | `qwen3.5-0.8b-arena-2026072302.yaml` | `qwen3.5-0.8b-arena.yaml` (one-line container delta, verified) | `ghcr.io/spark-arena/dgx-vllm-eugr-nightly:2026072302` — behind `reproduce-Qwen3.5-0.8B-gen2-2026-07-24.txt` |
+
+**And one deliberate config of ours — the #74 winner:**
+
+| File | Derivation | Container |
+|---|---|---|
+| `qwen3.6-35b-a3b-nvfp4-mtp-nst3-2026072302.yaml` | The official `qwen3.6-35b-a3b-fp8-mtp` shape with two probe-isolated swaps (2026-07-25, #74): the `nvidia/` ModelOpt NVFP4 checkpoint (+48% vs the compressed-tensors quant swap) and `num_speculative_tokens` 2→3 (+19%). Fresh-serve `tg128 (c1)` 109.1 — in the community band. | pinned gen-2 tag |
 
 ## Add a recipe
 

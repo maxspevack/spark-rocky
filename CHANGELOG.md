@@ -8,6 +8,34 @@ The release invariant is **served == tag == HEAD** (enforced by `scripts/07-veri
 bytes in the bucket match the git tag they were built from. Each release below names the kernel release it
 ships (`uname -r`).
 
+## [Unreleased]
+
+### Added
+- **The frontier result (#74, 2026-07-25):** Qwen3.6-35B-A3B-NVFP4 + MTP decomposed by a five-probe
+  grid, every probe throttle-CLEAN — checkpoint format is worth **+48%** (`nvidia/` ModelOpt vs the
+  compressed-tensors quant swap; different vLLM NVFP4 kernel path) and `num_speculative_tokens` 2→3
+  another **+19%**: fresh-serve **109.1 `tg128 (c1)` — inside the community band (105–130)**. The
+  cutlass MoE backend is oracle-rejected for both quant formats on the pinned build (evidence on #74).
+  Winner config committed: `recipes/qwen3.6-35b-a3b-nvfp4-mtp-nst3-2026072302.yaml`. The full v2
+  matrix on the winner beats the first cut in 24/28 cells — indicative only (throttle-gated); the
+  receipt is owed via the chunked protocol.
+- `docs/benchmark/reproduce-pipeline.md`: the 35B-class **two-step sparkrun flow** and three sparkrun
+  0.2.40 defects found live (#74): the one-shot's too-short readiness wait, `stop --all` leaking serve
+  containers, and **resume-state returning a prior run's numbers on repeat measurements** (`--fresh`
+  does not clear it; clear `~/.cache/sparkrun/benchmarks/` before every measured run).
+
+### Changed
+- **Benchmark docs restructured as the story** (`proof.md` → `scoreboard.md` chapters 1/2/3): parity
+  (the host is invisible) → the frontier (current meta, in the band — config moved the numbers, never
+  the host) → discipline (the #43 throttle gate, the GB10's sustained-sweep cooling ceiling, the
+  chunked receipt protocol, the ~6% warm-box penalty).
+
+### Removed
+- Superseded / non-story benchmark artifacts (git history retains everything): the June target-backlog
+  snapshot table (rows were closed/superseded issues), the caveated `.38-clk` receipt + CSV (its
+  question is answered by the throttle-CLEAN gen-2 receipt on the shipped `.39-clk`), and the
+  LFM2.5-350M single-cell row + receipt + recipe + published-raw (single-cell, below the parity bar).
+
 ## [spark-rocky-live-20260724] — 2026-07-24 · `6.18.39-clk` (4k pages) — benchmark provenance
 
 **The benchmark-provenance release: parity re-proven on a runtime anyone can pull byte-identically.**

@@ -80,7 +80,7 @@ scripts/run-benchmark-matrix.sh 8000 <HF/path> result.csv
 
 ## Step 5 — compare + record
 
-Commit a receipt in `receipts/` (see `reproduce-LFM2.5-350M-2026-06-10.txt` for the format): host stack,
+Commit a receipt in `receipts/` (see `reproduce-Qwen3.5-0.8B-gen2-2026-07-24.txt` for the format): host stack,
 benchmark stack versions, the exact recipe, the exact commands, raw N≥5 output, the published number, and
 every confound. The standing confound on every cross-date entry: **spark-arena does not pin a vLLM version**
 (spark-vllm-docker builds latest vLLM at image-build time), so a date gap between our image and the entry is
@@ -147,15 +147,45 @@ Two host-compat divergences were hit on this stack (everything else ran unmodifi
   the run dies at task 1 with an empty table. Override per-run: `-b served_model_name=<name>`.
   Not host-specific — any sparkrun user benchmarking such a recipe hits it.
 
-Also useful: cold `torch.compile` on a first serve here ran ~6.5 minutes — inside sparkrun's
-15-minute port wait, but be patient before diagnosing; `--skip-run` benchmarks an
-already-serving instance and separates serve problems from measurement problems.
 - `@official/spark-arena-v2` is the leaderboard's run-rule surface: depths
   {0, 4k, 8k, 16k, 32k, 64k, 100k} × pp2048 × tg128 × concurrency {1, 2, 5, 10},
   prefix caching on, runs=3, heat-aware cell order. `arena benchmark` (the submission path)
   hard-codes this same profile.
 - Cells map 1:1 to leaderboard columns (`tg128 @ d<depth> (c<N>)` etc.), so results are
   board-comparable by construction.
+
+### 35B-class models: use the two-step (the one-shot's readiness wait is too short)
+
+`sparkrun benchmark`'s server-readiness wait (~5 min) is shorter than a 35B's legitimate startup on
+this box (~7 min: weight load + FlashInfer autotune; a cold `torch.compile` first-serve has run
+~6.5 min on its own) — the one-shot gives up and tears down a healthy loading serve. Two-step instead:
+
+```bash
+sparkrun run <recipe> --hosts localhost --rootful --image <pinned tag> --no-follow
+until curl -sf http://localhost:8000/v1/models >/dev/null; do sleep 5; done    # cap it yourself (~18 min)
+rm -rf ~/.cache/sparkrun/benchmarks    # resume-state — see below
+sparkrun benchmark <recipe> --hosts localhost --rootful --image <pinned tag> \
+  --profile @official/spark-arena-v2 --skip-run --output results.yaml
+docker rm -f $(docker ps -aq --filter name=sparkrun)    # teardown — see below
+```
+
+Three sparkrun 0.2.40 defects this flow routes around (all hit live 2026-07-25, record on #74):
+
+- **Resume-state poisons repeat measurements — the trap.** `~/.cache/sparkrun/benchmarks/<id>/` keys
+  on (model, profile), NOT recipe content, and a repeat run of the same model+profile **returns the
+  prior run's numbers wholesale** — no traffic ever reaches the server. `--fresh` documents "deleting
+  prior state" but did not clear it. Detection: results identical to a prior run at full float
+  precision, plus zero `SpecDecoding`/request activity in the serve log. Rule: clear the state dir
+  before every measured run (the snippet above does).
+- **Teardown leaks.** `sparkrun stop --all --hosts localhost` silently failed to remove serve
+  containers (twice in one night); the stale container then shadows the next run. `docker rm -f` the
+  `sparkrun*` containers between runs and verify `docker ps -aq | wc -l` → 0.
+- **The serve log lives inside the container.** With `run --no-follow`, vLLM output goes to
+  `/tmp/sparkrun_serve.log` in-container (`docker logs` shows only the NGC banner). `docker cp` it out
+  **before** teardown — it is the only place MTP engagement (`SpecDecoding metrics`) and engine-init
+  root causes can be read.
+
+`--skip-run` also separates serve problems from measurement problems when diagnosing either.
 
 ### Pinning the container (do not float on `latest`)
 

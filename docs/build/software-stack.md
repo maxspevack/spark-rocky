@@ -90,11 +90,11 @@ OS/kernel/driver one. We name it on every receipt and match the recipe's `contai
   receipt on CLK — zero patches either way), NVIDIA-built `580` → self-built open `610` — is **transparent
   to the workload**. The same
   container + recipe + tool land the published numbers on the community's own scoreboard. Across **three
-  full-matrix** models the **median is parity (0.96–1.05×)**; two more (LFM2.5-350M, gpt-oss-120b) reproduced
-  at single-cell `tg128 (c1)` — see [`scoreboard.md`](../benchmark/scoreboard.md).
-- **Does NOT prove "Rocky is faster."** Per-axis deltas (e.g. LFM `tg128` +10.4%) track the vLLM-date drift,
-  not the host swap. A clean speed claim would require pinning the entry-date vLLM, which the leaderboard does
-  not do.
+  full-matrix** models the **median is parity (0.96–1.05×)**, re-proven on the current pinned runtime at
+  1.010× — and on the current NVFP4+MTP meta the host lands in the community band, with every point of
+  movement attributable to serving config, not the host — see [`scoreboard.md`](../benchmark/scoreboard.md).
+- **Does NOT prove "Rocky is faster."** Per-axis deltas track vLLM-date drift, not the host swap. A clean
+  speed claim would require pinning the entry-date vLLM, which the leaderboard does not do.
 
 ## Confidence (the three lenses)
 
