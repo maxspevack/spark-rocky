@@ -1,0 +1,68 @@
+THE FLAGSHIP PROBE RECEIPT — NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4 config decomposition (#73)
+Date: 2026-07-25 (probes ran 17:52-~19:11 UTC; the last probe measurement ends 19:10:44; box clock is UTC)
+
+WHAT WE MEASURED
+  The single-node lane for NVIDIA's flagship-for-this-hardware, decomposed by single-cell probes:
+  tg128 (c1) @ d0, pp2048, prefix caching on, runs=3 per probe, fresh serve per probe, clean-pool
+  boot, per-probe templog + check-throttle verdict, resume-state cleared before every measurement,
+  pinned serving image. 80 GB NVFP4 checkpoint (17 safetensors), single GB10.
+
+THE PREMISE CORRECTION (the finding that reframes the lane)
+  The board's best single-node entry for this model (23.71 t/s) is routinely read as a no-MTP
+  number — issue #73 was written against that premise. Its own recipe (permalink
+  ff09e374-9866-421d-a887-20fd0c770c2f, entry sub1778644062716; committed verbatim as
+  data/published-recipe-ff09e374-sub1778644062716.md) carries
+  `--speculative-config '{"method":"mtp","num_speculative_tokens":1,...}'` — MTP is ON at nst=1
+  in the published best. The TRUE no-MTP baseline is the board's low mode (16.55 / 15.63 / 15.16),
+  and probe N0 below reproduces it. Comparison slice committed:
+  data/published-raw-frontier-tg128c1-2026-07-25.md (single-node field: 23.71, 21.66, 16.55,
+  15.63, 15.16; the sole dual-node entry, 27.23, is the only value above our N3).
+
+HOST STACK
+  Identical to the 2026-07-25 frontier receipts: Rocky 10.2 · 6.18.39-clk (4k) · open driver
+  610.43.03 · single GB10 · ghcr.io/spark-arena/dgx-vllm-eugr-nightly:2026072302
+  (vLLM 0.23.1rc1.dev1408+ga354a9055.d20260723). sparkrun 0.2.40, two-step flow.
+
+THE PROBES
+  (N1 — MTP added to the N0 shape alone — was defined and deliberately skipped: the
+  board-lineage config N2 subsumed it; see ATTRIBUTION for what is and is not decomposed.)
+
+  probe  config                                             tg128(c1)@d0      raw (t/s)
+  N0     single-node conversion of the eugr dual-node       16.48 +/- 0.002   16.479, 16.477, 16.475
+         shape (tp=1, cutlass MoE, TRITON_ATTN, mamba
+         fp32 cache, max-num-seqs 4, gpu-mem 0.88), NO MTP
+  N2     the board-best entry's config (marlin lane          23.17 +/- 1.62    24.494, 20.882, 24.121
+         triple-enforced: flag + VLLM_USE_FLASHINFER_
+         MOE_FP4=0 + VLLM_NVFP4_GEMM_BACKEND=marlin;
+         async-scheduling, chunked prefill, max-model-len
+         131072), MTP nst=1 + triton draft
+  N3     N2 with num_speculative_tokens=3                    25.63 +/- 2.00    27.040, 22.796, 27.046
+  N4     N2 with num_speculative_tokens=2                    21.95 +/- 2.25    25.122, 20.171, 20.548
+
+  Thermal: all four probes CLEAN (N0 max 61C, N2 max 61C, N3 max 59C, N4 max 65C). MTP
+  engagement verified in-serve: SpecDecoding mean acceptance length 1.61 (nst=1), 2.18 (nst=2),
+  2.64 (nst=3), each from the serve's final metrics window — monotonic in draft depth,
+  mechanism-consistent.
+
+  One deviation from the board recipe, documented: gpu-memory-utilization 0.88 vs their 0.75 —
+  at 0.75 our runtime has no KV room after the 80 GB weights + MTP head ("No available memory
+  for the cache blocks" at engine init); memory accounting differs across vLLM builds (theirs is
+  an upstream vllm-openai digest), kernels do not. N0 validation: 16.48 lands on the board's
+  no-MTP low mode, so the single-node conversion reproduces the field before any tuning claim.
+
+ATTRIBUTION (resolvable vs not)
+  MTP on/off: decisive — +41% at nst=1 (16.48 -> 23.17), +56% at nst=3 (16.48 -> 25.63), against
+  a baseline whose spread is +/-0.002. The board-best config reproduces on this host at 98% of
+  its published number (23.17 vs 23.71).
+  nst ordering: 3 > 1 > 2 in point estimates, consistent with the acceptance curve, but adjacent
+  gaps are ~1.7 sigma (3 vs 1) and ~0.8 sigma (1 vs 2) at N=3 — the ordering is indicated, not
+  resolved. The receipt run's
+  headline (N=5 on nst=3: 23.57 +/- 1.74, see the matrix receipt) sits inside the same band as
+  the board-best; nst=3 per-serve means are 23.6 (N=5) and 25.6 (N=3).
+  N0 -> N2 (+41%) bundles MTP nst=1 with the marlin-lane and memory-shape changes; deliberately
+  not decomposed further (each additional axis is a ~20-minute 80 GB serve; the hang risk of
+  sustained load on this box is documented in the matrix receipt).
+
+ARTIFACTS
+  Laptop: ~/dev/local/073-nemotron/ (probe recipes, runners, per-probe results YAML, templogs,
+  serve logs). Full session narrative: issue #73.

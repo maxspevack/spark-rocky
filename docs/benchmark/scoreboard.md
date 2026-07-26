@@ -2,8 +2,8 @@
 
 The claim this page carries, in one line: **on this host — Rocky 10.2 + the CIQ Linux Kernel + the open
 610 driver, zero patches — published spark-arena numbers come back at parity, and on the current
-leaderboard meta the same host lands in the community band. Every time a number moved, the mover was
-serving config, never the host.**
+leaderboard meta the same host measures receipt-grade results statistically indistinguishable from
+the community's field. Every time a number moved, the mover was serving config, never the host.**
 
 Three chapters, each with receipts.
 
@@ -70,9 +70,38 @@ configuration gap. Statistically indistinguishable from the field, receipt-grade
 v1 recipe does not run under sparkrun 0.2.40 as-is (`{{…}}` escaping; the committed variant is the
 syntax-only conversion).
 
-Full probe-grid + receipt record: #74. The queue behind it:
-[#73](https://github.com/maxspevack/spark-rocky/issues/73) (Nemotron-Super flagship — eugr's NVFP4 lane
-is dual-node; the single-Spark shape is ours to prove),
+### The flagship lane — Nemotron-3-Super-120B-A12B-NVFP4 ([#73](https://github.com/maxspevack/spark-rocky/issues/73))
+
+NVIDIA's flagship-for-this-hardware, single node. Two findings and a measured boundary:
+
+**The published lane was misread — the board-best already uses MTP.** The best single-node entry
+(23.71 `tg128 (c1)`) reads as a no-MTP number; its own recipe runs `num_speculative_tokens=1`. The
+true no-MTP baseline is the board's low mode (15.2–16.6), which our single-node conversion of the
+dual-node community shape lands on directly: **16.48 ± 0.002** (run-to-run spread 0.004 t/s). MTP on/off is worth
+**+41% at nst=1 and +56% at nst=3** against that baseline; the nst ordering (3 > 1 > 2) is indicated
+at N=3 but adjacent gaps are not resolved. Receipt:
+[`reproduce-Nemotron-3-Super-NVFP4-probes-2026-07-25.txt`](../../receipts/reproduce-Nemotron-3-Super-NVFP4-probes-2026-07-25.txt).
+
+**At parity with board-best, receipt-grade.** On the board-best lineage upgraded to nst=3
+([`recipes/nemotron-3-super-120b-a12b-nvfp4-mtp-nst3-2026072302.yaml`](../../recipes/nemotron-3-super-120b-a12b-nvfp4-mtp-nst3-2026072302.yaml)),
+the headline N=5 fresh-serve receipt is **23.57 ± 1.74, CLEAN** — statistically indistinguishable
+from the 23.71 single-submission best. Probe serves on the same config reached a mean of 25.6 with
+raw runs to 27.0, within noise of the sole *dual-node* entry (27.23). Not "faster"; at parity, with
+receipts and the MTP mechanism decomposed.
+
+**The cooling boundary, measured per-cell.** A 120B's cells each run minutes of sustained near-max
+load: **14 of 28 official cells measure throttle-free on this box** (d0–d8192, plus d16384 c1–c2); of
+the other 14, all but the five heaviest were re-attempted as single cells from cooled starts and
+still throttled (the five heaviest stand on their chunked-segment values), reported
+indicative-throttled with their traces
+([`reproduce-Nemotron-3-Super-NVFP4-mtp-2026-07-26.txt`](../../receipts/reproduce-Nemotron-3-Super-NVFP4-mtp-2026-07-26.txt)).
+That envelope is a property of this box's cooling under sustained load, not of the software stack —
+the same stack measures the 35B clean across all 28 cells. The campaign also cost one silent hard hang
+after ~10 cumulative hours at the thermal edge (no oops or panic; pstore empty; the journal
+stops mid-write; required a physical power cycle) — the evidence, and the pattern it matches,
+are tracked in [#62](https://github.com/maxspevack/spark-rocky/issues/62).
+
+Full probe-grid + receipt record: #74 and #73. The queue behind them:
 [#75](https://github.com/maxspevack/spark-rocky/issues/75) (recipes upstreamed to the community
 registry), [#76](https://github.com/maxspevack/spark-rocky/issues/76) (stretch).
 
@@ -84,8 +113,10 @@ issues a CLEAN/THROTTLED verdict post-hoc. **A THROTTLED run never becomes a rec
 matrices have been discarded under this rule (both 2026-07-24 Pacific; receipts state UTC). The structural fact behind both:
 **cooling saturation tracks the duration of sustained load, not the clock.** A ~55-minute continuous
 sweep saturates — the deep×concurrent tail alone holds the GPU at 82–88°C for ~25 minutes with
-headroom exhausted — while single cells with cooldown gaps ran CLEAN at every hour tested. The box
-runs indoors at effectively constant ambient; time-of-day is not a variable in these results.
+headroom exhausted — while short bounded bursts ran CLEAN at every hour tested. The box runs indoors
+at effectively constant ambient; time-of-day is not a variable in these results. The boundary scales
+with per-cell load: a 35B's single cells all fit inside the envelope; a 120B's deepest cells
+individually exceed it (the flagship receipt, chapter 2, measures that boundary per-cell).
 In the one same-config comparison available, a clean-window cell inside a hot matrix read ~6% below a
 fresh serve — direction consistent with residual heat, magnitude within single-serve variance ("no
 throttle flag" ≠ cold). The receipt protocol for sustained sweeps is therefore **chunked**: the same v2 cells in

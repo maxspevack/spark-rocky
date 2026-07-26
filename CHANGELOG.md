@@ -32,6 +32,18 @@ ships (`uname -r`).
   (`recipes/qwen3.6-35b-a3b-nvfp4-board-2026072302.yaml` — the published v1 form fails under sparkrun
   0.2.40, `{{…}}` escaping; the variant is a syntax-only conversion).
 
+- **The flagship result (#73, 2026-07-25/26)**: Nemotron-3-Super-120B-A12B-NVFP4 single-node.
+  Premise corrected with evidence — the board-best 23.71 "no-MTP" entry runs MTP nst=1 in its own
+  recipe; the true no-MTP baseline (16.48 ± 0.002) reproduced; MTP worth +41–56%.
+  Headline receipt `tg128 (c1)` N=5 = **23.57 ± 1.74 CLEAN — statistically tied with board-best
+  single-node**; 14/28 official cells receipt-grade, the other 14 = the **measured per-cell cooling
+  boundary** (a 120B's deep cells throttle on this box — all but the five heaviest re-attempted
+  as single cells from cooled starts and still throttled; every trace archived).
+  Two receipts + matrix CSV + the receipt config recipe
+  (`recipes/nemotron-3-super-120b-a12b-nvfp4-mtp-nst3-2026072302.yaml`). Campaign cost one silent
+  hard hang after ~10 h at the thermal edge (no oops/panic captured; evidence → #62; required a
+  physical power cycle).
+
 ### Changed
 - **Benchmark docs restructured as the story** (`proof.md` → `scoreboard.md` chapters 1/2/3): parity
   (the host is invisible) → the frontier (current meta, in the band — config moved the numbers, never

@@ -13,8 +13,10 @@ teardown(){ ids=$(docker ps -aq --filter name=sparkrun); [ -n "$ids" ] && docker
 preserve(){ C=$(docker ps -q --filter name=sparkrun | head -1); [ -n "$C" ] && docker cp "$C":/tmp/sparkrun_serve.log "$OUT/serve-incontainer.log" >/dev/null 2>&1; }
 cool(){ for i in $(seq 1 90); do t=$(nvidia-smi --query-gpu=temperature.gpu --format=csv,noheader,nounits 2>/dev/null | head -1); [ "${t:-99}" -le 55 ] && return 0; sleep 5; done; }
 
+# unified memory: lingering page cache starves cudaMemGetInfo at vLLM startup — drop first
 sync && echo 3 > /proc/sys/vm/drop_caches
-sparkrun run "$RECIPE" --hosts localhost --rootful --image "$PIN" --no-follow > "$OUT/serve.log" 2>sparkrun run "$RECIPE" --hosts localhost --rootful --image "$PIN" --no-follow > "$OUT/serve.log" 2>&1 \1 \
+
+sparkrun run "$RECIPE" --hosts localhost --rootful --image "$PIN" --no-follow > "$OUT/serve.log" 2>&1 \
   || { echo LAUNCH-FAIL > "$OUT/verdict"; exit 1; }
 READY=0
 for i in $(seq 1 360); do

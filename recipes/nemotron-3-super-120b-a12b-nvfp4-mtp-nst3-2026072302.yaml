@@ -1,0 +1,52 @@
+recipe_version: "2"
+model: nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4
+runtime: vllm
+container: ghcr.io/spark-arena/dgx-vllm-eugr-nightly:2026072302
+
+metadata:
+  description: >-
+    The #73 receipt config: the board-best single-node entry lineage (permalink ff09e374; marlin
+    lane triple-enforced, async-scheduling, chunked prefill, max-model-len 131072) upgraded to
+    nst=3 (their nst=1) at gpu-mem 0.88 (their 0.75 leaves no KV room on this runtime). Behind
+    receipts/reproduce-Nemotron-3-Super-NVFP4-mtp-2026-07-26.txt. Their runtime is an upstream
+    vllm-openai digest; ours is the pinned eugr build - recorded as the standing runtime confound.
+    (--served-model-name dropped: it equals the model id, and inline served names 404 llama-benchy.)
+
+defaults:
+  port: 8000
+  host: 0.0.0.0
+  tensor_parallel: 1
+  gpu_memory_utilization: 0.88
+  max_model_len: 131072
+  max_num_seqs: 4
+  max_num_batched_tokens: 16384
+  kv_cache_dtype: fp8
+  tool_call_parser: qwen3_coder
+  reasoning_parser: nemotron_v3
+  speculative_config: '{"method":"mtp","num_speculative_tokens":3,"moe_backend":"triton"}'
+
+env:
+  VLLM_ALLOW_LONG_MAX_MODEL_LEN: "1"
+  VLLM_USE_FLASHINFER_MOE_FP4: "0"
+  VLLM_NVFP4_GEMM_BACKEND: marlin
+
+command: |
+  vllm serve {model} \
+    --tensor-parallel-size {tensor_parallel} \
+    --port {port} \
+    --host {host} \
+    --max-model-len {max_model_len} \
+    --max-num-seqs {max_num_seqs} \
+    --max-num-batched-tokens {max_num_batched_tokens} \
+    --gpu-memory-utilization {gpu_memory_utilization} \
+    --quantization fp4 \
+    --moe-backend marlin \
+    --kv-cache-dtype {kv_cache_dtype} \
+    --mamba-ssm-cache-dtype float32 \
+    --async-scheduling \
+    --enable-chunked-prefill \
+    --reasoning-parser {reasoning_parser} \
+    --enable-auto-tool-choice \
+    --tool-call-parser {tool_call_parser} \
+    --speculative-config '{speculative_config}' \
+    --trust-remote-code
