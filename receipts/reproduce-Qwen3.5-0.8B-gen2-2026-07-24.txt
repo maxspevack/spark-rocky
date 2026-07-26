@@ -42,12 +42,24 @@ RESULT — receipts/qwen3.5-0.8b-matrix-gen2-2026-07-24.csv
   0.994x) — exactly the expected shape for this hardware. The delta is the image as a unit; no
   attribution to a single component is claimed.
 
+RESULT — VS PUBLISHED (the parity-on-current-runtime read; section added 2026-07-25 at review)
+  Cell-by-cell vs the published entry (data/published-raw-Qwen3.5-0.8B-sub1777633319098.md),
+  104 common cells, computed from receipts/qwen3.5-0.8b-matrix-gen2-2026-07-24.csv:
+    median 1.010x  ·  decode median 1.010x  ·  prefill median 1.011x
+    worst class: single-user contextual pp2048 @ d* (c1), 0.68-0.82x (#18)
+  This section is the receipt behind the corpus's "parity holds on the current runtime" claim
+  (proof.md, scoreboard.md); it was independently recomputed at the 2026-07-25 engineering review.
+
 CAVEATS (honest)
   * "near-pure": the #61 baseline ran kernel 6.18.38-clk; this run is 6.18.39-clk. The .39 bump's
     01 SIGNAL-READOUT was symbol-for-symbol identical and serve-gated; the kernel contribution to
     this comparison is expected nil but rides in it.
+  * The vs-#61 medians above (1.017/0.994/1.055) compare against the #61 baseline CSV
+    (qwen3.5-0.8b-matrix-clk4k-2026-07-23.csv), which was purged from the tree in the 2026-07-25
+    docs story pass — retrieve it at git ref ff82a5d~1 to recompute that comparison.
   * THROTTLE-CHECK: CLEAN with WARN — min T.Limit headroom 3C (<=5C), max temp 85C. Numbers kept;
-    the box ran hot. A cool-ambient re-run would firm up the worst-cell tail.
-  * This is a regression-vs-self drift read (#71's purpose), NOT a new parity claim vs published —
-    the published entry predates this runtime by ~7 weeks; parity language stays with the June and
-    #61 receipts.
+    the box ran hot. A chunked re-run with cool-gaps would firm up the worst-cell tail.
+  * Cross-date qualifier on the VS PUBLISHED read: the published entry's vLLM build predates this
+    pinned runtime by ~7 weeks, and is unpinned on the entry's side; our side is pinned and
+    byte-reproducible. The confound is one-sided and stated — it qualifies the comparison, it does
+    not void it.

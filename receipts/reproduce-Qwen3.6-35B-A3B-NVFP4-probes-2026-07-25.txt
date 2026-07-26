@@ -1,0 +1,63 @@
+THE PROBE-GRID RECEIPT — Qwen3.6-35B-A3B-NVFP4 config decomposition (#74)
+Date: 2026-07-25 (probes ran 00:00-14:00 UTC; box clock is UTC)
+
+WHAT WE MEASURED
+  The single-cell probe grid behind scoreboard.md chapter 2's decomposition table: why the first
+  cut of this model ran 64 t/s against a board field of 102-119, isolated axis by axis. One cell
+  only per probe — tg128 (c1) @ d0, pp2048, prefix caching on, runs=3 — fresh serve per probe,
+  clean-pool boot, per-probe templog + check-throttle verdict, resume-state cleared before every
+  measurement (see reproduce-pipeline.md "35B-class models" for why), pinned serving image.
+
+HOST STACK
+  Identical to reproduce-Qwen3.6-35B-A3B-NVFP4-mtp-2026-07-25.txt: Rocky 10.2 · 6.18.39-clk (4k)
+  · open driver 610.43.03 · single GB10 · ghcr.io/spark-arena/dgx-vllm-eugr-nightly:2026072302
+  (digest sha256:200979f3...a446ef; vLLM 0.23.1rc1.dev1408+ga354a9055.d20260723).
+  Harness: sparkrun 0.2.40 two-step (run --no-follow -> readiness poll -> benchmark --skip-run).
+
+THE PROBES (config deltas stated against the committed board recipe,
+recipes/qwen3.6-35b-a3b-nvfp4-board-2026072302.yaml; "official shape" = the registry's
+qwen3.6-35b-a3b-fp8-mtp recipe shape: flashinfer attention, fp8 KV, instanttensor, gpu-mem 0.8,
+max-num-batched 32768, no explicit moe-backend, --chat-template unsloth.jinja, mods
+fix-qwen3-coder-next + fix-qwen3.5-chat-template)
+
+  probe  config                                              tg128(c1)@d0      raw (t/s)
+  P0     RedHatAI/Qwen3.6-35B-A3B-NVFP4 (compressed-tensors  62.05 +/- 2.99    58.47, 65.78, 61.89
+         quant swap), official shape, MTP nst=2
+  P1     P0 + --moe-backend cutlass                          engine-init crash (oracle, below)
+  P2     nvidia/Qwen3.6-35B-A3B-NVFP4 (ModelOpt), otherwise  92.05 +/- 2.25    92.00, 94.82, 89.32
+         identical official shape, MTP nst=2
+  P3     P2 + num_speculative_tokens=3                       109.05 +/- 4.84   112.07, 112.86, 102.23
+  P4     P2 + --moe-backend cutlass                          engine-init crash (oracle, below)
+  P5b    the board recipe (marlin MoE + async-scheduling +   118.29 +/- 8.05   124.94, 122.96, 106.97
+         chunked prefill + nst=3/triton draft + their
+         memory shape), v2-converted, semantics verbatim
+
+  Thermal: every measured probe CLEAN — P0 max 62C (headroom 32C), P2 max 61C, P3 max 61C
+  (headroom 31C), P5b max 49C (headroom 47C). MTP engagement verified in-serve per probe:
+  SpecDecoding mean acceptance length ~2.45-2.54 at nst=2 (P2), 3.17 (P3), 3.19 (P5b); P0's
+  config matches the 2026-07-24 indicative matrix serve, which showed 2.45.
+
+  P1/P4 root cause (byte-exact from the P4 serve log): vLLM's NvFp4 MoE oracle rejects the
+  backend for both checkpoints' quant schemes on this build —
+    ValueError: NvFp4 MoE backend 'VLLM_CUTLASS' does not support the deployment configuration
+    since kernel does not support quantization scheme QuantKey(u8,scale(f8e4m3fn,static,
+    GroupShape(row=1, col=16)),scale2(f32,static,per_tensor),symmetric)xNone.
+
+ATTRIBUTION (what is resolvable and what is not)
+  +48% checkpoint format (P0 62.05 -> P2 92.05): single-variable, far outside noise at these stds.
+  +19% speculative depth (P2 92.05 -> P3 109.05): Welch t ~= 4.6 — resolvable.
+  +8% board lane (P3 109.05 -> P5b 118.29): Welch t ~= 1.4 — NOT resolvable; a point estimate
+  inside run variance. The receipt run's headline (100.1, N=5, same recipe as P5b) confirms the
+  variance reading. Only the first two axes are causal claims.
+
+MEASUREMENT-INTEGRITY NOTE (why this receipt exists in this form)
+  P3's first two attempts returned the P2 results byte-identical: sparkrun 0.2.40's benchmark
+  resume-state is keyed on (model, profile) — not recipe content — and --fresh does not clear
+  complete state. Detected by full-precision equality plus zero SpecDecoding/request traffic in
+  the serve log; defeated by clearing ~/.cache/sparkrun/benchmarks before every measurement (now
+  standard in the committed runners). The P3 values above are the third attempt, measured for real.
+
+ARTIFACTS
+  Laptop: ~/dev/local/074-qwen36-nvfp4/probes/ (probe recipes, runners, per-probe results YAML,
+  templogs, serve logs incl. the preserved P1/P4 crash logs). Board comparison slice:
+  data/published-raw-frontier-tg128c1-2026-07-25.md. Full session narrative: issue #74.

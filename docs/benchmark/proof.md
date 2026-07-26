@@ -16,11 +16,12 @@ Medians spanning **0.96×–1.05×** straddle parity, the signature of a transpa
 
 **And the story continues on the current leaderboard meta.** On NVFP4 + MTP (Qwen3.6-35B-A3B, the
 board's live headline lane), the same host runs **the board's own top recipe receipt-grade — zero
-throttle samples across all 28 official cells — and lands inside the board's single-node field**
-(their entries: 105–119 `tg128 (c1)`; our clean-run means: 100–118 — same center, same spread
-structure). The decomposition that got there is the parity thesis restated: every point of movement
-was serving config (checkpoint format +48%, speculative depth +19%, the board's kernel lane +8%),
-never the host. The receipt, the probe grid, and the variance read: [`scoreboard.md`](scoreboard.md).
+throttle samples across all 28 official cells — with results statistically indistinguishable from the
+board's single-node field** (their entries: 102–119 `tg128 (c1)`; our two clean serves: means 100.1
+and 118.3, overlapping ranges). The decomposition that got there is the parity thesis restated: the
+resolvable movement was serving config (checkpoint format +48%, speculative depth +19%; the remaining
+spread is run variance), never the host. The receipt, the probe grid, and the variance read:
+[`scoreboard.md`](scoreboard.md).
 
 ## We changed only the host
 

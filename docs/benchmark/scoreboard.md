@@ -32,7 +32,8 @@ comparison is the *entry's* unpinned side. Not "faster"; reproduced at parity.
 
 The leaderboard's current meta is **NVFP4 quantization + MTP speculative decoding** on vLLM nightlies.
 Target: Qwen3.6-35B-A3B-NVFP4 + MTP ([#74](https://github.com/maxspevack/spark-rocky/issues/74)) —
-community band **105–130** `tg128 (c1)`, board-best vLLM entry 118.9.
+the board's single-node vLLM field for this model: **102–119** `tg128 (c1)`, best entry 118.91
+(committed comparison slice: `data/published-raw-frontier-tg128c1-2026-07-25.md`).
 
 The first cut ran the official fp8-mtp recipe shape with the quant swapped to a compressed-tensors
 NVFP4 checkpoint: **64 t/s**. A probe grid (single-cell `tg128(c1)@d0`, fresh serve per probe on the
@@ -42,8 +43,8 @@ pinned image, every probe throttle-CLEAN) decomposed the gap — and no axis was
 |---|---|---|---|
 | control | `RedHatAI/` compressed-tensors NVFP4, official shape, nst=2 | 62.0 ±3.0 | baseline; thermal formally ruled out |
 | format | **`nvidia/` ModelOpt NVFP4**, identical shape | 92.0 ±2.2 | **+48% — checkpoint format** |
-| spec depth | + `num_speculative_tokens=3` | 109.1 ±4.8 | **+19% — in the band** |
-| board lane | the board's own recipe: + marlin MoE, async-scheduling, triton draft | **118.3 ±8.0** | +8% — brackets board-best on a good run |
+| spec depth | + `num_speculative_tokens=3` | **109.1 ±4.8** | **+19% — speculative depth** |
+| board lane | the board's own recipe: + marlin MoE, async-scheduling, triton draft | 118.3 ±8.0 | +8% point estimate — within run variance, not resolved (N=3 vs N=3); the raw runs (124.9/123.0) bracket board-best |
 
 The cutlass MoE backend was closed out with evidence: vLLM's NvFp4 oracle **rejects `VLLM_CUTLASS`**
 for both checkpoints' quant schemes on the pinned build (engine-init failure, root cause preserved).
@@ -58,12 +59,12 @@ samples across the sweep** (11 segments CLEAN; four deep segments are honest nea
 Headline `tg128 (c1)` at N=5 on the fresh serve: **100.1 ± 6.2**. Full table + raw values:
 [`receipts/reproduce-Qwen3.6-35B-A3B-NVFP4-mtp-2026-07-25.txt`](../../receipts/reproduce-Qwen3.6-35B-A3B-NVFP4-mtp-2026-07-25.txt).
 
-**Run variance is the honest headline at c1.** Clean-run per-serve means on this host span
-**100.1–118.3** on the identical board config, and the board's own single-node vLLM field for this
-model spans **105.1–118.9** (live snapshot 2026-07-25; every entry `cluster=1` — verified, and
-dual-node entries run *lower*). Same center, same spread structure: the board-best 118.91 and our
-118.3 probe are the same phenomenon — a favorable run of a high-variance config — not a configuration
-gap. Parity with the field, receipt-grade. Two config notes with teeth: the board recipe's
+**Run variance is the honest headline at c1.** Two clean serves of the identical board config give
+means of **100.1 (N=5) and 118.3 (N=3)** — single runs 90–125 — and the board's own single-node vLLM
+field spans **102.35–118.91** (committed slice; every entry `cluster=1` — verified, and dual-node
+entries run *lower*). Overlapping ranges with no resolvable separation: the board-best 118.91 and our
+118.3 probe are the same phenomenon — a favorable serve of a high-variance config — not a
+configuration gap. Statistically indistinguishable from the field, receipt-grade. Two config notes with teeth: the board recipe's
 `max-num-seqs 4` deliberately caps the concurrency cells (our nst=3/default-MoE config measured
 `d0 c10` at 384 t/s indicative vs 174 here — it is a single-user-lane specialist), and the published
 v1 recipe does not run under sparkrun 0.2.40 as-is (`{{…}}` escaping; the committed variant is the
@@ -80,12 +81,13 @@ registry), [#76](https://github.com/maxspevack/spark-rocky/issues/76) (stretch).
 Every measured run on this box carries a 2-second thermal trace (`scripts/templog.sh`), and the
 [#43](https://github.com/maxspevack/spark-rocky/issues/43) detector (`scripts/check-throttle.sh`)
 issues a CLEAN/THROTTLED verdict post-hoc. **A THROTTLED run never becomes a receipt** — two full 35B
-matrices have been discarded under this rule (2026-07-24, 2026-07-25). The structural fact behind both:
+matrices have been discarded under this rule (both 2026-07-24 Pacific; receipts state UTC). The structural fact behind both:
 **cooling saturation tracks the duration of sustained load, not the clock.** A ~55-minute continuous
 sweep saturates — the deep×concurrent tail alone holds the GPU at 82–88°C for ~25 minutes with
 headroom exhausted — while single cells with cooldown gaps ran CLEAN at every hour tested. The box
 runs indoors at effectively constant ambient; time-of-day is not a variable in these results.
-Even a clean-window cell inside a hot matrix reads ~6% below a fresh serve (the warm-box penalty: "no
+In the one same-config comparison available, a clean-window cell inside a hot matrix read ~6% below a
+fresh serve — direction consistent with residual heat, magnitude within single-serve variance ("no
 throttle flag" ≠ cold). The receipt protocol for sustained sweeps is therefore **chunked**: the same v2 cells in
 segments, cool-to-≤55°C gaps between segments, each segment's trace CLEAN, headline cells N≥5 on a
 fresh serve. **First validated in full on 2026-07-25**: the 28-cell frontier receipt (chapter 2) ran

@@ -14,9 +14,9 @@ ships (`uname -r`).
 - **The frontier result (#74, 2026-07-25):** Qwen3.6-35B-A3B-NVFP4 + MTP decomposed by a five-probe
   grid, every probe throttle-CLEAN — checkpoint format is worth **+48%** (`nvidia/` ModelOpt vs the
   compressed-tensors quant swap; different vLLM NVFP4 kernel path) and `num_speculative_tokens` 2→3
-  another **+19%**: fresh-serve **109.1 `tg128 (c1)` — inside the community band (105–130)**. The
+  another **+19%**: fresh-serve probe (N=3) **109.1 `tg128 (c1)`**. The
   cutlass MoE backend is oracle-rejected for both quant formats on the pinned build (evidence on #74).
-  Winner config committed: `recipes/qwen3.6-35b-a3b-nvfp4-mtp-nst3-2026072302.yaml`. The full v2
+  Winner config committed: `recipes/qwen3.6-35b-a3b-nvfp4-mtp-nst3-2026072302.yaml` (since superseded by the board-lineage receipt config — see Removed). The full v2
   matrix on the winner beats the first cut in 24/28 cells — indicative only (throttle-gated); the
   receipt is owed via the chunked protocol.
 - `docs/benchmark/reproduce-pipeline.md`: the 35B-class **two-step sparkrun flow** and three sparkrun
@@ -27,8 +27,8 @@ ships (`uname -r`).
   lineage** (its top two vLLM entries, both verified single-node; marlin MoE + async-scheduling +
   nst=3/triton draft) with **zero throttle samples** — the first receipt through the chunked protocol;
   both sustained attempts had been discarded THROTTLED. Headline `tg128 (c1)` N=5 = 100.1 ± 6.2;
-  clean-run means 100–118 vs the board's field 105–119 — same center, same spread: parity with the
-  field. Receipt `reproduce-Qwen3.6-35B-A3B-NVFP4-mtp-2026-07-25.txt` + matrix CSV; recipe committed
+  two clean serves at means 100.1 (N=5) and 118.3 (N=3) vs the board's single-node field 102–119 —
+  overlapping ranges, statistically indistinguishable from the field. Receipt `reproduce-Qwen3.6-35B-A3B-NVFP4-mtp-2026-07-25.txt` + matrix CSV; recipe committed
   (`recipes/qwen3.6-35b-a3b-nvfp4-board-2026072302.yaml` — the published v1 form fails under sparkrun
   0.2.40, `{{…}}` escaping; the variant is a syntax-only conversion).
 
@@ -65,7 +65,7 @@ build time and the serving/benchmark stack maturing around the image.
   thereby proven **vLLM-version drift, not the host**; #18 narrowed to one localized residual.
 - **The board's own harness validated on this host** (#72): sparkrun 0.2.40 end-to-end — registry
   recipes, serve orchestration, the official spark-arena-v2 profile through llama-benchy 0.4.0,
-  `arena --local-test` account-free. Divergences documented (`docs/benchmark/sparkrun-harness.md`);
+  `arena --local-test` account-free. Divergences documented (`docs/benchmark/sparkrun-harness.md` — since merged into `docs/benchmark/reproduce-pipeline.md`);
   one real upstream bug found and filed with root cause:
   [spark-arena/sparkrun#225](https://github.com/spark-arena/sparkrun/issues/225).
 - **Drift sensor `SERVING` row** (#24/#71): the mirror-tag pin's age is watched (INFO under 31 days,

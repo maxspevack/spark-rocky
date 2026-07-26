@@ -1,7 +1,7 @@
 # receipts/ — committed raw results with full provenance
 
 The proof. Every number this repo claims comes from a receipt here, reproduced from raw output. No receipt,
-no claim. Each receipt pins: host stack (OS / kernel + `.config` hash / driver), benchmark stack (image vLLM
+no claim. Each receipt pins: host stack (OS / kernel + `.config` hash / driver — 2026-07+ receipts pin the release-stack name instead, a signed config-bound pin), benchmark stack (image vLLM
 build, `llama-benchy` version, recipe permalink), the exact serve + measure commands, the raw output, the
 comparison to the published number, and every confound.
 
@@ -13,7 +13,8 @@ comparison to the published number, and every confound.
 | `reproduce-Qwen3.5-0.8B-2026-06-10.txt` + `qwen3.5-0.8b-matrix-2026-06-10.csv` | Tier 3: full 104-cell matrix; `tg128 (c1)`=123.0 vs 121.2, **median 0.96× = parity**. |
 | `reproduce-gemma-3-1b-it-2026-06-10.txt` + `gemma-3-1b-it-matrix-2026-06-10.csv` | Tier 3: 56-cell (context-capped) matrix; `tg128 (c1)`=101.9 vs 91.0, **median 1.05× = parity**. |
 | `reproduce-Qwen3.5-0.8B-gen2-2026-07-24.txt` + `qwen3.5-0.8b-matrix-gen2-2026-07-24.csv` | **Parity holds on the current runtime, on the shipped CLK kernel** (#71, subsuming #61's question): full matrix on `6.18.39-clk` + the pinned dgx-vllm mirror image (vLLM 0.23.1), **median 1.010× vs published** — decode 1.010×, prefill 1.011× (the June prefill deficit was runtime drift; #18 holds the localized residual). Throttle-check CLEAN. |
-| `reproduce-Qwen3.6-35B-A3B-NVFP4-mtp-2026-07-25.txt` + `qwen3.6-35b-a3b-nvfp4-mtp-matrix-2026-07-25.csv` | **The frontier receipt** (#74): the current NVFP4+MTP meta on the board's own recipe lineage, all 28 official v2 cells, **zero throttle samples** — the first receipt through the chunked protocol (11 segments, cool gaps; both sustained attempts had been discarded THROTTLED). Headline `tg128 (c1)` N=5 = 100.1 ± 6.2; clean-run per-serve means on this config span 100–118, the same center and spread as the board's own single-node field (105–119). |
+| `reproduce-Qwen3.6-35B-A3B-NVFP4-probes-2026-07-25.txt` | **The probe-grid receipt** (#74): the config decomposition behind the frontier — checkpoint format +48%, speculative depth +19% (both resolvable), the board lane +8% (a point estimate inside run variance), cutlass oracle-rejected with the quant-key preserved, every measured probe throttle-CLEAN, MTP engagement verified per probe. |
+| `reproduce-Qwen3.6-35B-A3B-NVFP4-mtp-2026-07-25.txt` + `qwen3.6-35b-a3b-nvfp4-mtp-matrix-2026-07-25.csv` | **The frontier receipt** (#74): the current NVFP4+MTP meta on the board's own recipe lineage, all 28 official v2 cells, **zero throttle samples** — the first receipt through the chunked protocol (11 segments, cool gaps; both sustained attempts had been discarded THROTTLED). Headline `tg128 (c1)` N=5 = 100.1 ± 6.2; two clean serves of this config give means 100.1 (N=5) and 118.3 (N=3), overlapping the board's own single-node field (102–119). |
 
 ## How to read one
 

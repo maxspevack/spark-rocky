@@ -196,6 +196,8 @@ generation-2 image from [`config/serving-images.env`](../../config/serving-image
 
 ```bash
 docker tag ghcr.io/spark-arena/dgx-vllm-eugr-nightly:<SERVING_IMAGE_TAG> \
+           ghcr.io/spark-arena/dgx-vllm-eugr-nightly:latest
+docker tag ghcr.io/spark-arena/dgx-vllm-eugr-nightly:<SERVING_IMAGE_TAG> \
            ghcr.io/spark-arena/dgx-vllm-eugr-nightly-tf5:latest
 ```
 

@@ -36,8 +36,12 @@ COMMANDS (one fresh serve; segments seg-00..seg-10 = the 28 official cells; head
   sparkrun benchmark <recipe> --hosts localhost --rootful --image <pinned tag> \
     --profile seg-NN.yaml --skip-run --output seg-NN-results.yaml
   # templog off; check-throttle.sh seg-NN-templog.csv
-  (Runner: session artifact receipt-chunked.sh; segment profiles carry the official v2 cell
-  params — pp2048, tg128, prefix_caching on, runs=3; seg-00 = d0 c1 alone at runs=5.)
+  (Runner: scripts/receipt-chunked.sh, committed. Segment→cell map: seg-00 = d0 c1 alone at
+  runs=5; seg-01 = d0 c2/c5/c10; seg-02/03/04 = d4096/d8192/d16384 ×4 cells each; seg-05..10 =
+  the deep pairs {d32768, d65535, d100000} × {c1+c2, c5+c10}. All cells carry the official v2
+  params — pp2048, tg128, prefix_caching on, runs=3. Mod pinned: mods/fix-qwen3.6-chat-template
+  from the eugr registry @ 81a33f3 — chat_template.jinja sha256 94e94428…e63f1ad4, run.sh
+  81e5c79a…75bd1f6.)
 
 RESULT — receipts/qwen3.6-35b-a3b-nvfp4-mtp-matrix-2026-07-25.csv
   Headline tg128 (c1) @ d0, N=5, fresh serve, CLEAN (max 56C, headroom 39C):
@@ -53,13 +57,13 @@ RESULT — receipts/qwen3.6-35b-a3b-nvfp4-mtp-matrix-2026-07-25.csv
   d4096    c1        107.9    4.2    1918.0  3
   d4096    c2        169.7    9.0    2072.1  3
   d4096    c5        153.2    5.2    1566.4  3
-  d4096    c10       116.1    2.3    1576.7  3
+  d4096    c10       116.1    2.4    1576.7  3
   d8192    c1        108.3   10.6    1808.1  3
   d8192    c2        168.8    7.0    1933.5  3
   d8192    c5        149.2    2.8    1512.3  3
   d8192    c10       113.1    2.5    1525.3  3
   d16384   c1        107.5    2.7    1657.5  3
-  d16384   c2        172.5    6.6    1773.3  3
+  d16384   c2        172.6    6.6    1773.3  3
   d16384   c5        131.8    0.5    1391.2  3
   d16384   c10       100.8    0.8    1391.7  3
   d32768   c1        101.3    6.1    1454.4  3
@@ -71,7 +75,7 @@ RESULT — receipts/qwen3.6-35b-a3b-nvfp4-mtp-matrix-2026-07-25.csv
   d65535   c5         78.0    2.0     840.6  3
   d65535   c10        60.7    0.4     843.0  3
   d100000  c1         94.6    5.7     667.0  3
-  d100000  c2        128.5    2.5     712.8  3
+  d100000  c2        128.6    2.5     712.8  3
   d100000  c5         63.3    1.0     646.6  3
   d100000  c10        47.3    0.4     646.6  3
 
@@ -80,22 +84,25 @@ RESULT — receipts/qwen3.6-35b-a3b-nvfp4-mtp-matrix-2026-07-25.csv
   hot): seg-06 d32k c5/c10 (headroom 4C, max 84C), seg-07 d65k c1/c2 (4C, 83C), seg-09 d100k
   c1/c2 (4C, 84C), seg-10 d100k c5/c10 (3C, 82C).
 
-COMPARISON — the board's single-node vLLM field for this model+test (live snapshot
-2026-07-25T04:30Z; every entry below is cluster=1):
+COMPARISON — the board's single-node vLLM field for this model+test (committed slice:
+data/published-raw-frontier-tg128c1-2026-07-25.md; every entry below is cluster=1):
     118.91 · 109.30 · 109.29 · 109.29 · 105.13 · 102.35   (dual-node entries run LOWER: 101.66, 97.88)
-  Our clean-run per-serve means on this host, same test:
-    100.10 (this receipt, N=5) · 102.2 (2026-07-24 clean-window, other config) · 109.05 (probe
-    P3, config: flashinfer default MoE + nst=3) · 118.29 (probe P5b, this recipe, N=3:
-    124.94/122.96/106.97)
-  READING: our clean-run field (100-118 in means; single runs 90-125) and the board's field
-  (105-119) have the same center and the same spread structure. The 118.91 board-best and our
-  118.29 probe are the same phenomenon — a favorable run of a high-variance config — not a
-  configuration gap. Parity with the field, receipt-grade; not "faster."
+  Our clean measurements on this host, same test:
+    100.10 (this receipt, N=5) · 118.29 (probe P5b, this same recipe, N=3: 124.94/122.96/106.97)
+    context from other configs: 102.2 (2026-07-24 clean-window cell) · 109.05 (probe P3, nst=3
+    on the default MoE path)
+  READING: this recipe's two clean serves (means 100.1 and 118.3; single runs 90.4-124.9) and the
+  board's field (102.35-118.91) are overlapping ranges with no resolvable separation. The 118.91
+  board-best and our 118.29 probe are the same phenomenon — a favorable serve of a high-variance
+  config — not a configuration gap. Statistically indistinguishable from the field, receipt-grade;
+  not "faster."
 
 CAVEATS (honest)
-  - RUN VARIANCE IS THE STORY at c1: this config's per-serve means span 100.1-118.3 on identical
-    hardware/software, all throttle-CLEAN. Board entries are single submissions of the same
-    runs=3 methodology and show the same spread. Any single-number comparison at c1 is +/-15%.
+  - RUN VARIANCE IS THE STORY at c1: two serves of this exact config on identical
+    hardware/software, both throttle-CLEAN, give means 100.1 (N=5) and 118.3 (N=3) — an observed
+    range of roughly -15%/+17% around the pooled 8-run mean (an observed range, not a confidence
+    interval). Board entries are single submissions of the same runs=3 methodology; weigh any
+    single-number comparison at c1 accordingly.
   - max-num-seqs 4 is the recipe's own choice, kept verbatim — it caps the c5/c10 aggregate cells
     (our 2026-07-24 indicative run on a different config measured d0 c10 at 384 t/s vs 174 here).
     This recipe is a single-user-lane specialist; the board's c1 column is what it optimizes.
