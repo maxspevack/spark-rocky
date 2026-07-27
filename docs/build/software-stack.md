@@ -16,24 +16,28 @@ Conflating them is what makes `PyTorch not found` look alarming. They exist on p
 | **2** | **Serving container** (`vllm-node*`) | Docker, on the host | the **AI stack** that runs the model on the GPU (**held constant**) | **Yes — torch 2.11.0+cu130** |
 | **3** | **Benchmark client** `llama-benchy` | host, ephemeral `uvx` venv | sends HTTP, counts tokens/sec | **No — and shouldn't** |
 
-Verified inventory (2026-07-23, on the bare-metal box — the `6.18.39-clk` boot: doctor PASS, dmesg
-gate PASS, vLLM serve-gate GATE-PASS):
+Inventory (host verified 2026-07-23 on the bare-metal box — the `6.18.39-clk` boot: doctor PASS,
+dmesg gate PASS, vLLM serve-gate GATE-PASS; serving-container coordinates are the pins in
+[`config/serving-images.env`](../../config/serving-images.env), receipt-backed 2026-07-24):
 
 ```
 ENV 1 — HOST (ours, the swapped layer)
   OS                       Rocky Linux 10.2 (Red Quartz)
-  kernel                   6.18.39-clk  CIQ Linux Kernel (CLK), 4k pages, zero patches carried here  (rpm-installed, #59; the released image ships it too since spark-rocky-live-20260723; parity benched on stock 6.18.34/4k + CLK 6.18.38-clk/4k (#61). 64k reverted 2026-07-17 — serve regression #65)
+  kernel                   6.18.39-clk  CIQ Linux Kernel (CLK), 4k pages, zero patches carried here  (rpm-installed, #59; the released image ships it too since spark-rocky-live-20260723; parity benched on stock 6.18.34/4k in June, re-proven on CLK `.39-clk`/4k — median 1.010×, receipt `reproduce-Qwen3.5-0.8B-gen2-2026-07-24.txt`. 64k reverted 2026-07-17 — serve regression #65)
   GPU driver               610.43.03 open module, WE built it            (the shipped driver; parity was benched on 610.43.02)
   platform firmware        NVIDIA's latest, via public fwupd/LVFS      (see build.md → Firmware)
   docker                   29.6.1 ; nvidia-container-toolkit 1.19.1
   CUDA toolkit (host)      13.0      used to BUILD the driver; not used to serve
   python torch?            NOT INSTALLED   ← correct; models don't run on the host
 
-ENV 2 — SERVING CONTAINER vllm-node* (constant, the AI stack)
-  torch 2.11.0+cu130 ; vLLM 0.22.1rc1.dev330+g6deb05e0e (built 2026-06-10) ; transformers 5.11.0
-  flashinfer 0.6.13 ; CUDA runtime 13.0 (inside the image)
+ENV 2 — SERVING CONTAINER (constant, the AI stack; pinned in config/serving-images.env)
+  current gen 2 (behind every receipt since 2026-07-24): dgx-vllm mirror tag 2026072302 —
+    torch 2.11.0+cu130 ; vLLM 0.23.1rc1.dev1408 (built 2026-07-23) ; transformers 5.14.1 ; flashinfer 0.6.15
+  June generation vllm-node* (behind the June parity receipts; kept as the regression baseline):
+    torch 2.11.0+cu130 ; vLLM 0.22.1rc1.dev330+g6deb05e0e (built 2026-06-10) ; transformers 5.11.0 ; flashinfer 0.6.13
+  CUDA runtime 13.0 inside both generations
 
-ENV 3 — BENCHMARK CLIENT llama-benchy (host, uvx, pinned 0.3.8)
+ENV 3 — BENCHMARK CLIENT llama-benchy (host, uvx; version pinned in scripts/run-benchmark-matrix.sh)
   transformers: yes (to tokenize) ; torch: no  ← THIS is the "PyTorch not found" line
 ```
 
@@ -76,12 +80,16 @@ Everything we changed is **below** the container boundary (the host). Everything
 | ═══ container boundary ═══ | | | |
 | **CUDA runtime / PyTorch / flashinfer / vLLM / model / recipe / benchmark tool** | in the image | *same image, same Dockerfile, same recipe* | **CONSTANT** — built from the upstream project's own Dockerfile |
 
-## The single uncontrolled variable
+## The runtime variable — closed from our side 2026-07-24 (#71)
 
-spark-arena does **not** pin a vLLM version: `vllm-node` compiles whatever vLLM is current at image-build time.
-Our image built vLLM dated 2026-06-10; entries were submitted earlier (the Qwen FP8 entry 2026-03-03). That
-date gap is the one uncontrolled variable inside the "constant" stack — a *runtime* difference, not an
-OS/kernel/driver one. We name it on every receipt and match the recipe's `container:` tag to minimize it.
+spark-arena does **not** pin a vLLM version: entries compile whatever vLLM is current at image-build time,
+so any cross-date comparison carries a runtime delta — a *runtime* difference, not an OS/kernel/driver one.
+It sat uncontrolled through the June receipts (our image built vLLM dated 2026-06-10; the Qwen FP8 entry was
+submitted 2026-03-03). Since 2026-07-24 our side is closed: every current receipt names a **permanent dated
+[`dgx-vllm`](https://github.com/spark-arena/dgx-vllm) mirror tag** ([`serving-images.env`](../../config/serving-images.env))
+that any third party pulls byte-identically. The re-proof on that pinned runtime (0.8B full matrix,
+median 1.010×) showed the June prefill deficit was exactly this runtime drift, not the host. The residual
+delta on any cross-date comparison is the *entry's* unpinned side.
 
 ## What this proves — and what it does not
 

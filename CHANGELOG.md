@@ -11,6 +11,12 @@ ships (`uname -r`).
 ## [Unreleased]
 
 ### Added
+- **First community-registry contribution filed (#75, 2026-07-27):**
+  [spark-arena/community-recipe-registry#12](https://github.com/spark-arena/community-recipe-registry/pull/12)
+  — the Nemotron-3-Super-120B single-node recipe (board-best lineage, nst=3, the
+  `gpu-memory-utilization` 0.88 engine-init fix) + README, pending maintainer review. The registry
+  had no recipe for this model; the recipe pins the tested dgx-vllm tag and links the committed
+  receipts.
 - **The frontier result (#74, 2026-07-25):** Qwen3.6-35B-A3B-NVFP4 + MTP decomposed by a five-probe
   grid, every probe throttle-CLEAN — checkpoint format is worth **+48%** (`nvidia/` ModelOpt vs the
   compressed-tensors quant swap; different vLLM NVFP4 kernel path) and `num_speculative_tokens` 2→3
@@ -18,7 +24,7 @@ ships (`uname -r`).
   cutlass MoE backend is oracle-rejected for both quant formats on the pinned build (evidence on #74).
   Winner config committed: `recipes/qwen3.6-35b-a3b-nvfp4-mtp-nst3-2026072302.yaml` (since superseded by the board-lineage receipt config — see Removed). The full v2
   matrix on the winner beats the first cut in 24/28 cells — indicative only (throttle-gated); the
-  receipt is owed via the chunked protocol.
+  receipt landed via the chunked protocol (next bullet).
 - `docs/benchmark/reproduce-pipeline.md`: the 35B-class **two-step sparkrun flow** and three sparkrun
   0.2.40 defects found live (#74): the one-shot's too-short readiness wait, `stop --all` leaking serve
   containers, and **resume-state returning a prior run's numbers on repeat measurements** (`--fresh`
@@ -49,6 +55,18 @@ ships (`uname -r`).
   (the host is invisible) → the frontier (current meta, in the band — config moved the numbers, never
   the host) → discipline (the #43 throttle gate, the GB10's sustained-sweep cooling ceiling, the
   chunked receipt protocol, the ~6% warm-box penalty).
+- **sparkrun default 0.2.40 → 0.3.0-alpha (2026-07-27)**, commit-pinned from the fork mirror
+  (`serving-images.env` `SPARKRUN_VERSION`/`SPARKRUN_COMMIT`): the maintainer converges fixes on the
+  0.3.x line (the #225 IB guard, the v1 `{{…}}`-escaping fix, the resume `--fresh` path); defect
+  status re-verified against the alpha in `reproduce-pipeline.md`.
+- **Docs currency pass (2026-07-27, full-corpus review):** gen-2 serving coordinates in
+  `software-stack.md` (the runtime confound recorded as closed-2026-07-24, #71), the `01`→`04`
+  pipeline table corrected to the clk default + rpm reality, README "What's proven" carries the two
+  frontier receipts, `platform-deltas.md` L5 closed by evidence (parity receipts answer the EAS
+  question; #41 precedent), the chunked receipt protocol documented
+  (`reproduce-pipeline.md` + `scripts/README.md`), prose version-pins removed in favor of
+  pin-file references, stale `.38-clk` examples and the purged-receipt citation replaced with the
+  gen-2 receipt.
 
 ### Removed
 - Superseded / non-story benchmark artifacts (git history retains everything): the June target-backlog

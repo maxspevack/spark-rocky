@@ -4,7 +4,7 @@
 
 ## The proof
 
-A full `llama-benchy` matrix sweeps the whole performance surface – **decode** (single-user generation), **prefill** (prompt processing), and **concurrency** (throughput as users stack up). No single cell is "the" number; the honest summary is the **median vs 1.0× (parity)**. Decode lands at or just above parity; prefill ran below it on the June runtime (~0.75–0.93× at the `pp2048` cell) — **re-measured 2026-07-24 on the current pinned runtime, that prefill deficit closes (median 1.011× vs published): it was vLLM version drift, not the host** ([#18](https://github.com/maxspevack/spark-rocky/issues/18) tracks the one residual cell class).
+A full `llama-benchy` matrix sweeps the whole performance surface – **decode** (single-user generation), **prefill** (prompt processing), and **concurrency** (throughput as users stack up). No single cell is "the" number; the honest summary is the **median vs 1.0× (parity)**. Decode lands at or just above parity; prefill ran below it on the June runtime (~0.75–0.93× at the `pp2048` cell) — **re-measured 2026-07-24 on the current pinned runtime, that prefill deficit closes at the median (1.011× vs published): it was vLLM version drift, not the host** ([#18](https://github.com/maxspevack/spark-rocky/issues/18) tracks the one residual class — single-user contextual `pp2048 (c1)` cells, still 0.68–0.82×).
 
 | Model | Scope | Full-matrix median vs published |
 |---|---|:---:|
@@ -20,8 +20,11 @@ throttle samples across all 28 official cells — with results statistically ind
 board's single-node field** (their entries: 102–119 `tg128 (c1)`; our two clean serves: means 100.1
 and 118.3, overlapping ranges). The decomposition that got there is the parity thesis restated: the
 resolvable movement was serving config (checkpoint format +48%, speculative depth +19%; the remaining
-spread is run variance), never the host. The receipt, the probe grid, and the variance read:
-[`scoreboard.md`](scoreboard.md).
+spread is run variance), never the host. **The flagship lane holds too:** Nemotron-3-Super-120B —
+NVIDIA's largest single-Spark model — receipted at a statistical tie with the board-best single-node
+entry (23.57 ± 1.74 at N=5 vs 23.71), with the MTP mechanism decomposed against a measured no-MTP
+baseline and the box's cooling boundary measured per-cell. The receipts, the probe grids, and the
+variance read: [`scoreboard.md`](scoreboard.md).
 
 ## We changed only the host
 

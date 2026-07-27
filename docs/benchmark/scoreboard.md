@@ -67,8 +67,8 @@ entries run *lower*). Overlapping ranges with no resolvable separation: the boar
 configuration gap. Statistically indistinguishable from the field, receipt-grade. Two config notes with teeth: the board recipe's
 `max-num-seqs 4` deliberately caps the concurrency cells (our nst=3/default-MoE config measured
 `d0 c10` at 384 t/s indicative vs 174 here — it is a single-user-lane specialist), and the published
-v1 recipe does not run under sparkrun 0.2.40 as-is (`{{…}}` escaping; the committed variant is the
-syntax-only conversion).
+v1 recipe does not run under sparkrun 0.2.40 as-is (`{{…}}` escaping; fixed in the 0.3.0-alpha line,
+our default since 2026-07-27 — the committed variant is the syntax-only conversion, which runs on both).
 
 ### The flagship lane — Nemotron-3-Super-120B-A12B-NVFP4 ([#73](https://github.com/maxspevack/spark-rocky/issues/73))
 
@@ -102,8 +102,9 @@ stops mid-write; required a physical power cycle) — the evidence, and the patt
 are tracked in [#62](https://github.com/maxspevack/spark-rocky/issues/62).
 
 Full probe-grid + receipt record: #74 and #73. The queue behind them:
-[#75](https://github.com/maxspevack/spark-rocky/issues/75) (recipes upstreamed to the community
-registry), [#76](https://github.com/maxspevack/spark-rocky/issues/76) (stretch).
+[#75](https://github.com/maxspevack/spark-rocky/issues/75) (first recipe PR filed 2026-07-27 —
+[community-recipe-registry#12](https://github.com/spark-arena/community-recipe-registry/pull/12),
+pending review), [#76](https://github.com/maxspevack/spark-rocky/issues/76) (stretch).
 
 ## 3 — Discipline: why these numbers can be trusted
 

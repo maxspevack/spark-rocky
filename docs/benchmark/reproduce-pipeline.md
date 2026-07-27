@@ -71,8 +71,8 @@ uvx llama-benchy --base-url http://localhost:8000/v1 --model <HF/path> \
 v2 profile: the **sparkrun section at the end of this page**.)
 
 For the **full matrix** — the ~104-cell sweep the parity claim rests on (depth × prefill × decode ×
-concurrency) — do not retype the params; run the canonical script. It pins `llama-benchy==0.3.8` and encodes
-the exact sweep, so every reproduction and every regression-vs-self run measures the same surface:
+concurrency) — do not retype the params; run the canonical script. It carries the `llama-benchy` version pin
+and encodes the exact sweep, so every reproduction and every regression-vs-self run measures the same surface:
 
 ```bash
 scripts/run-benchmark-matrix.sh 8000 <HF/path> result.csv
@@ -194,6 +194,18 @@ status re-verified on the 0.3.0-alpha default, 2026-07-27):
   root causes can be read.
 
 `--skip-run` also separates serve problems from measurement problems when diagnosing either.
+
+### Sustained sweeps: the chunked receipt protocol (`scripts/receipt-chunked.sh`)
+
+A ~55-minute continuous v2 sweep thermally saturates a desk Spark ([`scoreboard.md`](scoreboard.md)
+ch. 3), so a full official matrix run as one shot gets discarded THROTTLED. The runner behind both
+frontier receipts encodes the fix: the same 28 official cells in **segments**, a **cool-to-≤55°C
+gap** between segments, per-segment `templog` trace + `check-throttle.sh` verdict (any THROTTLED
+segment re-runs from a cooled start), and the sparkrun resume-state dir cleared per segment so every
+number is freshly measured. Headline cells then run N≥5 on a fresh serve. First validated in full
+2026-07-25: 11/11 segments CLEAN on the cells two sustained attempts had failed. Read the script's
+header for invocation; it composes the same primitives this page documents (two-step serve, teardown
+by `docker rm -f`, pinned image tag).
 
 ### Pinning the container (do not float on `latest`)
 

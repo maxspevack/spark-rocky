@@ -35,7 +35,7 @@ All six are forked to `maxspevack/<name>`; local clones (where present) live **f
 | [`eugr/llama-benchy`](https://github.com/eugr/llama-benchy) | the benchmark meter (spark-arena's canonical tool) | `uvx` from PyPI | `scripts/run-benchmark-matrix.sh` (`llama-benchy==<ver>` — the one permitted non-env pin: it must ride the command line, and the matrix script is itself the canonical-measurement artifact) |
 | [`spark-arena/sparkrun`](https://github.com/spark-arena/sparkrun) | official runner + `arena benchmark` submission CLI; validated on this host (#72; the sparkrun section of [`docs/benchmark/reproduce-pipeline.md`](docs/benchmark/reproduce-pipeline.md)) | `uv tool install` from our fork mirror, commit-pinned (0.3.0-alpha line — the maintainer converges fixes there; adopted 2026-07-27) | `serving-images.env` (`SPARKRUN_VERSION`, `SPARKRUN_COMMIT`, `SPARKRUN_LLAMA_BENCHY`) |
 | [`spark-arena/recipe-registry`](https://github.com/spark-arena/recipe-registry) | official recipes + the v1/v2 benchmark profiles (the board's run rules) | reference at HEAD | the per-receipt recipe copy in `receipts/` is the pin |
-| [`spark-arena/community-recipe-registry`](https://github.com/spark-arena/community-recipe-registry) | **our upstream contribution path** — recipes PR into `recipes/<model>/maxspevack/` (#75) | PR target | n/a — contribution target, not a dependency |
+| [`spark-arena/community-recipe-registry`](https://github.com/spark-arena/community-recipe-registry) | **our upstream contribution path** — recipes PR into `recipes/<model>/maxspevack/` (#75; first PR filed 2026-07-27: [community-recipe-registry#12](https://github.com/spark-arena/community-recipe-registry/pull/12), the Nemotron single-node recipe, pending review) | PR target | n/a — contribution target, not a dependency |
 | [`spark-arena/dgx-vllm`](https://github.com/spark-arena/dgx-vllm) | **the serving-image pin source since 2026-07-24** (#71 generation-2, landed + benchmark-validated — receipt `gen2-2026-07-24`): permanent dated mirror tags of eugr's vLLM nightlies; `build-index.json` maps tag → vLLM/FlashInfer coordinates | images pulled from ghcr by digest, run by tag | `serving-images.env` (`SERVING_IMAGE_TAG` + digests); the June-generation digests stay as the receipt-era baseline. The drift sensor's `SERVING` row watches the tag age (INFO < 31 days, DRIFT past) |
 
 ## Layout decision (2026-07-24): flat, not an org directory
@@ -71,8 +71,9 @@ carries this as a cut step.
    bracketed colon keeps this very line from matching itself).
 4. **The pin files agree with the box**: the box's `/root/spark-vllm-docker` checkout is at
    `SPARK_VLLM_DOCKER_COMMIT`; the serve-gate recipe runs the image `serving-images.env` names.
-5. **Row currency**: any issue this file cites as pending (`#71`, `#72`, `#75`) that has closed
-   means its row is stale — update the row in the same pass.
+5. **Row currency**: any issue or PR this file cites as pending that has since closed/merged
+   means its row is stale — update the row in the same pass. (Currently pending: `#75` /
+   community-recipe-registry PR #12.)
 
 ## Deliberately not tracked
 
