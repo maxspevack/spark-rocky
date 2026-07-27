@@ -116,7 +116,9 @@ Validation evidence: #72.
 ### Install (no wizard needed)
 
 ```bash
-uv tool install sparkrun     # Python >= 3.12; Rocky 10.2's 3.12 qualifies
+# 0.3.0-alpha is our default since 2026-07-27 (upstream converges fixes there); installed from
+# our fork mirror pinned by commit — see config/serving-images.env (SPARKRUN_COMMIT):
+uv tool install --force "sparkrun @ git+https://github.com/maxspevack/sparkrun@<SPARKRUN_COMMIT>"
 sparkrun update              # fetches the recipe registries (official/community/eugr/...)
 ```
 
@@ -137,11 +139,11 @@ Two host-compat divergences were hit on this stack (everything else ran unmodifi
 - **`--hosts localhost` is required.** Without the setup wizard there are no configured default
   hosts, and `sparkrun benchmark` errors out (`No hosts specified`) — the localhost fast path
   exists in the launcher but is not the CLI default.
-- **`--rootful` is required until [sparkrun#225](https://github.com/spark-arena/sparkrun/issues/225)
-  is fixed.** The default rootless path adds `--device /dev/infiniband` unconditionally; this
-  stack blacklists `mlx5_core` (unused single-host NICs, see #46), so the node doesn't exist and
-  the container dies in `Created` state — silently (`sparkrun run` detaches rc=0 regardless).
-  Filed upstream with root cause + fix shape; drop `--rootful` when it lands.
+- **`--rootful` stays, by choice.** [sparkrun#225](https://github.com/spark-arena/sparkrun/issues/225)
+  (rootless adds `--device /dev/infiniband` unconditionally; dies on this mlx5-blacklisted stack)
+  is fixed in the 0.3.0-alpha we now run — but the alpha's rootless GPU path needs CDI specs on
+  wizard-free hosts (`unresolvable CDI devices`; `nvidia-ctk cdi generate` would provision them).
+  `--rootful` sidesteps both and is what every receipt on this host ran with; keeping it.
 - **If the recipe sets its served name inline** (in the `command:` string rather than as a
   `served_model_name:` defaults key), llama-benchy gets the HF path instead, 404s on warmup, and
   the run dies at task 1 with an empty table. Override per-run: `-b served_model_name=<name>`.
@@ -169,17 +171,23 @@ sparkrun benchmark <recipe> --hosts localhost --rootful --image <pinned tag> \
 docker rm -f $(docker ps -aq --filter name=sparkrun)    # teardown — see below
 ```
 
-Three sparkrun 0.2.40 defects this flow routes around (all hit live 2026-07-25, record on #74):
+Three sparkrun defects this flow routes around (hit live on 0.2.40, 2026-07-25, record on #74;
+status re-verified on the 0.3.0-alpha default, 2026-07-27):
 
 - **Resume-state poisons repeat measurements — the trap.** `~/.cache/sparkrun/benchmarks/<id>/` keys
   on (model, profile), NOT recipe content, and a repeat run of the same model+profile **returns the
-  prior run's numbers wholesale** — no traffic ever reaches the server. `--fresh` documents "deleting
-  prior state" but did not clear it. Detection: results identical to a prior run at full float
-  precision, plus zero `SpecDecoding`/request activity in the serve log. Rule: clear the state dir
+  prior run's numbers wholesale** — no traffic ever reaches the server. On 0.2.40, `--fresh` did
+  not clear complete state; the 0.3.0-alpha fixes the `--fresh` path (explicit state deletion) but
+  the key still excludes recipe content BY DESIGN, so a repeat without `--fresh` still silently
+  re-emits prior results. Detection: results identical to a prior run at full float precision,
+  plus zero `SpecDecoding`/request activity in the serve log. Rule unchanged: clear the state dir
   before every measured run (the snippet above does).
-- **Teardown leaks.** `sparkrun stop --all --hosts localhost` silently failed to remove serve
-  containers (twice in one night); the stale container then shadows the next run. `docker rm -f` the
-  `sparkrun*` containers between runs and verify `docker ps -aq | wc -l` → 0.
+- **Teardown leaks.** `sparkrun stop --all --hosts localhost` claims success and exits 0 while the
+  containers keep running (it wraps the stop in ssh-to-self, which fails on wizard-free hosts).
+  Persists in the 0.3.0-alpha (verified 2026-07-27 — it now logs the SSH failure and still reports
+  "Stopped"): [#229](https://github.com/spark-arena/sparkrun/issues/229) /
+  [PR #231](https://github.com/spark-arena/sparkrun/pull/231). `docker rm -f` the `sparkrun*`
+  containers between runs and verify `docker ps -aq | wc -l` → 0.
 - **The serve log lives inside the container.** With `run --no-follow`, vLLM output goes to
   `/tmp/sparkrun_serve.log` in-container (`docker logs` shows only the NGC banner). `docker cp` it out
   **before** teardown — it is the only place MTP engagement (`SpecDecoding metrics`) and engine-init
