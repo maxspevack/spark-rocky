@@ -23,7 +23,7 @@ dmesg gate PASS, vLLM serve-gate GATE-PASS; serving-container coordinates are th
 ```
 ENV 1 — HOST (ours, the swapped layer)
   OS                       Rocky Linux 10.2 (Red Quartz)
-  kernel                   6.18.39-clk  CIQ Linux Kernel (CLK), 4k pages, zero patches carried here  (rpm-installed, #59; the released image ships it too since spark-rocky-live-20260723; parity benched on stock 6.18.34/4k in June, re-proven on CLK `.39-clk`/4k — median 1.010×, receipt `reproduce-Qwen3.5-0.8B-gen2-2026-07-24.txt`. 64k reverted 2026-07-17 — serve regression #65)
+  kernel                   6.18.39-clk  CIQ Linux Kernel (CLK), 4k pages, zero patches carried here  (rpm-installed, #59; the released image ships it too since spark-rocky-live-20260723; parity benched on stock 6.18.34/4k in June, re-proven on CLK `.39-clk`/4k — median 1.010×, receipt `reproduce-Qwen3.5-0.8B-gen2-2026-07-24.txt`. 64k reverted 2026-07-17 — an NVIDIA driver DMA-submap defect, not a kernel regression: #65 / open-driver #1269. 64k stays the committed direction, held by the `DRIVER_64K_SAFE` gate in 05)
   GPU driver               610.43.03 open module, WE built it            (the shipped driver; parity was benched on 610.43.02)
                            NOTE: 610 is a preview branch (EOL Aug 2026) and carries the 64k DMA-submap
                            defect (open-driver #1269). 580 LTSB is clean under 64k but measured 10.4%
@@ -76,7 +76,7 @@ Everything we changed is **below** the container boundary (the host). Everything
 |---|---|---|---|
 | **GPU silicon** | GB10 (sm_121), 121 GB unified | *same* | **CONSTANT** — the leaderboard is keyed to "DGX Spark" |
 | **OS userspace** | Ubuntu 24.04.4 LTS | **Rocky Linux 10.2** | **OURS** |
-| **Kernel** | `6.17.0-1021-nvidia` (vendored, NVIDIA-patched, gcc 13.3.0) | **CIQ Linux Kernel `6.18.39-clk`, zero patches carried here, 4k pages** (gcc 14.3.1; the public GPL `ctrliq/kernel-src-tree`, commit-pinned) — parity benched on stock `6.18.34`/4k; stock kernel.org stays the A/B knob. 64k reverted (#65) | **OURS** — vendor kernel → a public, pinnable 6.18 tree |
+| **Kernel** | `6.17.0-1021-nvidia` (vendored, NVIDIA-patched, gcc 13.3.0) | **CIQ Linux Kernel `6.18.39-clk`, zero patches carried here, 4k pages** (gcc 14.3.1; the public GPL `ctrliq/kernel-src-tree`, commit-pinned) — parity benched on stock `6.18.34`/4k; stock kernel.org stays the A/B knob. 64k is the committed direction, blocked on open-driver #1269 and gate-held (#65) | **OURS** — vendor kernel → a public, pinnable 6.18 tree |
 | **GPU kernel driver** | open `580.159.03` (NVIDIA-built) | **open `610.43.03`, WE built** (in `rockylinux:10`, against the stock tree, zero source patches) — parity benched on `610.43.02` | **OURS** — both *open*; our delta is version + that we built it against a stock kernel |
 | **Driver userspace** (`libcuda.so`) | 580.159.03 | **610.43.03** (host; injected into the container) | **OURS** |
 | **Platform firmware** | NVIDIA, via DGX OS OTA | **NVIDIA's latest, via public fwupd/LVFS** | **CONSTANT** — same firmware, different delivery path (no DGX OS needed) |
@@ -102,8 +102,8 @@ delta on any cross-date comparison is the *entry's* unpinned side.
   receipt on CLK — zero patches either way), NVIDIA-built `580` → self-built open `610` — is **transparent
   to the workload**. The same
   container + recipe + tool land the published numbers on the community's own scoreboard. Across **three
-  full-matrix** models the **median is parity (0.96–1.05×)**, re-proven on the current pinned runtime at
-  1.010× — and on the current NVFP4+MTP meta the host's receipt-grade results overlap the board's own
+  full-matrix** models the **median is parity (0.96–1.05×)** (measured 2026-06-10), re-proven on the current pinned runtime at
+  1.010× (2026-07-24) — and on the current NVFP4+MTP meta the host's receipt-grade results overlap the board's own
   single-node field, with the resolvable movement attributable to serving config, not the host — see
   [`scoreboard.md`](../benchmark/scoreboard.md).
 - **Does NOT prove "Rocky is faster."** Per-axis deltas track vLLM-date drift, not the host swap. A clean

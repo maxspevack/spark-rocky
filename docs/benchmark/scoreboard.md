@@ -12,12 +12,12 @@ Three chapters, each with receipts.
 Full-matrix medians vs published, `1.0× = parity` (June 2026 baseline; re-proven on the current
 runtime 2026-07-24):
 
-| model | scope | published `tg128 c1` | ours | full-matrix median | receipt |
-|---|---|---|---|---|---|
-| Qwen3.5-35B-A3B-FP8 | 104-cell matrix | 50.75 | 56.2 ±0.1 | **1.01× — parity** | `reproduce-Qwen3.5-35B-A3B-FP8-2026-06-10.txt` |
-| Qwen3.5-0.8B | 104-cell matrix | 121.2 | 123.0 ±0.2 | **0.96× — parity** | `reproduce-Qwen3.5-0.8B-2026-06-10.txt` |
-| gemma-3-1b-it | 56-cell matrix (context-capped) | 91.0 | 101.9 ±0.1 | **1.05× — parity** | `reproduce-gemma-3-1b-it-2026-06-10.txt` |
-| Qwen3.5-0.8B — **current runtime, gen-2 pins** | 104-cell matrix on `6.18.39-clk` + the pinned dgx-vllm mirror (#71) | 121.2 | 124.1 ±0.1 | **1.010× — parity holds** (decode 1.010×, prefill 1.011×), throttle-check CLEAN | `reproduce-Qwen3.5-0.8B-gen2-2026-07-24.txt` |
+| model | scope | measured | published `tg128 c1` | ours | full-matrix median | receipt |
+|---|---|---|---|---|---|---|
+| Qwen3.5-35B-A3B-FP8 | 104-cell matrix | 2026-06-10 | 50.75 | 56.2 ±0.1 | **1.01× — parity** | `reproduce-Qwen3.5-35B-A3B-FP8-2026-06-10.txt` |
+| Qwen3.5-0.8B | 104-cell matrix | 2026-06-10 | 121.2 | 123.0 ±0.2 | **0.96× — parity** | `reproduce-Qwen3.5-0.8B-2026-06-10.txt` |
+| gemma-3-1b-it | 56-cell matrix (context-capped) | 2026-06-10 | 91.0 | 101.9 ±0.1 | **1.05× — parity** | `reproduce-gemma-3-1b-it-2026-06-10.txt` |
+| Qwen3.5-0.8B — **current runtime, gen-2 pins** | 104-cell matrix on `6.18.39-clk` + the pinned dgx-vllm mirror (#71) | 2026-07-24 | 121.2 | 124.1 ±0.1 | **1.010× — parity holds** (decode 1.010×, prefill 1.011×), throttle-check CLEAN | `reproduce-Qwen3.5-0.8B-gen2-2026-07-24.txt` |
 
 Medians spanning **0.96–1.05×** straddle parity — the signature of a transparent host swap. The June
 prefill deficit (0.75–0.93×) closed to **1.011×** on the pinned current runtime: it was vLLM version
@@ -38,6 +38,8 @@ the board's single-node vLLM field for this model: **102–119** `tg128 (c1)`, b
 The first cut ran the official fp8-mtp recipe shape with the quant swapped to a compressed-tensors
 NVFP4 checkpoint: **64 t/s**. A probe grid (single-cell `tg128(c1)@d0`, fresh serve per probe on the
 pinned image, every probe throttle-CLEAN) decomposed the gap — and no axis was the host:
+
+Probe grid measured **2026-07-25** (receipt `reproduce-Qwen3.6-35B-A3B-NVFP4-probes-2026-07-25.txt`):
 
 | probe | config | `tg128(c1)@d0` | the move |
 |---|---|---|---|
@@ -82,7 +84,7 @@ dual-node community shape lands on directly: **16.48 ± 0.002** (run-to-run spre
 at N=3 but adjacent gaps are not resolved. Receipt:
 [`reproduce-Nemotron-3-Super-NVFP4-probes-2026-07-25.txt`](../../receipts/reproduce-Nemotron-3-Super-NVFP4-probes-2026-07-25.txt).
 
-**At parity with board-best, receipt-grade.** On the board-best lineage upgraded to nst=3
+**At parity with board-best, receipt-grade** (measured 2026-07-25/26). On the board-best lineage upgraded to nst=3
 ([`recipes/nemotron-3-super-120b-a12b-nvfp4-mtp-nst3-2026072302.yaml`](../../recipes/nemotron-3-super-120b-a12b-nvfp4-mtp-nst3-2026072302.yaml)),
 the headline N=5 fresh-serve receipt is **23.57 ± 1.74, CLEAN** — statistically indistinguishable
 from the 23.71 single-submission best. Probe serves on the same config reached a mean of 25.6 with
@@ -125,6 +127,19 @@ segments, cool-to-≤55°C gaps between segments, each segment's trace CLEAN, he
 fresh serve. **First validated in full on 2026-07-25**: the 28-cell frontier receipt (chapter 2) ran
 11/11 segments with zero throttle samples — the same cells both sustained attempts had failed —
 with four deep segments passing 3–4°C from the line (recorded as WARNs, numbers valid).
+
+**Two 2026-07-31 measurements, and the throttle gate earning its keep.** A driver-only A/B (580.173.02 vs
+610.43.03, page size held at 4k, 104 cells each side, both legs throttle-CLEAN) put the 580 LTSB branch at
+**0.896× — 10.4% slower**, 94/104 cells slower and none faster; that is what closed the "fall back to 580 to
+get 64k" route (receipt
+[`reproduce-Qwen3.5-0.8B-driver-AB-580-vs-610-2026-07-31.txt`](../../receipts/reproduce-Qwen3.5-0.8B-driver-AB-580-vs-610-2026-07-31.txt)).
+A same-day page-size A/B produced one valid leg and one discard: **4k + `expandable_segments` measured
+0.999× against the default allocator** (8 cells faster, 7 slower — the workaround is free), while the **64k
+leg throttled** (4 slowdown samples, −2 °C headroom, 87 °C) and was **auto-discarded by the
+[#43](https://github.com/maxspevack/spark-rocky/issues/43) gate** rather than reported. **There is no 64k
+performance number on a correct stack yet** — the sustained-sweep ceiling described above is exactly why,
+and the redo needs the chunked protocol. Tracked on
+[#81](https://github.com/maxspevack/spark-rocky/issues/81).
 
 gpt-oss-120b's full matrix stays parked behind the same cooling ceiling
 ([#6](https://github.com/maxspevack/spark-rocky/issues/6)); its single `tg128 (c1)` cell reproduced at

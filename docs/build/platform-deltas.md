@@ -13,11 +13,20 @@ The load-bearing fact: **GPU compute works** — `proof-of-life` runs `vectorAdd
 memory is 121 GiB ≈ 130 GB decimal — `nvidia-smi` reports decimal GB, other docs say 121 GB binary;
 same memory.) Everything below is peripheral to that.
 
-## Page size — 4k today, and the trade that decides it (#65, #80, #81)
+## Page size — 64k is the destination, 4k is what ships, and a gate holds the line (#65, #80, #81)
 
-**We ship a 4k-page kernel** (`CONFIG_ARM64_4K_PAGES`), pinned as `PAGE_SIZE=4k` in
-[`config/versions.env`](../../config/versions.env). Not because 4k is better for this box — it isn't, on the
-evidence below — but because of a driver defect that forces a choice.
+**The committed direction is 64 KiB pages.** That is settled for this box and not reopened by benchmarking.
+**What ships today is a 4k-page kernel** (`CONFIG_ARM64_4K_PAGES`, pinned `PAGE_SIZE=4k` in
+[`config/versions.env`](../../config/versions.env)) — not because 4k is better here, but because 64k is
+*incorrect* on the driver we ship, and shipping a knowingly-faulting appliance is not a trade we will make.
+
+**What makes that a lock-in rather than an intention: a fail-closed gate.** `config/versions.env` declares
+`DRIVER_64K_SAFE` — the driver versions *proven* correct under 64k on this hardware — and `05` refuses to
+package a 64k image on any driver not on that list. The shipping driver, `610.43.03`, is deliberately absent.
+So the day [#1269](https://github.com/NVIDIA/open-gpu-kernel-modules/issues/1269) lands, the entire change is
+**two reviewable lines** — add the fixed version to `DRIVER_64K_SAFE`, flip `PAGE_SIZE=64k` — and the gate,
+not a promise in a document, is what proves the flip is safe. Flip the pin today and the release aborts at
+packaging. That is the mechanism working.
 
 ### The trade, stated plainly: you cannot have both the newest driver and 64k pages
 
@@ -25,7 +34,7 @@ evidence below — but because of a driver defect that forces a choice.
 is a defect we root-caused and reported upstream:
 **[NVIDIA/open-gpu-kernel-modules#1269](https://github.com/NVIDIA/open-gpu-kernel-modules/issues/1269)**.
 
-| driver branch | EOL | 64 KiB pages | relative perf (4k, measured) |
+| driver branch | EOL | 64 KiB pages | relative perf (4k, measured 2026-07-31) |
 |---|---|---|---|
 | **580 (LTSB)** — also what DGX OS ships for the GB10 | Jun 2028 | **works** | **0.896× — 10.4% slower** |
 | 590 (dropped), 595 (Production), **610 (preview, what we ship)** | Aug 2026 for 610 | **broken** | 1.000× (baseline) |
@@ -75,7 +84,7 @@ bytes of each window and is empty when `δ = 0` — which accounts for every off
    itself is ~10% slower.** A driver-only A/B with the page size held at 4k, same box / kernel / pinned
    serving image / recipe / script, 104 cells each side:
 
-   | | 580.173.02 vs 610.43.03 |
+   | measured 2026-07-31 | 580.173.02 vs 610.43.03 |
    |---|---|
    | full-matrix median | **0.896 — 10.4% slower** |
    | decode (`tg*`, n=28) | 0.911 — 8.9% slower |
@@ -96,8 +105,11 @@ bytes of each window and is empty when `δ = 0` — which accounts for every off
    PyTorch then maps in 2 MiB granules and never reaches a submap boundary; proven under load (20/20
    completions, 8k context, 8-way concurrency, zero Xid). **Costs:** it protects only allocations made through
    PyTorch's caching allocator — anything else requesting ≥ 4 GiB still faults — so it is containment for a
-   known workload, not something an appliance can promise its users. Its own allocator overhead is also
-   unmeasured, which is what [#81](https://github.com/maxspevack/spark-rocky/issues/81) would settle.
+   known workload, not something an appliance can promise its users. **Its overhead is now measured and it is
+   free:** a 104-cell A/B at 4k against the default allocator, both legs throttle-CLEAN, lands median
+   **0.999×** (decode 1.002×, prefill 0.996×, 8 cells faster / 7 slower) — 2026-07-31,
+   [#81](https://github.com/maxspevack/spark-rocky/issues/81). So this is the right thing to *recommend* to
+   PyTorch users running 64k, and still not a thing to *default* to for everyone.
 
 3. **The patch.** One hunk, validated with a there-and-back on stock kernel.org mainline. **Cost:** carrying it
    breaks this project's zero-patch promise, so it is not a shipping option unless NVIDIA takes it.
@@ -115,9 +127,15 @@ concurrent and deep-context cells (`tg128@d65535 (c10)` **1.30×**, `ctx_pp@d409
 
 **Read that number with the caveat it now carries:** it was taken on a stack containing this defect. The
 workload completed only because it never touched one of the poisoned pages. The measurement is not *wrong*,
-but the configuration was silently broken, and it is the sole evidence behind a 64k default. Re-measuring on
-a correct stack is [#81](https://github.com/maxspevack/spark-rocky/issues/81), and until that lands, 64k's
-advantage should be treated as **plausible and unproven**, not established.
+but the configuration was silently broken, and it is the sole evidence behind a 64k default.
+
+**The re-measure was attempted on 2026-07-31 and has no result yet.** A 64k leg on a correct-by-workaround
+stack (`expandable_segments`, driver 610.43.03) ran the full matrix but **throttled** — 4 slowdown samples,
+−2 °C T.Limit headroom, 87 °C peak — so the [#43](https://github.com/maxspevack/spark-rocky/issues/43) gate
+**discarded it rather than report it**. Sustained 104-cell sweeps saturate this box's cooling; the redo needs
+the chunked cool-to-≤55 °C protocol from [`scoreboard.md`](../benchmark/scoreboard.md) chapter 3.
+[#81](https://github.com/maxspevack/spark-rocky/issues/81) tracks it. Until then 64k's *magnitude* is
+**plausible and unproven**; the *direction* is a settled opinion, and the gate above is how it stays honest.
 
 ### How the pin is enforced (process, not just a flag)
 
@@ -126,8 +144,15 @@ it (page size adds **no** uname suffix — source lineage does: `-clk` on the de
 fail-closed gate **aborts the release if the resolved `.config` page size does not match the pin** (the
 current `4k` pin cannot ship a 64k image, and vice versa); the provenance stamp records `page_size=4k`; and
 the `validate.sh` doctor asserts the running `getconf PAGESIZE` matches what was built. The page size lives
-in the `.config` symbol plus the stamp, never in a uname tag — so flipping the pin is a one-line, fully
-gated change once the trade above is decided.
+in the `.config` symbol plus the stamp, never in a uname tag.
+
+**Two gates, not one.** The *consistency* gate above proves the image matches the pin. The **correctness**
+gate added 2026-07-31 proves the pin is safe to ship: if `PAGE_SIZE=64k`, `05` requires `DRIVER_VER` to
+appear in `DRIVER_64K_SAFE`, and aborts otherwise. Verified on all three real combinations —
+`4k`/`610.43.03` packages, `64k`/`610.43.03` **refuses**, `64k`/`580.173.02` packages. Four `make test`
+invariants hold the gate in place, including one that fails if the shipping driver is ever added to the safe
+list without earning it. A driver earns a place there only by passing a ≥ 4 GiB allocation test on this
+hardware.
 
 Historical note: the 64k default shipped undetected in four releases because release validation only ran
 `vectorAdd`, a tiny allocation. The mandatory serve gate that closes that hole is

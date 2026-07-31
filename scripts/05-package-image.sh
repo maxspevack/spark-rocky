@@ -131,6 +131,12 @@ chk '[ -d "$MNT/lib/modules/$KVER" ]'                                    "the im
 chk '[ ! -e "$MNT/etc/spark-rocky-debug-hatch" ]'                        "no DEBUG hatch marker (a DEBUG build is un-releasable)"
 chk '[ -f "$W/config-$KVER" ]'                                           "resolved config-$KVER present (manifest hashes the real build config, not a guessed base glob)"
 chk 'grep -q "$WANT_PG" "$CFG"'                                          "page size matches the pin: $PAGE_SIZE ($WANT_PG) — a 64k pin cannot ship a 4k image"
+# 64k CORRECTNESS gate (2026-07-31). Under CONFIG_ARM64_64K_PAGES every GPU mapping >=4 GiB faults on a
+# driver carrying the NV_DMA_SUBMAP_MAX_PAGES misalignment (NVIDIA/open-gpu-kernel-modules#1269, our #65).
+# So a 64k pin may only ship on a driver PROVEN correct under 64k — DRIVER_64K_SAFE in versions.env. This
+# is what makes "flip one line when the fix lands" safe: the flip alone cannot ship a faulting appliance.
+PG64_OK=1; if [ "$PAGE_SIZE" = 64k ]; then case " ${DRIVER_64K_SAFE:-} " in *" $DRIVER_VER "*) ;; *) PG64_OK=0 ;; esac; fi
+chk '[ "$PG64_OK" = 1 ]'                                                 "64k is only packaged on a driver proven correct under 64k (pin $PAGE_SIZE, driver $DRIVER_VER, DRIVER_64K_SAFE='${DRIVER_64K_SAFE:-}') — see #65 / NVIDIA open-gpu-kernel-modules#1269"
 
 sync; cleanup; trap - EXIT
 [ "$VERR" = 0 ] || { echo "ABORT: hardening verification failed — NOT compressing, NOT emitting a checksum."; rm -f "$WORK"; exit 1; }

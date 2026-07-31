@@ -145,6 +145,11 @@ if grep -qF 'proof-of-life' scripts/validate.sh; then no "validate.sh still depe
 # The page-size pin maps to the config symbol IN 05's gate (audit #70 C6: test the real code, not a
 # local re-implementation — the old pgsym self-test passed even if 05's mapping rotted).
 if grep -qF 'WANT_PG=$([ "$PAGE_SIZE" = 64k ] && echo "CONFIG_ARM64_64K_PAGES=y" || echo "CONFIG_ARM64_4K_PAGES=y")' scripts/05-package-image.sh; then ok "05 derives the page-size gate symbol from the pin"; else no "05 page-size->symbol mapping missing/changed — the fail-closed gate may not match the pin"; fi
+# --- the 64k correctness gate (#65 / NVIDIA open-gpu-kernel-modules#1269) ---
+grep -q 'DRIVER_64K_SAFE=' config/versions.env && ok "versions.env declares DRIVER_64K_SAFE (the 64k gate input)" || no "versions.env: DRIVER_64K_SAFE missing — a 64k pin would ship ungated"
+grep -q 'PG64_OK' scripts/05-package-image.sh && ok "05 gates a 64k pin on DRIVER_64K_SAFE (fail-closed)" || no "05: 64k correctness gate missing"
+case " $(. config/versions.env; echo "$DRIVER_64K_SAFE") " in *" $(. config/versions.env; echo "$DRIVER_VER")"*) no "DRIVER_64K_SAFE lists the shipping driver $(. config/versions.env; echo "$DRIVER_VER") — it carries the #1269 defect; a >=4 GiB allocation test must PASS before it earns that";; *) ok "DRIVER_64K_SAFE excludes the defect-carrying shipping driver";; esac
+if [ "$(. config/versions.env; echo "$PAGE_SIZE")" = 64k ]; then case " $(. config/versions.env; echo "$DRIVER_64K_SAFE") " in *" $(. config/versions.env; echo "$DRIVER_VER") "*) ok "64k pin sits on a 64k-safe driver";; *) no "64k pin on a driver not in DRIVER_64K_SAFE — 05 will refuse (this is the gate working)";; esac; else ok "page-size pin is 4k (the #1269 trade; destination is 64k, see versions.env)"; fi
 # Doctor has no hardcoded issue URL (S1).
 if grep -qF 'issues/new' scripts/validate.sh; then no "validate.sh still prints a hardcoded issue URL (S1)"; else ok "validate.sh has no hardcoded issue URL (S1)"; fi
 # 04 grub menuentry is generated ONCE (S2) — guards against the two-copies divergence returning.

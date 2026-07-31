@@ -18,6 +18,19 @@ ships (`uname -r`).
   [NVIDIA/open-gpu-kernel-modules#1269](https://github.com/NVIDIA/open-gpu-kernel-modules/issues/1269)
   with a one-hunk patch. Alignment proven causal by a non-monotone sweep (65488 faults between two passing
   values). 580.x is clean; 590/595/610 all fault.
+- **64k locked in as the committed direction, held by a fail-closed gate (#65, #81).**
+  `config/versions.env` now declares `DRIVER_64K_SAFE` — the driver versions *proven* correct under
+  `CONFIG_ARM64_64K_PAGES` on this hardware — and `05` **refuses to package a 64k image on any driver not on
+  that list**. The shipping `610.43.03` is deliberately absent (it carries the #1269 defect); `580.173.02` is
+  present and measured. Effect: flipping `PAGE_SIZE=64k` today aborts at packaging instead of shipping a
+  faulting appliance, and when #1269 lands the whole change is two reviewable lines. Verified on all three
+  real combinations (`4k`/610 packages, `64k`/610 refuses, `64k`/580 packages); four `make test` invariants
+  hold it, including one that fails if the shipping driver is ever added to the safe list without earning it.
+  A driver earns a place only by passing a ≥ 4 GiB allocation test on this hardware.
+- **`expandable_segments` priced: it is free (#81, 2026-07-31).** 104-cell A/B at 4k against the default
+  allocator, both legs throttle-CLEAN: median **0.999×** (decode 1.002×, prefill 0.996×, 8 cells faster /
+  7 slower). So it is the right recommendation for PyTorch users on 64k, and still not an appliance default —
+  it protects only PyTorch-allocator memory; llama.cpp / TensorRT-LLM / custom CUDA ≥ 4 GiB still fault.
 - **Driver-only A/B receipt: the 580 fallback is rejected on evidence.** 64k *does* work on `580.173.02`
   with no patch and no workaround (real vLLM serve, 91.38 GiB KV cache, zero Xid) — but 580 measured
   **0.896× (−10.4%) full-matrix median** against 610.43.03 at identical 4k page size, 94/104 cells slower and
@@ -67,6 +80,14 @@ ships (`uname -r`).
   branch table now carries measured relative performance, the three routes to 64k are priced (580 rejected,
   `expandable_segments` the only live candidate, the patch unshippable under zero-patch), and the June 2026
   64k perf win is caveated as having been measured on a stack carrying the defect.
+- **The 64k re-measure has no result, and the docs say so.** A 64k leg on a correct-by-workaround stack ran
+  the full matrix on 2026-07-31 and **throttled** (4 slowdown samples, −2 °C headroom, 87 °C peak); the #43
+  gate discarded it rather than report it. 64k's *magnitude* stays plausible-and-unproven; the redo needs the
+  chunked protocol (#81). Recorded in `platform-deltas.md` and `scoreboard.md` chapter 3 — a discarded
+  measurement is a published fact here, not a silence.
+- **Every reported benchmark number carries its measurement date.** `proof.md` and `scoreboard.md` parity
+  tables gained an explicit *measured* column (2026-06-10 baselines, 2026-07-24 gen-2 re-proof), and
+  `proof.md` states the rule: an undated figure in this repo is a bug, and the receipt is the resolution.
 - README and `docs/build/software-stack.md` note that 610 is a preview branch (EOL Aug 2026) carrying the
   defect, and that the 580 fallback costs 10.4%.
 - **Benchmark docs restructured as the story** (`proof.md` → `scoreboard.md` chapters 1/2/3): parity
