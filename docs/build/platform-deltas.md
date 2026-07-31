@@ -13,45 +13,98 @@ The load-bearing fact: **GPU compute works** — `proof-of-life` runs `vectorAdd
 memory is 121 GiB ≈ 130 GB decimal — `nvidia-smi` reports decimal GB, other docs say 121 GB binary;
 same memory.) Everything below is peripheral to that.
 
-## Page size — 4k since 2026-07-17 (64k REVERTED, #65)
+## Page size — 4k today, and the trade that decides it (#65, #80, #81)
 
 **We ship a 4k-page kernel** (`CONFIG_ARM64_4K_PAGES`), pinned as `PAGE_SIZE=4k` in
-[`config/versions.env`](../../config/versions.env). This is a **2026-07-17 reversal** of what had been the
-project's headline opinionated choice (64k). The reversal is a **correctness fix, not a change of opinion on
-performance**: under 64k pages, **large CUDA allocations fault** — a GPU Xid 31 MMU fault in the large
-(~90 GB) KV-cache allocation ([#65](https://github.com/maxspevack/spark-rocky/issues/65)), reproducible in
-~15 lines of pure CUDA (`cudaMalloc` ~90 GB + write). 4k is unaffected and serves clean.
+[`config/versions.env`](../../config/versions.env). Not because 4k is better for this box — it isn't, on the
+evidence below — but because of a driver defect that forces a choice.
 
-**Not a kernel regression (2026-07-22).** The fault was first read as a kernel change in the `.35→.37`
-window (64k on `6.18.35` had served in June; 64k on `6.18.38` faults). Controlled reverts falsified that:
-the **exact June stack — kernel `6.18.35` + 64k + driver `610.43.02` + the June firmware — fully restored,
-still faults.** Kernel, driver, and firmware are all exonerated; the remaining suspects are host userspace,
-the CUDA toolkit, or an NVIDIA CUDA-ARM64-64k bug. The root-cause hunt is **deferred**
-([#68](https://github.com/maxspevack/spark-rocky/issues/68)); 4k is the resolution.
+### The trade, stated plainly: you cannot have both the newest driver and 64k pages
 
-**Why 64k was the choice (and why the theory still holds).** The GB10 is a concurrent AI-serving box. 64k
-pages cut TLB misses and page-table walks under large memory working sets — the regime this workload lives
-in (many concurrent sequences over long contexts → a big KV cache). 4k is the right default for a *general*
-host; 64k was the opinionated default for *this* one — until the fault surfaced.
+**64 KiB pages and the current NVIDIA driver branches are mutually exclusive on this hardware.** The reason
+is a defect we root-caused and reported upstream:
+**[NVIDIA/open-gpu-kernel-modules#1269](https://github.com/NVIDIA/open-gpu-kernel-modules/issues/1269)**.
 
-**The performance evidence stands (2026-06-16, on the June `6.18.35`/64k stack).** Full canonical 104-cell
-matrix, 35B-A3B-FP8, `6.18.35`/64k vs the 4k baseline: median +2.3%, **35 cells win ≥+5% vs 3 losses**, wins
-clustered on concurrent + deep-context cells (`tg128@d65535 (c10)` **1.30×**, `ctx_pp@d4096 (c2)` **1.38×**).
-That win was measured while the June stack still served. It is currently unreachable — the perf gain is
-*parked behind a correctness bug*, not withdrawn. (Why the June run worked at all is part of #68's open
-question.) It shipped undetected in four 64k releases because release validation only ran `vectorAdd`
-(a tiny allocation) — the serve gate that now closes that hole is
-[#67](https://github.com/maxspevack/spark-rocky/issues/67). Full isolation: [#65](https://github.com/maxspevack/spark-rocky/issues/65).
+| driver branch | EOL | 64 KiB pages |
+|---|---|---|
+| **580 (LTSB)** — also what DGX OS ships for the GB10 | Jun 2028 | **works** |
+| 590 (dropped), 595 (Production), **610 (preview, what we ship)** | Aug 2026 for 610 | **broken** |
 
-**Flip back to 64k in `versions.env` (only) if #68's CUDA-level cause is ever found + fixed.**
+`kernel-open/common/inc/nv-linux.h` guards its DMA-submap sizing with `CONFIG_ARM64_4K_PAGES`, but the
+invariant that guard implements — *"the mapped IOVA range must be aligned at 2M boundary"*, per NVIDIA's own
+comment — is a property of ARM64, not of the OS page size. That symbol appears exactly once in the tree and
+the `#else` beside it is the generic x86/RISC-V fallback, so a 64 KiB-page ARM64 kernel inherits a submap
+size of `0xFFFF0000` — which is **not** 2 MiB-aligned. Every GPU mapping of 4 GiB or more then contains an
+unusable 64 KiB page just below each 4 GiB boundary. `cudaMalloc` *succeeds*; the first read or write to such
+a page raises **Xid 31 `FAULT_PTE`** and the process dies. vLLM fails at engine init allocating its KV cache.
 
-**How it's enforced (the process, not just a flag).** `PAGE_SIZE` is a pinned, reviewable line; `01` sets the
-`CONFIG_ARM64_4K_PAGES` / `_64K_PAGES` symbol from it (the page size adds **no** uname suffix — source
-lineage does: `-clk` on the default path); `05`'s fail-closed gate **aborts the release if the
-resolved `.config` page size does not match the pin** (the current `4k` pin cannot ship a 64k image, and vice
-versa); the provenance stamp records `page_size=4k`; and the `validate.sh` doctor asserts the running
-`getconf PAGESIZE` (`4096`) matches what was built. The page size lives in the `.config` symbol + the stamp,
-not in a uname tag — so flipping the pin back to 64k after #68 is a one-line, fully-gated change.
+The requirement tightened from 64 KiB to 2 MiB alignment in **590.44.01** (2025-12-02) and only the arm with
+an explicit constant was updated. Before that, every 64 KiB page count satisfied 64 KiB alignment for free —
+which is why the generic branch was adequate and went unrevisited.
+
+**Full investigation, with every measurement and the one-hunk patch:**
+[`#65`](https://github.com/maxspevack/spark-rocky/issues/65) is the tracker;
+[`#68`](https://github.com/maxspevack/spark-rocky/issues/68) (closed) carries the root-cause record;
+the sealed evidence package, per-claim provenance table, minimal reproducer and patch live in the
+maintainer's `~/dev/local/68-64k-seam/`.
+
+### How we know it is alignment and not size
+
+Sweeping `NV_DMA_SUBMAP_MAX_PAGES` on one machine, same kernel and driver throughout:
+
+| pages | submap bytes | 2 MiB-aligned | result |
+|---|---|---|---|
+| 65472 | `0xFFC00000` | yes | pass |
+| **65488** | `0xFFD00000` | **no** | **FAULT** |
+| 65504 | `0xFFE00000` | yes | pass |
+| 65520 | `0xFFF00000` | no | FAULT |
+| 65535 (shipping) | `0xFFFF0000` | no | FAULT |
+
+65488 faults while **both** a smaller (65472) and a larger (65504) value pass. The series is non-monotone in
+size, so no size threshold explains it. Writing `δ = roundup(S, 2MiB) − S`, the unmapped range is the top `δ`
+bytes of each window and is empty when `δ = 0` — which accounts for every offset probed.
+
+### The three ways to have 64k, and what each costs
+
+1. **Driver 580.x (LTSB).** Verified 2026-07-31 on this box: 64 KiB pages + `580.173.02`, stock allocator,
+   **no patch and no workaround** — reproducer clean, a 90 GiB allocation clean, and a real vLLM serve
+   `GATE-PASS` with a 91.38 GiB KV cache, zero Xid events, `dmesg` err/crit census unchanged from the 610
+   baseline. This driver also advertises CUDA 13.0, matching our pinned serving container. **Cost:** it means
+   *not* running the newest published driver, and every parity receipt in this repo is anchored on 610, so the
+   proof corpus needs re-running. Tracked as [#80](https://github.com/maxspevack/spark-rocky/issues/80).
+2. **`PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`** on the current driver. PyTorch then maps in 2 MiB
+   granules and never reaches a submap boundary. Proven under load. **Cost:** it protects only allocations
+   made through PyTorch's caching allocator — anything else requesting ≥ 4 GiB still faults — so it is
+   containment for a known workload, not something an appliance can promise its users.
+3. **The patch.** One hunk, validated with a there-and-back on stock kernel.org mainline. **Cost:** carrying
+   it breaks this project's zero-patch promise, so it is not a shipping option unless NVIDIA takes it.
+
+### Why 64k is worth wanting at all — and why that number is now suspect
+
+The GB10 is a concurrent AI-serving box. 64 KiB pages cut TLB misses and page-table walks under the large
+memory working sets this workload lives in. The 2026-06-16 measurement (full 104-cell matrix, 35B-A3B-FP8,
+`6.18.35`/64k vs 4k) showed median +2.3%, **35 cells winning ≥ +5% against 3 losses**, clustered on
+concurrent and deep-context cells (`tg128@d65535 (c10)` **1.30×**, `ctx_pp@d4096 (c2)` **1.38×**).
+
+**Read that number with the caveat it now carries:** it was taken on a stack containing this defect. The
+workload completed only because it never touched one of the poisoned pages. The measurement is not *wrong*,
+but the configuration was silently broken, and it is the sole evidence behind a 64k default. Re-measuring on
+a correct stack is [#81](https://github.com/maxspevack/spark-rocky/issues/81), and until that lands, 64k's
+advantage should be treated as **plausible and unproven**, not established.
+
+### How the pin is enforced (process, not just a flag)
+
+`PAGE_SIZE` is a pinned, reviewable line; `01` sets the `CONFIG_ARM64_4K_PAGES` / `_64K_PAGES` symbol from
+it (page size adds **no** uname suffix — source lineage does: `-clk` on the default path); `05`'s
+fail-closed gate **aborts the release if the resolved `.config` page size does not match the pin** (the
+current `4k` pin cannot ship a 64k image, and vice versa); the provenance stamp records `page_size=4k`; and
+the `validate.sh` doctor asserts the running `getconf PAGESIZE` matches what was built. The page size lives
+in the `.config` symbol plus the stamp, never in a uname tag — so flipping the pin is a one-line, fully
+gated change once the trade above is decided.
+
+Historical note: the 64k default shipped undetected in four releases because release validation only ran
+`vectorAdd`, a tiny allocation. The mandatory serve gate that closes that hole is
+[#67](https://github.com/maxspevack/spark-rocky/issues/67).
 
 ## Grounding (measured 2026-06-11)
 - **Kernel config has the features on:** `ARM_SMMU_V3_SVA`, `IOMMU_SVA`, `PCI_PRI/PASID/ATS`, `ENERGY_MODEL`,
