@@ -23,16 +23,6 @@ ships (`uname -r`).
   **0.896× (−10.4%) full-matrix median** against 610.43.03 at identical 4k page size, 94/104 cells slower and
   none faster, throttle-CLEAN both legs. Trading ~8 points of median throughput for a +2.3% page-size win is
   a net loss. Receipt `reproduce-Qwen3.5-0.8B-driver-AB-580-vs-610-2026-07-31.txt` + matrix CSV.
-
-### Changed
-- `docs/build/platform-deltas.md` page-size section rewritten as a **trade** rather than a reversal: the
-  branch table now carries measured relative performance, the three routes to 64k are priced (580 rejected,
-  `expandable_segments` the only live candidate, the patch unshippable under zero-patch), and the June 2026
-  64k perf win is caveated as having been measured on a stack carrying the defect.
-- README and `docs/build/software-stack.md` note that 610 is a preview branch (EOL Aug 2026) carrying the
-  defect, and that the 580 fallback costs 10.4%.
-
-### Added
 - **First community-registry contribution filed (#75, 2026-07-27):**
   [spark-arena/community-recipe-registry#12](https://github.com/spark-arena/community-recipe-registry/pull/12)
   — the Nemotron-3-Super-120B single-node recipe (board-best lineage, nst=3, the
@@ -73,6 +63,12 @@ ships (`uname -r`).
   physical power cycle).
 
 ### Changed
+- `docs/build/platform-deltas.md` page-size section rewritten as a **trade** rather than a reversal: the
+  branch table now carries measured relative performance, the three routes to 64k are priced (580 rejected,
+  `expandable_segments` the only live candidate, the patch unshippable under zero-patch), and the June 2026
+  64k perf win is caveated as having been measured on a stack carrying the defect.
+- README and `docs/build/software-stack.md` note that 610 is a preview branch (EOL Aug 2026) carrying the
+  defect, and that the 580 fallback costs 10.4%.
 - **Benchmark docs restructured as the story** (`proof.md` → `scoreboard.md` chapters 1/2/3): parity
   (the host is invisible) → the frontier (current meta, in the band — config moved the numbers, never
   the host) → discipline (the #43 throttle gate, the GB10's sustained-sweep cooling ceiling, the
