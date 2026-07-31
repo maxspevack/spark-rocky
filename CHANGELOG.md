@@ -11,6 +11,28 @@ ships (`uname -r`).
 ## [Unreleased]
 
 ### Added
+- **The 64k/driver trade, measured and documented (#65, #80, #81).** 64 KiB pages and the current NVIDIA
+  driver branches are mutually exclusive on this hardware: a mis-scoped `CONFIG_ARM64_4K_PAGES` guard leaves
+  the 64k DMA-submap size 2 MiB-misaligned, so every GPU mapping ≥ 4 GiB carries an unusable page just below
+  each 4 GiB boundary. Root-caused, reduced to a ~10-second reproducer, and reported upstream as
+  [NVIDIA/open-gpu-kernel-modules#1269](https://github.com/NVIDIA/open-gpu-kernel-modules/issues/1269)
+  with a one-hunk patch. Alignment proven causal by a non-monotone sweep (65488 faults between two passing
+  values). 580.x is clean; 590/595/610 all fault.
+- **Driver-only A/B receipt: the 580 fallback is rejected on evidence.** 64k *does* work on `580.173.02`
+  with no patch and no workaround (real vLLM serve, 91.38 GiB KV cache, zero Xid) — but 580 measured
+  **0.896× (−10.4%) full-matrix median** against 610.43.03 at identical 4k page size, 94/104 cells slower and
+  none faster, throttle-CLEAN both legs. Trading ~8 points of median throughput for a +2.3% page-size win is
+  a net loss. Receipt `reproduce-Qwen3.5-0.8B-driver-AB-580-vs-610-2026-07-31.txt` + matrix CSV.
+
+### Changed
+- `docs/build/platform-deltas.md` page-size section rewritten as a **trade** rather than a reversal: the
+  branch table now carries measured relative performance, the three routes to 64k are priced (580 rejected,
+  `expandable_segments` the only live candidate, the patch unshippable under zero-patch), and the June 2026
+  64k perf win is caveated as having been measured on a stack carrying the defect.
+- README and `docs/build/software-stack.md` note that 610 is a preview branch (EOL Aug 2026) carrying the
+  defect, and that the 580 fallback costs 10.4%.
+
+### Added
 - **First community-registry contribution filed (#75, 2026-07-27):**
   [spark-arena/community-recipe-registry#12](https://github.com/spark-arena/community-recipe-registry/pull/12)
   — the Nemotron-3-Super-120B single-node recipe (board-best lineage, nst=3, the

@@ -26,7 +26,9 @@ ENV 1 — HOST (ours, the swapped layer)
   kernel                   6.18.39-clk  CIQ Linux Kernel (CLK), 4k pages, zero patches carried here  (rpm-installed, #59; the released image ships it too since spark-rocky-live-20260723; parity benched on stock 6.18.34/4k in June, re-proven on CLK `.39-clk`/4k — median 1.010×, receipt `reproduce-Qwen3.5-0.8B-gen2-2026-07-24.txt`. 64k reverted 2026-07-17 — serve regression #65)
   GPU driver               610.43.03 open module, WE built it            (the shipped driver; parity was benched on 610.43.02)
                            NOTE: 610 is a preview branch (EOL Aug 2026) and carries the 64k DMA-submap
-                           defect (open-driver #1269). 580 LTSB is clean under 64k. See platform-deltas.md.
+                           defect (open-driver #1269). 580 LTSB is clean under 64k but measured 10.4%
+                           SLOWER at 4k (104-cell A/B, 2026-07-31), so falling back is a net loss.
+                           See platform-deltas.md.
   platform firmware        NVIDIA's latest, via public fwupd/LVFS      (see build.md → Firmware)
   docker                   29.6.1 ; nvidia-container-toolkit 1.19.1
   CUDA toolkit (host)      13.0      used to BUILD the driver; not used to serve

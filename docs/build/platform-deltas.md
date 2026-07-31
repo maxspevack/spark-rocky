@@ -25,10 +25,13 @@ evidence below — but because of a driver defect that forces a choice.
 is a defect we root-caused and reported upstream:
 **[NVIDIA/open-gpu-kernel-modules#1269](https://github.com/NVIDIA/open-gpu-kernel-modules/issues/1269)**.
 
-| driver branch | EOL | 64 KiB pages |
-|---|---|---|
-| **580 (LTSB)** — also what DGX OS ships for the GB10 | Jun 2028 | **works** |
-| 590 (dropped), 595 (Production), **610 (preview, what we ship)** | Aug 2026 for 610 | **broken** |
+| driver branch | EOL | 64 KiB pages | relative perf (4k, measured) |
+|---|---|---|---|
+| **580 (LTSB)** — also what DGX OS ships for the GB10 | Jun 2028 | **works** | **0.896× — 10.4% slower** |
+| 590 (dropped), 595 (Production), **610 (preview, what we ship)** | Aug 2026 for 610 | **broken** | 1.000× (baseline) |
+
+So the two properties we want are on opposite branches, and the branch that gives correctness under 64k costs
+about 10% throughput. That is the whole trade, and it is why we ship 4k on 610.
 
 `kernel-open/common/inc/nv-linux.h` guards its DMA-submap sizing with `CONFIG_ARM64_4K_PAGES`, but the
 invariant that guard implements — *"the mapped IOVA range must be aligned at 2M boundary"*, per NVIDIA's own
@@ -64,20 +67,44 @@ Sweeping `NV_DMA_SUBMAP_MAX_PAGES` on one machine, same kernel and driver throug
 size, so no size threshold explains it. Writing `δ = roundup(S, 2MiB) − S`, the unmapped range is the top `δ`
 bytes of each window and is empty when `δ = 0` — which accounts for every offset probed.
 
-### The three ways to have 64k, and what each costs
+### The three ways to have 64k — one is now closed on evidence
 
-1. **Driver 580.x (LTSB).** Verified 2026-07-31 on this box: 64 KiB pages + `580.173.02`, stock allocator,
-   **no patch and no workaround** — reproducer clean, a 90 GiB allocation clean, and a real vLLM serve
-   `GATE-PASS` with a 91.38 GiB KV cache, zero Xid events, `dmesg` err/crit census unchanged from the 610
-   baseline. This driver also advertises CUDA 13.0, matching our pinned serving container. **Cost:** it means
-   *not* running the newest published driver, and every parity receipt in this repo is anchored on 610, so the
-   proof corpus needs re-running. Tracked as [#80](https://github.com/maxspevack/spark-rocky/issues/80).
-2. **`PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`** on the current driver. PyTorch then maps in 2 MiB
-   granules and never reaches a submap boundary. Proven under load. **Cost:** it protects only allocations
-   made through PyTorch's caching allocator — anything else requesting ≥ 4 GiB still faults — so it is
-   containment for a known workload, not something an appliance can promise its users.
-3. **The patch.** One hunk, validated with a there-and-back on stock kernel.org mainline. **Cost:** carrying
-   it breaks this project's zero-patch promise, so it is not a shipping option unless NVIDIA takes it.
+1. **~~Driver 580.x (LTSB)~~ — REJECTED 2026-07-31, on measurement.** 64 KiB pages *do* work on 580: verified
+   on this box with `580.173.02`, stock allocator, no patch and no workaround — reproducer clean, a 90 GiB
+   allocation clean, a real vLLM serve `GATE-PASS` with a 91.38 GiB KV cache, zero Xid events. **But the driver
+   itself is ~10% slower.** A driver-only A/B with the page size held at 4k, same box / kernel / pinned
+   serving image / recipe / script, 104 cells each side:
+
+   | | 580.173.02 vs 610.43.03 |
+   |---|---|
+   | full-matrix median | **0.896 — 10.4% slower** |
+   | decode (`tg*`, n=28) | 0.911 — 8.9% slower |
+   | prefill (`pp`/`ctx`, n=76) | 0.894 — 10.6% slower |
+   | cells >5% slower on 580 | **94 / 104** |
+   | cells >5% faster on 580 | **0 / 104** |
+
+   Throttle-CLEAN on both legs, so this is not thermal. `tg128 (c1)` 124.09 → 113.65; `pp2048 (c1)`
+   22317 → 17299 (−22.5%); worst cell 0.636×. Receipt:
+   [`reproduce-Qwen3.5-0.8B-driver-AB-580-vs-610-2026-07-31.txt`](../../receipts/reproduce-Qwen3.5-0.8B-driver-AB-580-vs-610-2026-07-31.txt).
+
+   **The arithmetic that closes it:** 64k's best-case gain is a median **+2.3%** (and that was measured on a
+   stack carrying this very defect). 580's cost to obtain 64k is a median **−10.4%**. Trading ~8 points of
+   median throughput for a 2.3% page-size win is a net loss by a wide margin. *Honest limit:* one model
+   (Qwen3.5-0.8B), one matrix — but 94 of 104 cells slower with zero winners makes a reversal unlikely.
+
+2. **`PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`** on the current driver — **the only live candidate.**
+   PyTorch then maps in 2 MiB granules and never reaches a submap boundary; proven under load (20/20
+   completions, 8k context, 8-way concurrency, zero Xid). **Costs:** it protects only allocations made through
+   PyTorch's caching allocator — anything else requesting ≥ 4 GiB still faults — so it is containment for a
+   known workload, not something an appliance can promise its users. Its own allocator overhead is also
+   unmeasured, which is what [#81](https://github.com/maxspevack/spark-rocky/issues/81) would settle.
+
+3. **The patch.** One hunk, validated with a there-and-back on stock kernel.org mainline. **Cost:** carrying it
+   breaks this project's zero-patch promise, so it is not a shipping option unless NVIDIA takes it.
+
+**Consequence: [NVIDIA/open-gpu-kernel-modules#1269](https://github.com/NVIDIA/open-gpu-kernel-modules/issues/1269)
+is now the real gate on 64k**, not a nice-to-have. With the 580 fallback priced and rejected, there is no route
+to 64k that is simultaneously correct, fast, patch-free and workload-agnostic until that fix ships.
 
 ### Why 64k is worth wanting at all — and why that number is now suspect
 

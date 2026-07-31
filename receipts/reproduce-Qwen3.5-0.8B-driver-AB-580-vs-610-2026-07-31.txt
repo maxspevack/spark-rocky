@@ -1,0 +1,62 @@
+DRIVER-ONLY A/B — open driver 580.173.02 (LTSB) vs 610.43.03, PAGE SIZE HELD AT 4k
+====================================================================================
+Question: does falling back from the 610 branch to the 580 LTSB branch cost performance?
+Motivation: 580 is the only branch without the 64k DMA-submap defect (open-driver #1269),
+so "ship 580 to get 64k pages" was a live proposal (#80). This prices it.
+
+VERDICT: NO. 580.173.02 is ~10% slower than 610.43.03 across the whole matrix.
+         The 580 route to 64k is REJECTED on evidence.
+
+  full-matrix median 580/610 : 0.896   (-10.4%)
+  decode  (tg*,  n=28)      : 0.911   (-8.9%)
+  prefill (pp/ctx, n=76)    : 0.894   (-10.6%)
+
+  cells >5% SLOWER on 580 : 94 / 104
+  cells >5% FASTER on 580 : 0 / 104
+  within +/-5%            : 10 / 104
+
+  Not a single cell is faster on 580. The regression is uniform, not workload-specific.
+
+HEADLINE CELLS (t/s)
+  cell            610.43.03      580.173.02    ratio
+  tg128 (c1)         124.09          113.65    0.916
+  tg128 (c2)         255.76          206.36    0.807
+  tg128 (c5)         289.61          258.51    0.893
+  tg128 (c10)        359.35          310.81    0.865
+  pp2048 (c1)      22317.28        17299.18    0.775
+
+WORST FIVE CELLS ON 580
+  pp2048 @ d100000 (c5)  610=   2749.47  580=   1748.61  ratio=0.636
+  pp2048 (c1)            610=  22317.28  580=  17299.18  ratio=0.775
+  pp2048 @ d4096 (c2)    610=  19359.34  580=  15273.68  ratio=0.789
+  ctx_pp @ d4096 (c1)    610=  24248.48  580=  19250.44  ratio=0.794
+  pp2048 @ d65535 (c5)   610=   3049.73  580=   2427.58  ratio=0.796
+
+WHY THIS KILLS THE 580 ROUTE TO 64k
+  64k's best-case gain (2026-06-16 matrix, and that was measured on a stack carrying the
+  #1269 defect): median +2.3%, best cells 1.30-1.38x.
+  580's cost to obtain 64k: median -10.4%.
+  Net: roughly -8 percentage points of median throughput to buy a +2.3% page-size win.
+  A net loss by a wide margin, even taking the June number at face value.
+
+CONTROLLED
+  Held constant: box (single GB10), kernel 6.18.39-clk, PAGE SIZE 4k, serving image
+  (dgx-vllm mirror tag 2026072302, digest-pinned), recipe (qwen3.5-0.8b-arena-2026072302),
+  benchmark script (scripts/run-benchmark-matrix.sh, llama-benchy 0.3.8), model
+  (Qwen/Qwen3.5-0.8B), 104 cells both sides.
+  Changed: the open driver only (kmods + matching userspace).
+  580 modules built from NVIDIA-Linux-aarch64-580.173.02.run against the same 6.18.39-clk
+  tree, vermagic verified. Userspace installed with --no-install-libglvnd (the installer's
+  libglvnd checker aborts AFTER uninstalling the incumbent otherwise).
+  580 leg: THROTTLE-CHECK CLEAN, max temp 84C. Serve-gate up before the matrix
+  (KV cache 93.34 GiB available, ~1-2 GiB more than the 610 runs report).
+  Restored afterward via the vended rpms; both rpm -V CLEAN, doctor PASS.
+
+HONEST LIMIT
+  One model (Qwen3.5-0.8B), one matrix. The regression is uniform enough (94/104 cells
+  slower, zero faster) that a second model is unlikely to reverse it, but this has not been
+  confirmed on the 35B or Nemotron lanes.
+
+Raw: receipts/qwen3.5-0.8b-matrix-580.173.02-4k-2026-07-31.csv
+Baseline: receipts/qwen3.5-0.8b-matrix-gen2-2026-07-24.csv (610.43.03/4k, median 1.010x vs published)
+Issues: #80 (branch decision), #81 (this measurement), #65 (64k restoration)
