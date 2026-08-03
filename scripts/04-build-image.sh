@@ -113,8 +113,17 @@ mount -t tmpfs -o size=20G tmpfs "$MNT"/var/tmp   # dracut scratch in RAM, not t
 cp -fL /etc/resolv.conf "$MNT/etc/resolv.conf"
 chroot "$MNT" /bin/bash <<CHROOT
 set -e
-dnf install -y -q grub2-efi-aa64 grub2-efi-aa64-modules shim-aa64 dracut-network NetworkManager openssh-server zstd
+dnf install -y -q grub2-efi-aa64 grub2-efi-aa64-modules shim-aa64 dracut-network NetworkManager NetworkManager-wifi wpa_supplicant openssh-server zstd
 command -v zstd >/dev/null || { echo "FATAL: zstd missing in chroot -- dracut would silently fall back to gzip (#44)"; exit 1; }
+# WiFi userspace, fail-closed (#84, 2026-08-03). Base NetworkManager has NO wifi support: the device
+# plugin ships in NetworkManager-wifi (libnm-device-plugin-wifi.so) and association needs wpa_supplicant.
+# Neither is a hard Requires of NetworkManager, and 02 runs --setopt=install_weak_deps=False, so nothing
+# pulled them in. #64 shipped the mt7925 FIRMWARE and validated only that the link came up -- so from
+# #64 until 2026-08-03 the image shipped a radio it could not use: NM reported wlP9s9 'unavailable' and
+# scans returned nothing. Firmware without userspace is not WiFi support. Same class of miss as #64's
+# own root cause (a per-vendor subpackage split silently dropping a weak dep).
+rpm -q NetworkManager-wifi wpa_supplicant >/dev/null || { echo "FATAL: WiFi userspace missing (NetworkManager-wifi / wpa_supplicant) -- the image would ship a radio it cannot use (#84)"; exit 1; }
+find /usr/lib64/NetworkManager -name 'libnm-device-plugin-wifi.so' | grep -q . || { echo "FATAL: NM wifi device plugin absent -- wlP9s9 would report 'unavailable' (#84)"; exit 1; }
 echo 'root:rocky' | chpasswd   # DEV-IMAGE default — this box is LAN-only + reinstalled on demand; change before exposing off-LAN
 systemctl enable sshd NetworkManager getty@tty1.service 2>/dev/null || true
 # serial-getty@ttyS0 dropped + console=ttyS0 removed above: /dev/ttyS0 does not exist on the GB10, so
@@ -124,6 +133,9 @@ systemctl enable sshd NetworkManager getty@tty1.service 2>/dev/null || true
 # NetworkManager does not burn 45s per port on dead DHCP and flood the console.
 mkdir -p /etc/NetworkManager/conf.d
 printf '[keyfile]\nunmanaged-devices=driver:mlx5_core\n' > /etc/NetworkManager/conf.d/10-spark-unmanage.conf
+# WiFi powersave OFF by default (#84). The mt7925 defaults to PS on, which is wrong for a headless box
+# driven over SSH: measured on the metal 2026-08-03, gateway RTT ran ~300 ms at full signal with PS on.
+printf '[connection]\nwifi.powersave=2\n' > /etc/NetworkManager/conf.d/20-spark-wifi-powersave.conf
 systemctl mask NetworkManager-wait-online.service 2>/dev/null || true   # do not block boot on the network
 # The ConnectX/mlx5 NIC is the cluster-fabric port (cable-less here; single-host = multi-node out of scope).
 # Don't load its driver — it floods dmesg hunting for firmware we deliberately don't ship in a minimal

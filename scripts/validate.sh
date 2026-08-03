@@ -111,6 +111,25 @@ chk '[ "${SWAP:-1}" = 0 ]'                       "swap off (SwapTotal=${SWAP:-?}
 NOISE=$(dmesg 2>/dev/null | grep -ciE 'mlx5.*(firmware|insufficient power)|WQ_UNBOUND')
 chk '[ "${NOISE:-1}" = 0 ]'                      "dmesg clean of the known regressions (mlx5-firmware / WQ_UNBOUND): ${NOISE:-?} hit(s)"
 
+sect "6. WiFi radio usable end-to-end (#84 — firmware alone is not WiFi support)"
+# The #64 miss encoded as a test: the gate is that NM can MANAGE the radio and a SCAN returns APs,
+# not merely that firmware loaded and the link came up. 'unavailable' is the exact state that shipped.
+WDEV=$(nmcli -t -f DEVICE,TYPE device status 2>/dev/null | awk -F: '$2=="wifi"{print $1; exit}')
+if [ -n "$WDEV" ]; then
+  WSTATE=$(nmcli -t -f DEVICE,STATE device status 2>/dev/null | awk -F: -v d="$WDEV" '$1==d{print $2}')
+  chk 'rpm -q NetworkManager-wifi >/dev/null 2>&1'  "NetworkManager-wifi installed (the device plugin)"
+  chk 'rpm -q wpa_supplicant >/dev/null 2>&1'       "wpa_supplicant installed (required to associate)"
+  chk 'ls /usr/lib/firmware/mediatek/mt7925/WIFI_RAM_CODE* >/dev/null 2>&1'  "mt7925 firmware present (#64)"
+  chk '[ -d /sys/class/ieee80211/phy0 ]'            "a wifi phy is registered (driver + firmware came up)"
+  chk '[ "$WSTATE" != unavailable ]'                "$WDEV is manageable by NM (state=$WSTATE, NOT 'unavailable')"
+  nmcli device wifi rescan >/dev/null 2>&1; sleep 5
+  APS=$(nmcli -t -f SSID device wifi list 2>/dev/null | grep -c . || echo 0)
+  chk '[ "${APS:-0}" -ge 1 ]'                       "a scan returns access points (${APS:-0} seen) — proves firmware+driver+plugin+supplicant work together"
+  chk '[ "$(iw dev '"$WDEV"' get power_save 2>/dev/null | awk "{print \$3}")" = off ]'  "wifi powersave off (PS on costs ~4x gateway RTT — measured 2026-08-03)"
+else
+  echo "  !! no wifi device found at all — the image is supposed to ship a usable MT7925 radio (#84)"; FAIL=1
+fi
+
 line
 if [ "$FAIL" = 0 ]; then
   echo " RESULT: PASS"

@@ -128,6 +128,13 @@ chk 'grep -q -- "--autologin root" "$MNT/etc/systemd/system/getty@tty1.service.d
 chk '[ -s "$MNT/etc/spark-rocky-release" ]'                              "provenance stamp written"
 chk 'rpm --root "$MNT" -q kernel >/dev/null 2>&1'                        "kernel present in the image rpm database (#59 — rpm -q must be truthful on the booted box)"
 chk '[ -d "$MNT/lib/modules/$KVER" ]'                                    "the image carries /lib/modules/$KVER (the STAMP names the kernel that is actually inside)"
+# --- WiFi: firmware AND userspace, together (#84). #64 shipped firmware only and validated link-up, so
+# four releases carried a radio NM reported as 'unavailable'. Either half alone is not WiFi support. ---
+chk 'ls "$MNT"/usr/lib/firmware/mediatek/mt7925/WIFI_RAM_CODE* >/dev/null 2>&1'  "mt7925 WiFi firmware present (#64)"
+chk 'rpm --root "$MNT" -q NetworkManager-wifi >/dev/null 2>&1'           "NetworkManager-wifi installed (#84 — base NetworkManager has no wifi support)"
+chk 'rpm --root "$MNT" -q wpa_supplicant >/dev/null 2>&1'                "wpa_supplicant installed (#84 — required to associate)"
+chk 'find "$MNT/usr/lib64/NetworkManager" -name libnm-device-plugin-wifi.so 2>/dev/null | grep -q .'  "NM wifi device plugin present (#84 — its absence is exactly what made wlP9s9 'unavailable')"
+chk '[ -f "$MNT/etc/NetworkManager/conf.d/20-spark-wifi-powersave.conf" ]'  "wifi powersave disabled by default (#84 — PS on measured ~300ms gateway RTT at full signal)"
 chk '[ ! -e "$MNT/etc/spark-rocky-debug-hatch" ]'                        "no DEBUG hatch marker (a DEBUG build is un-releasable)"
 chk '[ -f "$W/config-$KVER" ]'                                           "resolved config-$KVER present (manifest hashes the real build config, not a guessed base glob)"
 chk 'grep -q "$WANT_PG" "$CFG"'                                          "page size matches the pin: $PAGE_SIZE ($WANT_PG) — a 64k pin cannot ship a 4k image"

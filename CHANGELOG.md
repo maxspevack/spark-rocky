@@ -18,6 +18,25 @@ ships (`uname -r`).
   [NVIDIA/open-gpu-kernel-modules#1269](https://github.com/NVIDIA/open-gpu-kernel-modules/issues/1269)
   with a one-hunk patch. Alignment proven causal by a non-monotone sweep (65488 faults between two passing
   values). 580.x is clean; 590/595/610 all fault.
+- **WiFi is usable for the first time — the image shipped a radio it could not drive (#84).** Base
+  `NetworkManager` has no WiFi support on RHEL-lineage: the device plugin is in `NetworkManager-wifi`
+  (`libnm-device-plugin-wifi.so`) and association needs `wpa_supplicant`. Neither is a hard `Requires`, and
+  `02` runs with `install_weak_deps=False`, so neither was ever installed. NM reported `wlP9s9`
+  `unavailable` and scans returned nothing, through four releases (20260706–20260723). **#64 shipped the
+  mt7925 firmware and was validated as "radio inits at boot, link up" — both kernel-side events that were
+  true the entire time the radio was unusable.** Firmware without userspace is not WiFi support.
+  `04` now installs both packages behind two fail-closed guards and sets `wifi.powersave=2`.
+- **The #64 miss encoded as tests, and the tests proven to fail (#84).** `05` gains five fail-closed
+  release gates checking mt7925 firmware **and** both packages **and** the device plugin **and** the
+  powersave default — firmware and userspace verified together, since either alone is useless.
+  `validate.sh` gains section 6, whose runtime gate is that NM can *manage* the radio (`state !=
+  unavailable`) and that **a scan returns at least one AP**; link-up is explicitly not accepted. 11 new
+  `make test` invariants (142 → 153). Functionally stripping the fix produces 11 failures — verified, after
+  a first version of the invariants passed with the fix removed because they matched strings in their own
+  comments (the tautological-test class from the #70 audit).
+- **WiFi powersave off by default, measured (#84, 2026-08-03).** Controlled A/B on the metal with wired held
+  down throughout: gateway RTT **3.82 ms** powersave-off vs **15.72 ms** powersave-on, confirm leg 3.72 ms —
+  a reproducible ~4.2× penalty, wrong for a headless box driven over SSH.
 - **64k locked in as the committed direction, held by a fail-closed gate (#65, #81).**
   `config/versions.env` now declares `DRIVER_64K_SAFE` — the driver versions *proven* correct under
   `CONFIG_ARM64_64K_PAGES` on this hardware — and `05` **refuses to package a 64k image on any driver not on
