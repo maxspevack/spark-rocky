@@ -38,9 +38,14 @@ cp /etc/yum.repos.d/cuda.repo "$R/etc/yum.repos.d/cuda.repo"
 # Minimal CUDA, NOT the full cuda-toolkit-13-0 dev kit (~4.7G of nvcc/cuBLAS/samples that a BOOT image
 # never uses). nvcc + cudart (~1G) is enough for proof-of-life vectorAdd; the installed box pulls the full
 # toolkit + container stack post-install (the cuda.repo is configured here for exactly that).
-echo "[rootfs] installing minimal CUDA (nvcc + cudart) ..."
+echo "[rootfs] installing minimal CUDA (nvcc + cudart) + host JIT toolchain ..."
+# gcc + python3-devel EXPLICIT (2026-08-04): torch-inductor JIT-compiles C extensions at vLLM engine
+# init on this platform (sm_121 goes through the triton/inductor path) and dies with "Python.h: No
+# such file" without python3-devel — hit live running the RLC-AI benchmark suite on the box. gcc is
+# (probably) a hard dep of cuda-nvcc, but a capability the image claims must not hang off an implied
+# dependency chain; weak deps are OFF on this line, so implied is all it would be.
 dnf -y --installroot="$R" --releasever="$RV" --setopt=install_weak_deps=False install \
-  cuda-nvcc-${CUDA_VER} cuda-cudart-devel-${CUDA_VER} >>/host/rocky-img/rootfs.log 2>&1
+  cuda-nvcc-${CUDA_VER} cuda-cudart-devel-${CUDA_VER} gcc python3-devel >>/host/rocky-img/rootfs.log 2>&1
 # MediaTek MT7925 WiFi/BT firmware (#64) — stock Rocky RPMs, zero hand-copied files. el10_2 splits
 # firmware per vendor: mt7xxx-firmware owns the mt7925 blobs (~9M, requires only the whence license
 # file — NOT the full linux-firmware set) and wireless-regdb owns regulatory.db. Blobs ship compressed
