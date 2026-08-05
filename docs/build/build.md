@@ -8,7 +8,7 @@ How deliverable #1 is made, and how to rebuild it yourself. Everything carries *
 - ~40 GB free for the rootfs + image.
 
 ## The pipeline (run in order)
-All versions are pinned in one place, [`../../config/versions.env`](../../config/versions.env) (`KERNEL_SOURCE` — **`clk` is the default**, `CLK_COMMIT`, the `kernelorg` A/B pins `KVER`/`KCONFIG`/`KERNEL_SHA256`, `DRIVER_VER`+`DRIVER_SHA256`, `ROCKY_RELEASEVER`, and **`PAGE_SIZE`** — currently `4k`; 64k was an opinionated serving-tuning choice, reverted 2026-07-17 pending a 64k-only kernel serve regression, see [platform-deltas](platform-deltas.md#page-size--4k-since-2026-07-17-64k-reverted-65)). Every script sources it; bumping a pin and rebuilding is the whole "stay current" mechanism (below). The kernel release is derived by `make kernelrelease`: clk builds carry the **`-clk` lineage suffix** (`uname -r` = `6.18.39-clk` — uname states *where the source came from*, the distro convention), while `PAGE_SIZE` only flips the `CONFIG_ARM64_4K_PAGES`/`_64K_PAGES` symbol (config properties never ride uname). Integrity models differ honestly per source: kernel.org tarballs verify against a GPG-signed SHA256 pin; the CLK tarball is commit-addressed over TLS (GitHub archive bytes are not byte-stable, so no tarball hash exists to pin).
+All versions are pinned in one place, [`../../config/versions.env`](../../config/versions.env) (`KERNEL_SOURCE` — **`clk` is the default**, `CLK_COMMIT`, the `kernelorg` A/B pins `KVER`/`KCONFIG`/`KERNEL_SHA256`, `DRIVER_VER`+`DRIVER_SHA256`, `ROCKY_RELEASEVER`, and **`PAGE_SIZE`** — currently `4k`; 64k was an opinionated serving-tuning choice, reverted 2026-07-17 pending a 64k-only kernel serve regression, see [platform-deltas](platform-deltas.md#page-size--4k-since-2026-07-17-64k-reverted-65)). Every script sources it; bumping a pin and rebuilding is the whole "stay current" mechanism (below). The kernel release is derived by `make kernelrelease`: clk builds carry the **`-clk` lineage suffix** (`uname -r` = `6.18.42-clk` — uname states *where the source came from*, the distro convention), while `PAGE_SIZE` only flips the `CONFIG_ARM64_4K_PAGES`/`_64K_PAGES` symbol (config properties never ride uname). Integrity models differ honestly per source: kernel.org tarballs verify against a GPG-signed SHA256 pin; the CLK tarball is commit-addressed over TLS (GitHub archive bytes are not byte-stable, so no tarball hash exists to pin).
 
 | Step | Script | Produces |
 |---|---|---|
@@ -57,9 +57,9 @@ installs the kernel **from that rpm, via dnf** — `02` into the image rootfs (`
   no more file-copied kernels invisible to rpm. The doctor (`validate.sh`) checks it; `05` refuses to
   package an image whose rpm database doesn't know its kernel, and stamps the NEVRA into
   `/etc/spark-rocky-release` and the build manifest.
-- **NEVRA provenance.** The rpm is named by the kernel's own mkspec: `kernel-6.18.39_clk-2.aarch64` —
+- **NEVRA provenance.** The rpm is named by the kernel's own mkspec: `kernel-6.18.42_clk-1.aarch64` —
   rpm forbids dashes in `Version`, so the `-clk` lineage suffix sanitizes to `_clk` **in the NEVRA
-  only**; module paths, `/boot` file names, and `uname -r` all keep the true `6.18.39-clk`.
+  only**; module paths, `/boot` file names, and `uname -r` all keep the true `6.18.42-clk`.
 - **dnf-native rollback semantics on the metal**, alongside the GRUB fallback entry.
 - **A served, attested artifact — since `spark-rocky-live-20260723`.** The kernel rpm (and the #77
   kmod + userspace rpms) are vended by `05` next to the image, uploaded to the release bucket, and
@@ -122,7 +122,7 @@ the `ciq-6.18.y` branch moves past the pinned `CLK_COMMIT`; kernel.org is report
 3. Rebuild `01`→`04`. The kernel release is derived (`make kernelrelease` — clk builds carry the `-clk`
    lineage suffix) and propagates via `build.env`; the open module is rebuilt against the new tree —
    `02b`/`03` assert `vermagic == KVER` and fail otherwise.
-4. Boot, then `proof-of-life.sh`: `uname -r` = the new release (e.g. `6.18.39-clk`), `nvidia-smi`, the CUDA
+4. Boot, then `proof-of-life.sh`: `uname -r` = the new release (e.g. `6.18.42-clk`), `nvidia-smi`, the CUDA
    `vectorAdd`, and the wired NIC survives a warm reboot.
 5. Re-run a benchmark and confirm parity. That is the upgrade validated — a pinned-tree kernel makes a bump
    a config change, not a patch-rebase (this repo carries zero patches against either tree).

@@ -113,6 +113,16 @@ lines** (baselines: `/root/dmesg-638clk-baseline.txt` → `/root/dmesg-639clk-ba
 **Gate result: PASS** — every direction-change explained; CUDA vectorAdd + a full vLLM serve-gate
 passed on the same boot.
 
+## 6.18.39-clk → 6.18.42-clk gate (2026-08-05, driver 610.43.03 → 610.57.04 in the same boot)
+
+Census **21** err/crit vs the 6.18.39 baseline's 18. The +3 are one new class, attributed to **new
+hardware, not the kernel or driver bump**: `xhci-hcd NVDA8000:02: Transfer event 26 for unknown stream
+ring slot 1 ep 2` ×3, all inside the USB enumeration window (2.7–6.2 s) — the box gained two
+USB-attached UAS SSDs on 2026-08-05 (the T9 archive drive and the SSK recovery drive; UAS stream-ring
+chatter is a known benign quirk of that class). NVDA8800 resource-claim (intermittent-benign, L4) and
+the EM cpu-capacity lines are known baseline classes, unchanged. Doctor PASS, CUDA PASS, and the serve
+gate (GATE-PASS) all on the same boot.
+
 ## Reboot messages (benign)
 
 `watchdog: watchdog0: watchdog did not stop!` on reboot (#49) — **kept deliberately, cosmetic.** `watchdog0`

@@ -22,7 +22,7 @@ same memory.) Everything below is peripheral to that.
 
 **What makes that a lock-in rather than an intention: a fail-closed gate.** `config/versions.env` declares
 `DRIVER_64K_SAFE` — the driver versions *proven* correct under 64k on this hardware — and `05` refuses to
-package a 64k image on any driver not on that list. The shipping driver, `610.43.03`, is deliberately absent.
+package a 64k image on any driver not on that list. The shipping driver (`610.57.04`, like `610.43.03` before it) is deliberately absent.
 So the day [#1269](https://github.com/NVIDIA/open-gpu-kernel-modules/issues/1269) lands, the entire change is
 **two reviewable lines** — add the fixed version to `DRIVER_64K_SAFE`, flip `PAGE_SIZE=64k` — and the gate,
 not a promise in a document, is what proves the flip is safe. Flip the pin today and the release aborts at
@@ -171,8 +171,8 @@ NVIDIA publishes the GB10 platform firmware (system UEFI, Embedded Controller, U
 stock `fwupd` applies it — no DGX OS, no Enterprise entitlement, no proprietary tool (`fwupdmgr enable-remote
 lvfs && fwupdmgr refresh && fwupdmgr upgrade`). As of 2026-07-17 this box is on the **latest published**: UEFI
 `0x02009b0b` (the SoC/UEFI+GPU stability package), EC `0x03000508`, USB-C PD `0x00000516` — applied via
-capsule-on-disk with stock `fwupd`, `fwupdmgr get-updates` clean after. GPU VBIOS `9A.0B.25.00.00` and GSP
-`610.43.03` ride the driver and are current with it.
+capsule-on-disk with stock `fwupd`, `fwupdmgr get-updates` clean after. GPU VBIOS `9A.0B.25.00.00` and the GSP
+firmware ride the driver (`610.57.04` as of 2026-08-05) and are current with it.
 **Consequence:** parity benchmarks run on the same latest firmware a DGX OS box runs — no firmware confound.
 
 ## Ledger

@@ -1,6 +1,6 @@
 # spark-rocky
 
-Run the **NVIDIA DGX Spark (GB10)** on **Rocky Linux 10.2 + the CIQ Linux Kernel (CLK 6.18, `uname -r` → `6.18.39-clk`) + the open NVIDIA driver 610.43.03** — **zero patches carried by this repo** — and reproduce published [spark-arena.com](https://spark-arena.com) single-host benchmarks at parity (June receipts on the stock-mainline host, which stays one pin-flip away; **the CLK default is itself benchmark-validated at parity on the current pinned runtime** — median 1.010×, 2026-07-24).
+Run the **NVIDIA DGX Spark (GB10)** on **Rocky Linux 10.2 + the CIQ Linux Kernel (CLK 6.18, `uname -r` → `6.18.42-clk`) + the open NVIDIA driver 610.57.04** — **zero patches carried by this repo** — and reproduce published [spark-arena.com](https://spark-arena.com) single-host benchmarks at parity (June receipts on the stock-mainline host, which stays one pin-flip away; **the CLK default is itself benchmark-validated at parity on the current pinned runtime** — median 1.010×, 2026-07-24).
 
 *Soft-launched and unsupported: a personal-repo release, provided as-is. Not a CIQ product, and no support commitment.*
 
@@ -23,7 +23,7 @@ Then boot the Spark from the USB and run `/root/validate.sh`. Full steps and the
 
 | Tier | Claim | State |
 |---|---|---|
-| Boots | Rocky 10.2 + CLK 6.18 on the GB10 — **6.18.39-clk**, 4k pages (the released Live USB); stock kernel.org 6.18.34/.35/.37/.38 equally proven | **PROVEN** |
+| Boots | Rocky 10.2 + CLK 6.18 on the GB10 — **6.18.42-clk**, 4k pages (the released Live USB, validated as a booted artifact before publishing); stock kernel.org 6.18.34/.35/.37/.38 equally proven | **PROVEN** |
 | GPU + CUDA | the open driver builds and loads; the GPU computes | **PROVEN** |
 | Bare metal | installed on the NVMe (reference box) | **PROVEN** — install is destructive, not yet clean-room-validated elsewhere |
 | Benchmark | reproduce published single-host entries | **3 full-matrix parity** (35B-A3B-FP8 1.01×, 0.8B 0.96×, gemma-3-1b 1.05×; **re-confirmed on the current pinned runtime, 2026-07-24 — 0.8B median 1.010×**) **+ 2 frontier lanes receipt-grade on the current NVFP4+MTP meta** (Qwen3.6-35B: all 28 official cells throttle-CLEAN, statistically indistinguishable from the board's single-node field; Nemotron-3-Super-120B: statistical tie with board-best single-node, the cooling boundary measured per-cell). → [`docs/benchmark/scoreboard.md`](docs/benchmark/scoreboard.md) |

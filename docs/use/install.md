@@ -55,6 +55,6 @@ exercised the retired file-copy mechanisms.)*
 ```
 /root/proof-of-life.sh
 ```
-Confirms the OS, the kernel (`uname -r` = the built release, e.g. `6.18.39-clk` at the current
+Confirms the OS, the kernel (`uname -r` = the built release, e.g. `6.18.42-clk` at the current
 `CLK_COMMIT` pin; the `-clk` suffix states the kernel lineage), `nvidia-smi` (the GB10 and driver), and
 a CUDA `vectorAdd` on the GPU.

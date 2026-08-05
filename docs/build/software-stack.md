@@ -16,15 +16,15 @@ Conflating them is what makes `PyTorch not found` look alarming. They exist on p
 | **2** | **Serving container** (`vllm-node*`) | Docker, on the host | the **AI stack** that runs the model on the GPU (**held constant**) | **Yes — torch 2.11.0+cu130** |
 | **3** | **Benchmark client** `llama-benchy` | host, ephemeral `uvx` venv | sends HTTP, counts tokens/sec | **No — and shouldn't** |
 
-Inventory (host verified 2026-07-23 on the bare-metal box — the `6.18.39-clk` boot: doctor PASS,
+Inventory (host verified 2026-08-05 on the bare-metal box — the `6.18.42-clk` boot: doctor PASS,
 dmesg gate PASS, vLLM serve-gate GATE-PASS; serving-container coordinates are the pins in
 [`config/serving-images.env`](../../config/serving-images.env), receipt-backed 2026-07-24):
 
 ```
 ENV 1 — HOST (ours, the swapped layer)
   OS                       Rocky Linux 10.2 (Red Quartz)
-  kernel                   6.18.39-clk  CIQ Linux Kernel (CLK), 4k pages, zero patches carried here  (rpm-installed, #59; the released image ships it too since spark-rocky-live-20260723; parity benched on stock 6.18.34/4k in June, re-proven on CLK `.39-clk`/4k — median 1.010×, receipt `reproduce-Qwen3.5-0.8B-gen2-2026-07-24.txt`. 64k reverted 2026-07-17 — an NVIDIA driver DMA-submap defect, not a kernel regression: #65 / open-driver #1269. 64k stays the committed direction, held by the `DRIVER_64K_SAFE` gate in 05)
-  GPU driver               610.43.03 open module, WE built it            (the shipped driver; parity was benched on 610.43.02)
+  kernel                   6.18.42-clk  CIQ Linux Kernel (CLK), 4k pages, zero patches carried here  (rpm-installed, #59; the released image ships it too since spark-rocky-live-20260723; parity benched on stock 6.18.34/4k in June, re-proven on CLK `.39-clk`/4k — median 1.010×, receipt `reproduce-Qwen3.5-0.8B-gen2-2026-07-24.txt`. 64k reverted 2026-07-17 — an NVIDIA driver DMA-submap defect, not a kernel regression: #65 / open-driver #1269. 64k stays the committed direction, held by the `DRIVER_64K_SAFE` gate in 05)
+  GPU driver               610.57.04 open module, WE built it            (the shipped driver; parity receipts were benched on 610.43.02/.03)
                            NOTE: 610 is a New Feature Branch (no formal support period per NVIDIA's lifecycle policy) and carries the 64k DMA-submap
                            defect (open-driver #1269). 580 LTSB is clean under 64k but measured 10.4%
                            SLOWER at 4k (104-cell A/B, 2026-07-31), so falling back is a net loss.
@@ -56,13 +56,13 @@ would be the actual mistake.
 ```
   [ENV 3 host]  llama-benchy ──HTTP /v1──► [ENV 2 container] vLLM ─► flashinfer ─► torch ─► libcudart(13.0)
   ════════ container boundary; nvidia-container-toolkit injects the HOST libcuda ════════
-                                          libcuda.so 610.43.03   (driver API — [ENV 1 host])
-                                          nvidia.ko  610.43.03   (open kernel module — [ENV 1 host])
+                                          libcuda.so 610.57.04   (driver API — [ENV 1 host])
+                                          nvidia.ko  610.57.04   (open kernel module — [ENV 1 host])
                                                   GB10 Grace Blackwell (silicon)
 ```
 
 The seam that matters: the container ships the CUDA **runtime** (13.0) + PyTorch, but uses **our host driver's**
-`libcuda.so` (610.43.03), injected at container start. A driver API is forward-compatible with equal-or-older
+`libcuda.so` (610.57.04), injected at container start. A driver API is forward-compatible with equal-or-older
 CUDA runtimes — 610 supports CUDA 13.0 — so the container runs unmodified on our self-built driver. Stock DGX
 OS shipped driver 580.159.03 (also CUDA 13.0); both satisfy the container, which is why the swap is invisible
 to the workload.

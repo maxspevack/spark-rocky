@@ -10,7 +10,32 @@ ships (`uname -r`).
 
 ## [Unreleased]
 
+_(nothing yet)_
+
+## [spark-rocky-live-20260805] — 2026-08-05 · `6.18.42-clk` (4k pages) — WiFi works, and the artifact boots before it ships
+
 ### Added
+- **Kernel `6.18.42-clk` + open driver `610.57.04` (drift-check 2026-08-05).** CLK pin moved to
+  `ciq-6.18.y` tip `2ce61a3b` (6.18.39 → 6.18.42); driver taken from NVIDIA's same-day four-branch
+  release wave of 2026-08-03 (610.57.04 / 595.91.07 / 580.178.04 / 595.44.x — the security-bundle
+  signature), `.run` sha TOFU-pinned with the embedded `--check` verified. **#1269 verified NOT fixed
+  in 610.57.04** — the unguarded `#else` arm is intact — but NVIDIA's own comment now tracks an internal
+  "Bug 5401803" migrating DMA submaps to `sg_chain()`, re-architecting away the mechanism the defect
+  lives in. `DRIVER_64K_SAFE` unchanged: 610.57.04 has not earned 64k admission.
+- **The booted-artifact gate — this is the first release validated as a booted image before publishing.**
+  The candidate was flashed to the standing recovery drive, booted one-shot via `efibootmgr -n`
+  (BootNext, self-reverting; #47's pinned ESP GUID keeps the firmware entry stable across re-flashes),
+  and validated **over its own WiFi radio**: the doctor ran end-to-end on the booted artifact — CUDA
+  kernel, 8 GiB managed memory, boot hygiene, and validate.sh section 6 with a 16-AP scan. Four releases
+  shipped a dead radio because no gate ever booted the artifact we published; this gate ends that class.
+  Formalization as a permanent release step is tracked in the repo issues.
+- **`write-usb` accepts USB-SSD targets behind an explicit opt-in + a mounted-check.** The `RM=1` guard
+  refused the first real recovery drive (a 256 GB SSK portable SSD — USB SSDs present as fixed disks).
+  `TRAN=usb` stays mandatory; `RM=0` now requires `WRITE_USB_ALLOW_NONREMOVABLE=1` **and** zero mounted
+  filesystems on the target, so a mounted archive drive is structurally untargetable even with the
+  override set. Live-exercised both ways (refusal and 267 MB/s write) on the box.
+- **`gcc` + `python3-devel` explicit in the rootfs** — torch-inductor JIT compiles against `Python.h`
+  at serve time; the image now carries what the serving stack needs without a post-boot dnf.
 - **The 64k/driver trade, measured and documented (#65, #80, #81).** 64 KiB pages and the current NVIDIA
   driver branches are mutually exclusive on this hardware: a mis-scoped `CONFIG_ARM64_4K_PAGES` guard leaves
   the 64k DMA-submap size 2 MiB-misaligned, so every GPU mapping ≥ 4 GiB carries an unusable page just below
@@ -58,7 +83,10 @@ ships (`uname -r`).
 - **First community-registry contribution filed (#75, 2026-07-27):**
   [spark-arena/community-recipe-registry#12](https://github.com/spark-arena/community-recipe-registry/pull/12)
   — the Nemotron-3-Super-120B single-node recipe (board-best lineage, nst=3, the
-  `gpu-memory-utilization` 0.88 engine-init fix) + README, pending maintainer review. The registry
+  `gpu-memory-utilization` 0.88 engine-init fix) + README — **merged 2026-08-04**, the first upstream
+  recipe contribution. The experimental-tier conversion was filed 2026-08-05 as
+  [spark-arena/recipe-registry#19](https://github.com/spark-arena/recipe-registry/pull/19), gate-proven
+  end-to-end against the registry's current `:latest` (vLLM 0.26.1rc1) and sparkrun 0.2.40/0.3.0/0.3.1. The registry
   had no recipe for this model; the recipe pins the tested dgx-vllm tag and links the committed
   receipts.
 - **The frontier result (#74, 2026-07-25):** Qwen3.6-35B-A3B-NVFP4 + MTP decomposed by a five-probe
@@ -95,6 +123,17 @@ ships (`uname -r`).
   physical power cycle).
 
 ### Changed
+- **The 610 "EOL Aug 2026" claim is retracted.** It appears nowhere in NVIDIA's lifecycle documentation:
+  New Feature Branches carry **no formal support period at all** (Production ≈ 1 year, LTSB ≈ 3 years),
+  and 610 is demonstrably active (610.57.04, 2026-08-03). The docs and the branch table now state the
+  real exposure — an NFB can stop without notice — instead of a phantom date. Driver branch policy stays
+  an open decision, unforced by any clock.
+- **sparkrun pin: fork-commit "0.3.0-alpha" → published PyPI `0.3.1`.** The 2026-07-27 alpha commit-pin
+  (`5371f74`) turned out to PREDATE the #225 IB existence-guard (`df8e840`, 2026-07-14) it was adopted
+  for, and its self-reported "0.3.0" masqueraded as the release — a live gate failure was nearly
+  reported upstream as a released-regression before the wheel/tag/ancestry checks killed the premise.
+  Lesson encoded: verify the fix you pin FOR is an ancestor of the commit you pin, and a version string
+  is not a release identity.
 - `docs/build/platform-deltas.md` page-size section rewritten as a **trade** rather than a reversal: the
   branch table now carries measured relative performance, the three routes to 64k are priced (580 rejected,
   `expandable_segments` the only live candidate, the patch unshippable under zero-patch), and the June 2026
