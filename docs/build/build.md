@@ -150,6 +150,17 @@ Run on the Spark (aarch64 — `05` chroots into the image):
    scripts/serve-gate.sh          # brings up the pinned vllm-node, waits for /health 200 + a served model
    ```
    It must print `GATE-PASS`. This exercises the large (~90 GB) KV-cache allocation that `05` and `validate.sh`'s `vectorAdd` do **not** — the exact path the 64k regression ([#65](https://github.com/maxspevack/spark-rocky/issues/65)) faulted on. **A release that has not passed the serve gate on its own kernel is not signable.** `vectorAdd` green is necessary, not sufficient.
+2b. **BOOT GATE (mandatory since #85; first enforced on the 20260805 release).** From the operator
+   machine, boot the candidate ON HARDWARE and validate it as a booted artifact:
+   ```
+   BOOT_GATE_HOST=<box> scripts/05b-boot-gate.sh    # flash stick -> BootNext -> doctor over the image's own WiFi -> return
+   ```
+   It must print `BOOT-GATE: PASS`. This is the only gate that exercises the published bytes as a
+   *running system* — releases 20260706–20260723 shipped a WiFi radio the OS could not drive with every
+   mounted-image gate green (#84). The armed stick differs from the artifact by exactly three injected
+   files (WiFi profile, ssh key, self-return unit); the artifact that gets signed is untouched. **A
+   release that has not passed the boot gate on its own bytes is not signable.**
+
 3. **Sign**, on the host that holds the release key: `OUTDIR=<vend-dir> scripts/06-sign-release.sh`. Produces the GPG-clearsigned `CHECKSUM` and exports the public key. The passphrase comes from the human via pinentry; it is never scripted.
 4. **Tag the build commit:**
    ```

@@ -202,6 +202,14 @@ if grep -q 'nvidia-drm.modeset=0' scripts/upgrade-metal.sh && grep -q 'fbcon=nod
 if grep -qF 'WIPE $TGT' scripts/install-baremetal.sh; then ok "install-baremetal requires a typed WIPE confirmation (#34)"; else no "install-baremetal has no typed-confirmation guard (#34)"; fi
 if grep -qF 'install-baremetal.sh' scripts/04-build-image.sh; then no "the NVMe wiper is baked into the image — must stay a separate path (#34)"; else ok "the NVMe wiper is NOT baked into the image (#34)"; fi
 
+# --- 05b boot gate (#85): the booted-artifact gate holds its hard-learned rules ---
+if grep -q 'zero mounted filesystems' scripts/05b-boot-gate.sh && grep -qF 'lsblk -dno NAME,TRAN' scripts/05b-boot-gate.sh; then ok "05b resolves the flash target by identity (unmounted USB), never by letter (#85)"; else no "05b does not identity-resolve the flash target (#85)"; fi
+if grep -qF 'boot-gate-return.service' scripts/05b-boot-gate.sh && grep -qF 'multi-user.target.wants' scripts/05b-boot-gate.sh; then ok "05b arms a self-return unit so a dark boot recovers the metal (#85)"; else no "05b has no dark-boot self-return (#85)"; fi
+if grep -qF 'docker ps -q' scripts/05b-boot-gate.sh; then ok "05b refuses a busy box (shared-box arbitration, #85)"; else no "05b does not check for a busy box (#85)"; fi
+if grep -qF 'findmnt -no SOURCE /' scripts/05b-boot-gate.sh && grep -q 'nvme' scripts/05b-boot-gate.sh; then ok "05b discriminates worlds by root device, not kernel string (#85)"; else no "05b does not discriminate boot worlds by root device (#85)"; fi
+if grep -qF 'PARTUUID' scripts/05b-boot-gate.sh && grep -qF 'efibootmgr -n' scripts/05b-boot-gate.sh; then ok "05b resolves BootNext from the pinned ESP GUID (#47/#85)"; else no "05b does not resolve BootNext by ESP GUID (#85)"; fi
+if grep -qF 'RESULT: PASS' scripts/05b-boot-gate.sh && grep -qF 'validate.sh' scripts/05b-boot-gate.sh; then ok "05b verdict comes from the doctor ON the booted artifact (#85)"; else no "05b does not gate on the booted doctor (#85)"; fi
+
 echo
 echo "RESULT: $pass passed, $fail failed"
 [ "$fail" = 0 ]

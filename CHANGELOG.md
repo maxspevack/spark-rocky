@@ -10,7 +10,15 @@ ships (`uname -r`).
 
 ## [Unreleased]
 
-_(nothing yet)_
+### Added
+- **The booted-artifact gate is a script and a mandatory release step (#85, `scripts/05b-boot-gate.sh`).**
+  What ran by hand three times on 2026-08-05 is now mechanism: flash the candidate to the recovery
+  stick (target resolved by identity — the one unmounted USB disk — never by device letter), arm it
+  (WiFi profile + ssh key + a self-return unit so a dark boot recovers the metal unattended), BootNext
+  via the #47-pinned ESP GUID, run the doctor on the booted image over its own radio, return to the
+  metal, verdict. Refuses a busy box (shared-box arbitration) and a box not on the metal. Six
+  `make test` invariants hold its rules; `docs/build/build.md` step 2b makes it blocking: no
+  `BOOT-GATE: PASS`, no signature.
 
 ## [spark-rocky-live-20260805] — 2026-08-05 · `6.18.42-clk` (4k pages) — WiFi works, and the artifact boots before it ships
 
