@@ -25,7 +25,7 @@ ENV 1 — HOST (ours, the swapped layer)
   OS                       Rocky Linux 10.2 (Red Quartz)
   kernel                   6.18.39-clk  CIQ Linux Kernel (CLK), 4k pages, zero patches carried here  (rpm-installed, #59; the released image ships it too since spark-rocky-live-20260723; parity benched on stock 6.18.34/4k in June, re-proven on CLK `.39-clk`/4k — median 1.010×, receipt `reproduce-Qwen3.5-0.8B-gen2-2026-07-24.txt`. 64k reverted 2026-07-17 — an NVIDIA driver DMA-submap defect, not a kernel regression: #65 / open-driver #1269. 64k stays the committed direction, held by the `DRIVER_64K_SAFE` gate in 05)
   GPU driver               610.43.03 open module, WE built it            (the shipped driver; parity was benched on 610.43.02)
-                           NOTE: 610 is a preview branch (EOL Aug 2026) and carries the 64k DMA-submap
+                           NOTE: 610 is a New Feature Branch (no formal support period per NVIDIA's lifecycle policy) and carries the 64k DMA-submap
                            defect (open-driver #1269). 580 LTSB is clean under 64k but measured 10.4%
                            SLOWER at 4k (104-cell A/B, 2026-07-31), so falling back is a net loss.
                            See platform-deltas.md.
