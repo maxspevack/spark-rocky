@@ -135,7 +135,20 @@ ISZ=$(stat -c%s "/boot/initramfs-$KVER.img" 2>/dev/null || echo 0)
   || { echo "FATAL: initramfs-$KVER missing/too-small/not-zstd ($ISZ bytes)"; exit 1; }
 
 if [ "$KCH" = 1 ]; then
-  echo "== rewrite GRUB (backup first; $KVER default, $PREV fallback) =="
+  # kdump (metal-only, #62): the kdump kexec loader cannot parse our zboot vmlinuz (zimg header,
+# no .linux PE section), so the metal keeps an extracted raw Image per kernel and
+# /etc/sysconfig/kdump points KDUMP_IMG at it. Extract for the new kernel or the next kdump
+# start fails silently. Skipped when kdump-utils is absent (fresh installs without kdump).
+if rpm -q kdump-utils >/dev/null 2>&1 && [ ! -f "/boot/Image-$KVER" ]; then
+  ZOFF=$(od -Ad -tu4 -j 8  -N 4 "/boot/vmlinuz-$KVER" | awk '{print $2; exit}')
+  ZSZ=$(od -Ad -tu4 -j 12 -N 4 "/boot/vmlinuz-$KVER" | awk '{print $2; exit}')
+  dd if="/boot/vmlinuz-$KVER" bs=1 skip="$ZOFF" count="$ZSZ" status=none | zstd -dc > "/boot/Image-$KVER" \
+    && od -Ax -tx1 -j 56 -N 4 "/boot/Image-$KVER" | grep -q "41 52 4d 64" \
+    && echo "  kdump: raw Image-$KVER extracted (ARMd magic verified)" \
+    || { echo "  WARN: kdump Image extraction failed — kdump will not arm on the new kernel"; rm -f "/boot/Image-$KVER"; }
+fi
+
+echo "== rewrite GRUB (backup first; $KVER default, $PREV fallback) =="
   cp -f "$GRUBCFG" "$GRUBCFG.bak-pre-$KVER"
   # Write-to-new + atomic mv (review MINOR-11): a truncate-in-place heredoc that dies mid-write
   # (ENOSPC on the ESP) leaves an unbootable default path; mv on the same FAT filesystem is the
