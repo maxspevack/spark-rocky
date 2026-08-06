@@ -11,7 +11,7 @@ ships (`uname -r`).
 ## [Unreleased]
 
 ### Added
-- **The booted-artifact gate is a script and a mandatory release step (#85, `scripts/05b-boot-gate.sh`).**
+- **The booted-artifact gate is a script and a mandatory release step (#86, `scripts/05b-boot-gate.sh`).**
   What ran by hand three times on 2026-08-05 is now mechanism: flash the candidate to the recovery
   stick (target resolved by identity — the one unmounted USB disk — never by device letter), arm it
   (WiFi profile + ssh key + a self-return unit so a dark boot recovers the metal unattended), BootNext

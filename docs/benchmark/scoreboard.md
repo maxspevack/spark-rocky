@@ -104,9 +104,10 @@ stops mid-write; required a physical power cycle) — the evidence, and the patt
 are tracked in [#62](https://github.com/maxspevack/spark-rocky/issues/62).
 
 Full probe-grid + receipt record: #74 and #73. The queue behind them:
-[#75](https://github.com/maxspevack/spark-rocky/issues/75) (first recipe PR filed 2026-07-27 —
-[community-recipe-registry#12](https://github.com/spark-arena/community-recipe-registry/pull/12),
-pending review), [#76](https://github.com/maxspevack/spark-rocky/issues/76) (stretch).
+#75 closed — [community-recipe-registry#12](https://github.com/spark-arena/community-recipe-registry/pull/12)
+**merged 2026-08-04**, the first upstream recipe contribution; its experimental-tier version is
+[recipe-registry#19](https://github.com/spark-arena/recipe-registry/pull/19) (filed 2026-08-05, in
+review — the spark-arena.com URL vehicle per #82), [#76](https://github.com/maxspevack/spark-rocky/issues/76) (stretch).
 
 ## 3 — Discipline: why these numbers can be trusted
 

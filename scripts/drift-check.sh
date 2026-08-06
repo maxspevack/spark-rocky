@@ -56,9 +56,23 @@ except Exception:
     print("")')
 printf '%-8s current=%-12s upstream=%-12s [INFO]\n' "KVER" "$KVER" "${kup:-FETCH-FAIL}"
 
-# DRIVER_VER — latest published release of the open GPU kernel modules.
-dup=$(gh api repos/NVIDIA/open-gpu-kernel-modules/releases/latest --jq .tag_name 2>/dev/null)
-row DRIVER "$DRIVER_VER" "${dup:-FETCH-FAIL}"
+# DRIVER_VER — newest release ON OUR PINNED BRANCH (DRIVER_BRANCH, versions.env). The old rule —
+# releases/latest, branch-agnostic — is the verified mechanism that walked us onto a zero-commitment
+# preview branch without a decision (#80/#83), and NVIDIA ships same-day multi-branch waves
+# (2026-08-03: 610/595/580 together), so every wave re-rolls that dice. Same-branch tip = DRIFT;
+# the highest release on any OTHER branch prints as INFO — a branch transition is a human
+# posture decision (#83), never an auto-pickup.
+dall=$(gh api "repos/NVIDIA/open-gpu-kernel-modules/releases?per_page=30" --jq '.[].tag_name' 2>/dev/null)
+if [ -n "$dall" ]; then
+  dup=$(printf '%s
+' "$dall" | grep -E "^${DRIVER_BRANCH}\." | sort -V | tail -1)
+  row DRIVER "$DRIVER_VER" "${dup:-FETCH-FAIL}"
+  dcross=$(printf '%s
+' "$dall" | grep -vE "^${DRIVER_BRANCH}\." | sort -V | tail -1)
+  [ -n "$dcross" ] && printf '%-8s current=%-12s upstream=%-12s [INFO] highest non-%s release; branch transition = human decision (#83)\n' "DRV-XBR" "branch-$DRIVER_BRANCH" "$dcross" "$DRIVER_BRANCH"
+else
+  row DRIVER "$DRIVER_VER" "FETCH-FAIL"
+fi
 
 # SERVING — the dgx-vllm mirror pin (#71). The mirror snapshots eugr's vLLM nightly ~daily, so "a newer
 # tag exists" is the permanent steady state, not drift — INFO normally. It becomes DRIFT only when the
