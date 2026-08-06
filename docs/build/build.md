@@ -150,6 +150,13 @@ Run on the Spark (aarch64 — `05` chroots into the image):
    scripts/serve-gate.sh          # brings up the pinned vllm-node, waits for /health 200 + a served model
    ```
    It must print `GATE-PASS`. This exercises the large (~90 GB) KV-cache allocation that `05` and `validate.sh`'s `vectorAdd` do **not** — the exact path the 64k regression ([#65](https://github.com/maxspevack/spark-rocky/issues/65)) faulted on. **A release that has not passed the serve gate on its own kernel is not signable.** `vectorAdd` green is necessary, not sufficient.
+2a. **#1269 REPRODUCER, at every driver bump (mandatory since #83's disposition, 2026-08-06).** Run the
+   ≥4 GiB reproducer from the #1269 case file on the built stack; record PASS/FAULT in the bump
+   receipt. Minutes of runtime. A PASS on any driver is the `DRIVER_64K_SAFE` admission evidence —
+   this is how a quietly-shipped fix is caught the day we touch it, and 64k restoration stays two
+   reviewable lines (#65). Branch crossings additionally follow
+   [`branch-transition.md`](branch-transition.md) — the crossing A/B is its mandatory step 0.
+
 2b. **BOOT GATE (mandatory since #86; first enforced on the 20260805 release).** From the operator
    machine, boot the candidate ON HARDWARE and validate it as a booted artifact:
    ```

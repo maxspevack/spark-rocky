@@ -26,6 +26,9 @@ source config/versions.env
 [[ "${DRIVER_BRANCH:-}" =~ ^[0-9]+$ ]]        && ok "versions.env: DRIVER_BRANCH is numeric ($DRIVER_BRANCH)" || no "versions.env: DRIVER_BRANCH missing/malformed (#83)"
 [[ "$DRIVER_VER" == "$DRIVER_BRANCH".* ]]     && ok "versions.env: DRIVER_VER is on DRIVER_BRANCH ($DRIVER_BRANCH)" || no "versions.env: DRIVER_VER not on the pinned branch — bump DRIVER_BRANCH deliberately (#83)"
 grep -q 'DRIVER_BRANCH' scripts/drift-check.sh && grep -q 'human' scripts/drift-check.sh && ok "drift-check tracks the pinned driver branch; cross-branch is INFO (#83)" || no "drift-check is branch-agnostic — the #80 walk-on class is open again (#83)"
+grep -q 'ORPHAN_WINDOW_DAYS' scripts/drift-check.sh && grep -q 'ORPHANED' scripts/drift-check.sh && ok "drift-check carries the branch-orphan tripwire (WARN + drift exit, #83)" || no "drift-check has no orphan tripwire — silent branch death is undetected (#83)"
+if [ -f docs/build/branch-transition.md ] && grep -q 'no-install-libglvnd' docs/build/branch-transition.md && grep -qi 'step 0' docs/build/branch-transition.md; then ok "the branch-transition runbook exists with the A/B-first rule + the glvnd landmine (#83)"; else no "branch-transition runbook missing or gutted (#83)"; fi
+grep -q '#1269 REPRODUCER' docs/build/build.md && ok "the per-bump #1269 reproducer is a written bump-flow step (#83/#65)" || no "the reproducer step is a promise, not a written step (#83)"
 [[ "$KERNEL_SOURCE" == kernelorg || "$KERNEL_SOURCE" == clk ]] && ok "versions.env: KERNEL_SOURCE is kernelorg|clk ($KERNEL_SOURCE)" || no "versions.env: KERNEL_SOURCE invalid ($KERNEL_SOURCE)"
 [ -f "$KCONFIG" ]                             && ok "versions.env: KCONFIG points at a real base config" || no "versions.env: KCONFIG missing ($KCONFIG)"
 [[ "$CLK_COMMIT" =~ ^[0-9a-f]{40}$ ]]        && ok "versions.env: CLK_COMMIT is a 40-hex SHA ($CLK_COMMIT)" || no "versions.env: CLK_COMMIT malformed ($CLK_COMMIT)"

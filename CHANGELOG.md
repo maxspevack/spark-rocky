@@ -11,6 +11,16 @@ ships (`uname -r`).
 ## [Unreleased]
 
 ### Added
+- **Driver branch policy decided and mechanized (#83, Max-signed 2026-08-06).** Posture: stay on the
+  610/NFB line deliberately; treat "no formal support commitment" as a sensor problem. Three
+  mechanisms are the policy: the drift sensor's **orphan tripwire** (pinned branch quiet ~120 days
+  while siblings ship → WARN + drift exit, files the weekly issue; falsification-tested against
+  dead branch 590), the **#1269 ≥4 GiB reproducer at every driver bump** (build.md step 2a — a
+  quietly-shipped fix becomes `DRIVER_64K_SAFE` admission evidence the day we touch it), and the
+  **branch-transition runbook** (`docs/build/branch-transition.md`) whose mandatory step 0 is the
+  crossing A/B on then-live candidates — 595-vs-610 is deliberately NOT pre-priced. 580 remains the
+  contingency of record (−10.4%, receipt 2026-07-31). The unsourced "Jun 2028" LTSB date is removed
+  from the branch table (NVIDIA publishes no per-branch dates).
 - **The booted-artifact gate is a script and a mandatory release step (#86, `scripts/05b-boot-gate.sh`).**
   What ran by hand three times on 2026-08-05 is now mechanism: flash the candidate to the recovery
   stick (target resolved by identity — the one unmounted USB disk — never by device letter), arm it

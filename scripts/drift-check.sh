@@ -62,14 +62,29 @@ printf '%-8s current=%-12s upstream=%-12s [INFO]\n' "KVER" "$KVER" "${kup:-FETCH
 # (2026-08-03: 610/595/580 together), so every wave re-rolls that dice. Same-branch tip = DRIFT;
 # the highest release on any OTHER branch prints as INFO — a branch transition is a human
 # posture decision (#83), never an auto-pickup.
-dall=$(gh api "repos/NVIDIA/open-gpu-kernel-modules/releases?per_page=30" --jq '.[].tag_name' 2>/dev/null)
+dall=$(gh api "repos/NVIDIA/open-gpu-kernel-modules/releases?per_page=30" --jq '.[] | "\(.tag_name) \(.published_at)"' 2>/dev/null)
 if [ -n "$dall" ]; then
-  dup=$(printf '%s
-' "$dall" | grep -E "^${DRIVER_BRANCH}\." | sort -V | tail -1)
+  dup=$(printf '%s\n' "$dall" | awk -v b="^${DRIVER_BRANCH}\\." '$1 ~ b {print $1}' | sort -V | tail -1)
   row DRIVER "$DRIVER_VER" "${dup:-FETCH-FAIL}"
-  dcross=$(printf '%s
-' "$dall" | grep -vE "^${DRIVER_BRANCH}\." | sort -V | tail -1)
-  [ -n "$dcross" ] && printf '%-8s current=%-12s upstream=%-12s [INFO] highest non-%s release; branch transition = human decision (#83)\n' "DRV-XBR" "branch-$DRIVER_BRANCH" "$dcross" "$DRIVER_BRANCH"
+  dcross=$(printf '%s\n' "$dall" | awk -v b="^${DRIVER_BRANCH}\\." '$1 !~ b {print $1}' | sort -V | tail -1)
+  # Orphan tripwire (#83): the NFB posture's one real risk is silent branch death, and the death
+  # signal is an ABSENCE — a release wave that ships sibling branches while ours goes quiet. If the
+  # pinned branch has shipped nothing in ORPHAN_WINDOW_DAYS (~2x the observed 610 release gap) while
+  # a sibling has something newer, escalate to WARN and set the drift exit code so the weekly run
+  # FILES AN ISSUE instead of printing an INFO line nobody reads.
+  ORPHAN_WINDOW_DAYS=120
+  dlast=$(printf '%s\n' "$dall" | awk -v b="^${DRIVER_BRANCH}\\." '$1 ~ b {print $2}' | sort | tail -1)
+  xlast=$(printf '%s\n' "$dall" | awk -v b="^${DRIVER_BRANCH}\\." '$1 !~ b {print $2}' | sort | tail -1)
+  if [ -n "$dcross" ]; then
+    age_days=9999
+    [ -n "$dlast" ] && age_days=$(( ( $(date -u +%s) - $(date -u -d "$dlast" +%s) ) / 86400 ))
+    if [ "$age_days" -gt "$ORPHAN_WINDOW_DAYS" ] && [ -n "$xlast" ] && [ "$xlast" \> "${dlast:-}" ]; then
+      printf '%-8s current=%-12s upstream=%-12s [WARN] pinned branch %s quiet %sd while siblings ship — may be ORPHANED; run the #83 contingency (docs/build/branch-transition.md)\n' "DRV-XBR" "branch-$DRIVER_BRANCH" "$dcross" "$DRIVER_BRANCH" "$age_days"
+      drift=2
+    else
+      printf '%-8s current=%-12s upstream=%-12s [INFO] highest non-%s release; branch transition = human decision (#83)\n' "DRV-XBR" "branch-$DRIVER_BRANCH" "$dcross" "$DRIVER_BRANCH"
+    fi
+  fi
 else
   row DRIVER "$DRIVER_VER" "FETCH-FAIL"
 fi

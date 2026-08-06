@@ -36,7 +36,7 @@ is a defect we root-caused and reported upstream:
 
 | driver branch | support commitment | 64 KiB pages | relative perf (4k, measured 2026-07-31) |
 |---|---|---|---|
-| **580 (LTSB)** — also what DGX OS ships for the GB10 | Jun 2028 | **works** | **0.896× — 10.4% slower** |
+| **580 (LTSB)** — also what DGX OS ships for the GB10 | ~3 yr per lifecycle policy; **no published per-branch date** | **works** | **0.896× — 10.4% slower** |
 | 590 (dropped), 595 (Production), **610 (New Feature Branch, what we ship)** | none for 610 — NFBs have no formal support period (NVIDIA lifecycle policy; 610.57.04 released 2026-08-03) | **broken** | 1.000× (baseline) |
 
 So the two properties we want are on opposite branches, and the branch that gives correctness under 64k costs
