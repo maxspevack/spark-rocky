@@ -128,6 +128,21 @@ if [ "$DCH" = 1 ]; then
   sh "$RUN" --no-kernel-modules --no-questions --ui=none --no-x-check --no-nouveau-check --no-install-libglvnd 2>&1 | tail -2
   [ -d "/lib/firmware/nvidia/$DRIVER_VER" ]  || { echo "FATAL: no /lib/firmware/nvidia/$DRIVER_VER after the userspace install (GSP firmware missing)"; exit 1; }
   [ -e "/usr/lib64/libcuda.so.$DRIVER_VER" ] || { echo "FATAL: libcuda.so.$DRIVER_VER not installed"; exit 1; }
+  # Regenerate the CDI spec. It pins EVERY driver library by full version, so a
+  # bump leaves it pointing at the previous driver and EVERY GPU container dies
+  # with "failed to fulfil mount request: open /usr/lib64/libEGL_nvidia.so.<old>:
+  # no such file or directory". Found on the metal 2026-08-06: the 08-05 bump to
+  # 610.57.04 left 94 references to 610.43.03 and the box could not run a single
+  # GPU container for a day -- nothing noticed, because nothing tried.
+  if command -v nvidia-ctk >/dev/null; then
+    nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml >/dev/null 2>&1 \
+      || { echo "FATAL: nvidia-ctk cdi generate failed — GPU containers would break"; exit 1; }
+    grep -q "$DRIVER_VER" /etc/cdi/nvidia.yaml \
+      || { echo "FATAL: regenerated CDI spec does not reference $DRIVER_VER"; exit 1; }
+    echo "  CDI spec regenerated for $DRIVER_VER"
+  else
+    echo "WARN: nvidia-ctk absent — /etc/cdi/nvidia.yaml still pins the OLD driver; GPU containers will fail"
+  fi
 fi
 
 echo "== build initramfs (04's flags) =="
