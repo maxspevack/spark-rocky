@@ -36,6 +36,10 @@ GRUBCFG=/boot/efi/EFI/rocky/grub.cfg
 # Image boot-hygiene cmdline — mirrors 04-build-image.sh's GRUBCFG (a guarded coupling; the test suite checks
 # the two carry the same hygiene flags). Any cmdline change is made in 04 first, then here.
 CMDLINE="ro rootwait quiet loglevel=3 nvidia-drm.modeset=0 fbcon=nodefer iommu.passthrough=0 init_on_alloc=0 console=tty0 earlycon=uart,mmio32,0x16A00000 selinux=0"
+# Metal-only cmdline extras (e.g. crashkernel= for kdump, #62) — a box-local file, NEVER the image:
+# the Live USB must not reserve crash memory. Survives kernel bumps because every grub rewrite
+# re-reads it; absent file = no extras (fresh installs start clean).
+[ -f /etc/spark-rocky-metal-cmdline ] && CMDLINE="$CMDLINE $(tr -d '\n' < /etc/spark-rocky-metal-cmdline)"
 
 # ---- dispatch: what actually differs? ----
 # Installed driver userspace = the libcuda.so.1 symlink target (on-disk truth; needs no loaded GPU driver).
