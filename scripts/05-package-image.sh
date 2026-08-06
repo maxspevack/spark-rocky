@@ -115,7 +115,10 @@ chk 'grep -qx uninitialized "$MNT/etc/machine-id"'                       "machin
 chk '[ -L "$MNT/etc/systemd/system/systemd-machine-id-commit.service" ]' "machine-id-commit masked (no 90s boot hang)"
 chk '[ ! -e "$MNT/root/.bash_history" ]'                                 "build-host shell history removed"
 UNVERIFIED=""; for rf in "$MNT"/etc/yum.repos.d/*.repo; do [ -f "$rf" ] || continue; grep -q '^gpgcheck=1' "$rf" && continue; grep -q '^repo_gpgcheck=1' "$rf" && continue; UNVERIFIED="$UNVERIFIED $(basename "$rf")"; done
-chk '[ -z "$UNVERIFIED" ]'                                               "every repo verifies signatures (gpgcheck or repo_gpgcheck)${UNVERIFIED:+ — UNVERIFIED:$UNVERIFIED}"
+# $UNVERIFIED is derived from filenames inside the image, so it must never reach
+# eval -- only the message. chk's first argument is eval'd; the second is not.
+if [ -z "$UNVERIFIED" ]; then chk 'true' "every repo verifies signatures (gpgcheck or repo_gpgcheck)"
+else chk 'false' "every repo verifies signatures — UNVERIFIED:$UNVERIFIED"; fi
 chk '[ -x "$MNT/root/validate.sh" ]'                                     "validate.sh installed"
 chk '[ -x "$MNT/root/proof-of-life.sh" ]'                                "proof-of-life.sh present (validate.sh CUDA check)"
 chk '[ -x "$MNT/root/templog.sh" ]'                                      "templog.sh present (forensic thermal/mem trace)"

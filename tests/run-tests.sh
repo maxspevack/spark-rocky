@@ -13,7 +13,7 @@ no(){ fail=$((fail+1)); echo "  FAIL: $1"; }
 echo "== syntax: every shell script parses (bash -n) =="
 while IFS= read -r f; do
   if err=$(bash -n "$f" 2>&1); then ok "$f"; else no "$f"; echo "        $err"; fi
-done < <(find scripts tests -name '*.sh' | sort)
+done < <(find scripts tests data -name '*.sh' | sort)
 
 echo
 echo "== invariants: properties this codebase must hold (machine-independent) =="
@@ -168,7 +168,7 @@ grep -qF 'usr/lib/firmware/mediatek/mt7925/WIFI_RAM_CODE' scripts/05-package-ima
 grep -qF '"$WSTATE" != unavailable' scripts/validate.sh && ok "doctor asserts the wifi device is NOT 'unavailable' (the state that actually shipped)" || no "validate.sh: no assertion against the 'unavailable' state (#84)"
 grep -qF '"${APS:-0}" -ge 1' scripts/validate.sh && ok "doctor requires a SCAN to return APs — the real end-to-end wifi proof" || no "validate.sh: no scan-based wifi check; link-up alone is what #64 wrongly accepted"
 grep -q 'PG64_OK' scripts/05-package-image.sh && ok "05 gates a 64k pin on DRIVER_64K_SAFE (fail-closed)" || no "05: 64k correctness gate missing"
-case " $(. config/versions.env; echo "$DRIVER_64K_SAFE") " in *" $(. config/versions.env; echo "$DRIVER_VER")"*) no "DRIVER_64K_SAFE lists the shipping driver $(. config/versions.env; echo "$DRIVER_VER") — it carries the #1269 defect; a >=4 GiB allocation test must PASS before it earns that";; *) ok "DRIVER_64K_SAFE excludes the defect-carrying shipping driver";; esac
+case " $(. config/versions.env; echo "$DRIVER_64K_SAFE") " in *" $(. config/versions.env; echo "$DRIVER_VER") "*) no "DRIVER_64K_SAFE lists the shipping driver $(. config/versions.env; echo "$DRIVER_VER") — it carries the #1269 defect; a >=4 GiB allocation test must PASS before it earns that";; *) ok "DRIVER_64K_SAFE excludes the defect-carrying shipping driver";; esac
 if [ "$(. config/versions.env; echo "$PAGE_SIZE")" = 64k ]; then case " $(. config/versions.env; echo "$DRIVER_64K_SAFE") " in *" $(. config/versions.env; echo "$DRIVER_VER") "*) ok "64k pin sits on a 64k-safe driver";; *) no "64k pin on a driver not in DRIVER_64K_SAFE — 05 will refuse (this is the gate working)";; esac; else ok "page-size pin is 4k (the #1269 trade; destination is 64k, see versions.env)"; fi
 # Doctor has no hardcoded issue URL (S1).
 if grep -qF 'issues/new' scripts/validate.sh; then no "validate.sh still prints a hardcoded issue URL (S1)"; else ok "validate.sh has no hardcoded issue URL (S1)"; fi
@@ -221,3 +221,17 @@ if grep -qF 'RESULT: PASS' scripts/05b-boot-gate.sh && grep -qF 'validate.sh' sc
 echo
 echo "RESULT: $pass passed, $fail failed"
 [ "$fail" = 0 ]
+
+# --- 2026-08-06 review: gates bound to bytes, and the parse-the-signed-body rule ---
+grep -q 'require_receipt' scripts/06-sign-release.sh && ok "06 requires serve-gate + boot-gate receipts before signing (gates bound to the artifact, not remembered)" || no "06: signs without proof the gates ran — the #35 class"
+grep -q 'IMG_SHA' scripts/06-sign-release.sh && ok "06 binds the gate receipts to the sha of the image being signed (catches a re-pack after the gate)" || no "06: receipts not bound to the image sha"
+grep -q 'serve-gate.pass' scripts/serve-gate.sh && ok "serve-gate writes a receipt 06 can require" || no "serve-gate: writes no receipt"
+grep -q 'boot-gate.pass' scripts/05b-boot-gate.sh && ok "05b writes a boot receipt 06 can require" || no "05b: writes no receipt"
+grep -q 'CHECKSUM.signed' scripts/flash.sh && ok "flash.sh parses the EXTRACTED signed body, not the container (prepend attack)" || no "flash.sh: parses the raw CHECKSUM — unsigned prepended lines are trusted"
+grep -q 'CHECKSUM.signed' scripts/07-verify-release.sh && ok "07 compares against the extracted signed body" || no "07: greps the raw served CHECKSUM"
+grep -qF 'grep -qE "^${asha}  ${aname}$"' scripts/07-verify-release.sh && ok "07 anchors the image sha to its own filename (not any signed artifact)" || no "07: unanchored sha match accepts any signed artifact's sha"
+grep -q 'BOOT_GATE_STICK_MODEL' config/versions.env && ok "the boot-gate flash target is pinned by MODEL (mount state is not identity)" || no "05b: flash target resolved by mount state alone — an unmounted archive drive qualifies"
+grep -q 'de-arm' scripts/05b-boot-gate.sh && ok "05b de-arms the stick after a pass (no standing self-reboot unit or injected credentials)" || no "05b: leaves the recovery stick armed indefinitely"
+grep -q 'no-install-libglvnd' scripts/upgrade-metal.sh && ok "upgrade-metal uses --no-install-libglvnd (glvnd is rpm-owned; forcing it stranded the metal 2026-07-28)" || no "upgrade-metal: forces --install-libglvnd against the documented landmine"
+grep -q 'git -C "$EXTRACT_DIR" rev-parse HEAD' scripts/01-build-kernel.sh && ok "the CLK source tree is content-verified against the pinned commit" || no "01: CLK source fetched with no verification — it is the SHIPPING kernel"
+grep -qF 'SERVING_IMAGE' scripts/receipt-chunked.sh && ok "receipt-chunked reads the serving pin from serving-images.env (one source of truth)" || no "receipt-chunked: hardcoded serving pin drifts from the documented runtime"

@@ -20,6 +20,7 @@ DEV="${1:-}"; BASE="${2:-}"
 [ -n "$DEV" ]  || { echo "usage: sudo $0 <usb-device> [base-url]"; exit 2; }
 [ -n "$BASE" ] || { echo "FATAL: no release URL. Pass it as arg 2, or set RELEASE_BASE_URL in config/release.env."; exit 2; }
 [ "$(id -u)" = 0 ] || { echo "FATAL: must run as root (it writes a block device): sudo $0 $*"; exit 2; }
+case "$BASE" in https://*) ;; *) echo "FATAL: release URL must be https://, got: $BASE"; exit 2;; esac
 for t in curl gpg sha256sum xz; do command -v "$t" >/dev/null || { echo "FATAL: missing required tool: $t"; exit 2; }; done
 
 # Canonicalize BEFORE the cd: a relative FLASH_DLDIR would otherwise resolve to DL/DL/IMG at the write
@@ -30,19 +31,30 @@ GNUPGHOME="$(mktemp -d)"; export GNUPGHOME; trap 'rm -rf "$GNUPGHOME"' EXIT   # 
 echo "=== fetch signed metadata from $BASE ==="
 curl -fLsS -o CHECKSUM                    "$BASE/CHECKSUM"                     || { echo "FATAL: cannot fetch CHECKSUM from $BASE"; exit 1; }
 curl -fLsS -o spark-rocky-release-key.asc "$BASE/spark-rocky-release-key.asc" || { echo "FATAL: cannot fetch the signing key"; exit 1; }
-IMG="$(awk '/\.raw\.xz/{print $2; exit}' CHECKSUM)"
-[ -n "$IMG" ] || { echo "FATAL: CHECKSUM names no .raw.xz image"; exit 1; }
 
 echo "=== verify the CHECKSUM signature is from the pinned key ($FPR) ==="
 gpg --batch --import spark-rocky-release-key.asc >/dev/null 2>&1 || { echo "FATAL: signing-key import failed"; exit 1; }
-gpg --batch --status-fd=1 --verify CHECKSUM 2>/dev/null | grep -q "VALIDSIG $FPR" \
+# Extract the SIGNED BODY and parse only that. gpg reports VALIDSIG for a clearsigned file even when
+# arbitrary unsigned text is prepended to it, so parsing the container -- as this did until 2026-08-06 --
+# let an attacker who could serve CHECKSUM inject their own filename and sha past a "Good signature".
+gpg --batch --status-fd=1 --output CHECKSUM.signed --yes --decrypt CHECKSUM 2>/dev/null | grep -q "VALIDSIG $FPR" \
   || { echo "FATAL: CHECKSUM is not signed by the pinned fingerprint $FPR. Refusing — do not write this image."; exit 1; }
 echo "  ok: Good signature from $FPR"
 
-# Verify ONLY the image against its line in CHECKSUM. A whole-file `sha256sum -c CHECKSUM` would also try
+IMG="$(awk '/\.raw\.xz/{print $2; exit}' CHECKSUM.signed)"
+[ -n "$IMG" ] || { echo "FATAL: CHECKSUM names no .raw.xz image"; exit 1; }
+# A bare filename, never a path: $IMG is a curl -o target running as root. 05 only ever emits
+# spark-rocky-live-<arch>-<kver>-<date>.raw.xz, so this rejects nothing we can legitimately produce.
+case "$IMG" in
+  */*|*[!A-Za-z0-9._-]*) echo "FATAL: CHECKSUM names a non-filename image target: $IMG. Refusing."; exit 1;;
+  *.raw.xz) ;;
+  *) echo "FATAL: image name is not a .raw.xz: $IMG. Refusing."; exit 1;;
+esac
+
+# Verify ONLY the image against its line in CHECKSUM. A whole-file `sha256sum -c` would also try
 # the manifest (which flash.sh does not fetch); under `set -o pipefail` that non-zero exit masks a good
 # image as a failure. So pull the expected sha and compare it directly.
-EXPECT="$(awk -v f="$IMG" '$2==f{print $1; exit}' CHECKSUM)"
+EXPECT="$(awk -v f="$IMG" '$2==f{print $1; exit}' CHECKSUM.signed)"
 [ -n "$EXPECT" ] || { echo "FATAL: CHECKSUM has no sha256 line for $IMG"; exit 1; }
 img_ok(){ [ -f "$IMG" ] && [ "$(sha256sum "$IMG" 2>/dev/null | cut -d' ' -f1)" = "$EXPECT" ]; }
 echo "=== fetch + verify the image: $IMG ==="

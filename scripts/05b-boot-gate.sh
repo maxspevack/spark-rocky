@@ -26,6 +26,9 @@
 #     validates the artifact's behavior; the artifact that gets signed is untouched.
 set -uo pipefail
 
+. "$(cd "$(dirname "$0")/.." && pwd)/config/versions.env"
+STICK_MODEL="${BOOT_GATE_STICK_MODEL:?BOOT_GATE_STICK_MODEL must be pinned in config/versions.env}"
+
 HOST="${BOOT_GATE_HOST:-}"
 [ -n "$HOST" ] || { echo "usage: BOOT_GATE_HOST=<ssh-host> $0 [image-path-on-box]"; exit 2; }
 BOX_REPO="${BOX_REPO:-/root/spark-rocky}"
@@ -48,7 +51,8 @@ case "$ROOTDEV" in
   /dev/nvme*) ;;
   *) echo "GATE-FAIL: box is not on the metal (root=$ROOTDEV) — a previous gate may not have returned; refusing"; exit 1 ;;
 esac
-BUSY=$(S 'docker ps -q | wc -l')
+S 'docker info' >/dev/null 2>&1 || { echo "GATE-FAIL: docker is not reachable on the box — cannot prove it is idle, and a crashed daemon can still leave a GPU workload resident"; exit 1; }
+BUSY=$(S 'docker ps -q 2>/dev/null | wc -l')
 [ "$BUSY" = "0" ] || { echo "GATE-FAIL: $BUSY container(s) running — a serve or benchmark owns the box; rerun when idle"; exit 1; }
 
 # --- image path (newest vended candidate unless given) ---
@@ -59,16 +63,18 @@ step "candidate: $IMG"
 
 # --- 1. Resolve the flash target by identity: exactly ONE USB disk with zero mounted filesystems ---
 step "resolving flash target (identity, never device letter)"
-DEV=$(S '
-  c=""
-  for d in $(lsblk -dno NAME,TRAN | awk '"'"'$2=="usb"{print $1}'"'"'); do
-    m=$(lsblk -no MOUNTPOINT "/dev/$d" | grep -c . || true)
-    [ "$m" = "0" ] && c="$c /dev/$d"
+DEV=$(S "
+  c=\"\"
+  for d in \$(lsblk -dno NAME,TRAN | awk '\$2==\"usb\"{print \$1}'); do
+    m=\$(lsblk -no MOUNTPOINT \"/dev/\$d\" | grep -c . || true)
+    [ \"\$m\" = 0 ] || continue
+    mdl=\$(lsblk -dno MODEL \"/dev/\$d\" | tr -d ' ')
+    case \"\$mdl\" in *'$STICK_MODEL'*) c=\"\$c /dev/\$d\";; esac
   done
-  set -- $c
-  [ "$#" -eq 1 ] && printf "%s" "$1"
-')
-[ -n "$DEV" ] || { echo "GATE-FAIL: not exactly one unmounted USB disk on the box — plug/unplug until unambiguous (mounted drives are never targets)"; exit 1; }
+  set -- \$c
+  [ \"\$#\" -eq 1 ] && printf %s \"\$1\"
+")
+[ -n "$DEV" ] || { echo "GATE-FAIL: not exactly one UNMOUNTED USB disk matching model '$STICK_MODEL' on the box."; echo "  Mount state alone is not identity: an unmounted archive drive would otherwise qualify as the target."; echo "  Set BOOT_GATE_STICK_MODEL in config/versions.env if the recovery stick changed."; exit 1; }
 step "target: $DEV ($(S "lsblk -dno MODEL,SIZE '$DEV'" | tr -s ' '))"
 
 # --- 2. Flash + arm + BootNext + reboot: one gated chain on the box ---
@@ -160,6 +166,34 @@ done
 [ -n "$BACK" ] || { echo "WARN: metal not confirmed back within ${RETURN_WAIT}s — verify by hand"; }
 
 if [ "$VERDICT" = PASS ] && [ "$VRC" = 0 ]; then
+  # Bind the pass to the exact bytes booted (#C1). Written on the box, beside
+  # the image, so 06 can refuse to sign anything this gate did not cover -- and
+  # can catch a re-pack that happened after the gate ran.
+  S "sha256sum '$IMG' | cut -d' ' -f1 > \"\$(dirname '$IMG')/boot-gate.pass\"; \
+     { echo \"# boot-gate PASS \$(date -u +%FT%TZ)\"; echo \"# image $(basename "$IMG")\"; } \
+       >> \"\$(dirname '$IMG')/boot-gate.pass\"" \
+    && echo "  receipt: $(dirname "$IMG")/boot-gate.pass on the box" \
+    || echo "  WARN: could not write the boot-gate receipt; 06 will refuse to sign"
+  step "de-arming the stick (it is a test vehicle, not a booby-trapped recovery medium)"
+  # Re-resolve by MODEL: the box rebooted twice since $DEV was computed, and
+  # device letters shuffle across reboots -- reusing the old letter here is the
+  # very hazard this gate was written to avoid.
+  S "set -e
+     D=\"\"
+     for d in \$(lsblk -dno NAME,TRAN | awk '\$2==\"usb\"{print \$1}'); do
+       mdl=\$(lsblk -dno MODEL \"/dev/\$d\" | tr -d ' ')
+       case \"\$mdl\" in *'$STICK_MODEL'*) D=\"/dev/\$d\";; esac
+     done
+     [ -n \"\$D\" ] || { echo 'de-arm: stick not found by model'; exit 1; }
+     M=\$(mktemp -d); mount \"\${D}2\" \"\$M\"
+     rm -f \"\$M/etc/systemd/system/boot-gate-return.service\" \
+           \"\$M/etc/systemd/system/multi-user.target.wants/boot-gate-return.service\" \
+           \"\$M/etc/boot-gate-armed\" \
+           \"\$M/root/.ssh/authorized_keys\"
+     rm -f \"\$M\"/etc/NetworkManager/system-connections/*.nmconnection
+     sync; umount \"\$M\"; rmdir \"\$M\"" \
+    && echo "  de-armed: self-return unit, injected WiFi profiles and ssh key removed" \
+    || echo "  WARN: de-arm failed — the stick still carries the self-return unit and credentials; clear it by hand"
   echo "BOOT-GATE: PASS — the booted artifact validated over its own WiFi. Releasable (proceed to 06-sign)."
   exit 0
 else

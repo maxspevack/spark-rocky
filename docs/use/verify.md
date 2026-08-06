@@ -19,14 +19,19 @@ From the directory holding the release files (`CHECKSUM`, the `.raw.xz`, `BUILD-
 #    keys/ is repo-relative — from the release-files directory, point at your clone:
 gpg --import /path/to/spark-rocky/keys/spark-rocky-release-key.asc
 
-# 2. the checksums are authentically ours
-gpg --verify CHECKSUM           # must print: Good signature ... 71C1 6676 ...
+# 2. extract the SIGNED BODY and check the signature in one step
+#    gpg reports a good signature on a clearsigned file even when unsigned text
+#    has been PREPENDED to it, so always verify against the extracted plaintext
+#    -- never against the container you downloaded.
+gpg --output CHECKSUM.signed --decrypt CHECKSUM   # must print: Good signature ... 71C1 6676 ...
 
 # 3. your download matches the signed checksums
-sha256sum -c CHECKSUM           # the .raw.xz line must say OK
+sha256sum -c CHECKSUM.signed    # the .raw.xz line must say OK
 ```
 
-On step 3, `sha256sum` prints `WARNING: N lines are improperly formatted` — those are the PGP armor lines inside the clearsigned file, not checksum lines. Ignore it; what matters is the `.raw.xz: OK` line and a zero exit.
+`CHECKSUM.signed` holds only the checksum lines that were actually inside the
+signature, so step 3 is clean — no armor lines, no "improperly formatted"
+warning to wave away, and nothing an attacker appended outside the signed body.
 
 Then flash it and boot: [`running.md`](running.md). After boot, run `/root/validate.sh`.
 

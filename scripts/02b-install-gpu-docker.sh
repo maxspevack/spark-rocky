@@ -34,9 +34,13 @@ dnf -y --installroot="$R" --releasever="$RV" --setopt=install_weak_deps=False in
   docker-ce docker-ce-cli containerd.io nvidia-container-toolkit >/host/rocky-img/gpu.log 2>&1
 echo "[gpu] docker+toolkit OK"
 
-echo "[gpu] driver userspace libs (el10 $DRIVER_VER, belt-and-suspenders; 02c installs the real userspace via .run)"
-dnf -y --installroot="$R" --releasever="$RV" --setopt=install_weak_deps=False install \
-  nvidia-driver-cuda-libs nvidia-driver-libs >>/host/rocky-img/gpu.log 2>&1 || echo "[gpu] dnf driver-libs soft-skip (02c is the real userspace install)"
+# No dnf driver-userspace here: it pulled whatever version the NVIDIA repo
+# served that day into a pinned image -- a pin violation, and a moving baseline
+# under the 02c path-diff. 02c installs the pinned .run userspace, rpm-owned.
+# NOTE: this whole container script is ONE single-quoted string handed to
+# bash -c by the docker run at the top of the file. A single quote character
+# anywhere in here -- comments included -- ends that string early and breaks
+# the parse. No contractions, no quoted words, until the closing quote.
 
 echo "[gpu] ensure driver .run downloaded + extracted at /host/driver-610 (shared with 02c/03)"
 RUN=NVIDIA-Linux-aarch64-$DRIVER_VER.run

@@ -106,11 +106,15 @@ if [ -z "${SERVING_IMAGE_TAG:-}" ]; then
 elif [ -z "$sup" ]; then
   row SERVING "$SERVING_IMAGE_TAG" "FETCH-FAIL"
 else
-  gap=$(python3 -c "
+  # Data goes in as ARGV, never interpolated into the program text: $sup comes from a third-party
+  # repo's build-index.json, and a crafted tag would otherwise execute as Python -- on a dev box that
+  # holds the gh token, the Spark SSH keys, and the release-signing key.
+  gap=$(python3 -c '
+import sys
 from datetime import date
-p, u = '$SERVING_IMAGE_TAG'[:8], '$sup'[:8]
+p, u = sys.argv[1][:8], sys.argv[2][:8]
 d = lambda s: date(int(s[:4]), int(s[4:6]), int(s[6:8]))
-print((d(u) - d(p)).days)" 2>/dev/null)
+print((d(u) - d(p)).days)' "$SERVING_IMAGE_TAG" "$sup" 2>/dev/null)
   if [ -n "$gap" ] && [ "$gap" -gt 31 ]; then
     row SERVING "$SERVING_IMAGE_TAG" "$sup"
   else

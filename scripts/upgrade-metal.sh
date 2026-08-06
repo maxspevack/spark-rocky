@@ -39,7 +39,7 @@ CMDLINE="ro rootwait quiet loglevel=3 nvidia-drm.modeset=0 fbcon=nodefer iommu.p
 # Metal-only cmdline extras (e.g. crashkernel= for kdump, #62) — a box-local file, NEVER the image:
 # the Live USB must not reserve crash memory. Survives kernel bumps because every grub rewrite
 # re-reads it; absent file = no extras (fresh installs start clean).
-[ -f /etc/spark-rocky-metal-cmdline ] && CMDLINE="$CMDLINE $(tr -d '\n' < /etc/spark-rocky-metal-cmdline)"
+[ -f /etc/spark-rocky-metal-cmdline ] && CMDLINE="$CMDLINE $(tr '\n' ' ' < /etc/spark-rocky-metal-cmdline)"   # translate, never delete: one param per line is the natural format
 
 # ---- dispatch: what actually differs? ----
 # Installed driver userspace = the libcuda.so.1 symlink target (on-disk truth; needs no loaded GPU driver).
@@ -118,11 +118,14 @@ EOF
 
 if [ "$DCH" = 1 ]; then
   echo "== driver userspace ${DRV_INSTALLED:-none} -> $DRIVER_VER (.run, sha256-gated) =="
+  # glvnd comes from Rocky (rpm-owned), never from the .run: see
+  # docs/build/branch-transition.md. Forcing --install-libglvnd stranded the
+  # metal driverless on 2026-07-28 and overwrites rpm-owned files besides.
   RUN="$W/driver-610/NVIDIA-Linux-aarch64-$DRIVER_VER.run"
   [ -f "$RUN" ] || { echo "FATAL: $RUN missing — run 02b first (it downloads the .run)"; exit 1; }
   echo "$DRIVER_SHA256  $RUN" | sha256sum -c - >/dev/null 2>&1 \
     || { echo "FATAL: .run sha256 != pinned DRIVER_SHA256 (versions.env) — refusing to install"; exit 1; }
-  sh "$RUN" --no-kernel-modules --no-questions --ui=none --no-x-check --no-nouveau-check --install-libglvnd 2>&1 | tail -2
+  sh "$RUN" --no-kernel-modules --no-questions --ui=none --no-x-check --no-nouveau-check --no-install-libglvnd 2>&1 | tail -2
   [ -d "/lib/firmware/nvidia/$DRIVER_VER" ]  || { echo "FATAL: no /lib/firmware/nvidia/$DRIVER_VER after the userspace install (GSP firmware missing)"; exit 1; }
   [ -e "/usr/lib64/libcuda.so.$DRIVER_VER" ] || { echo "FATAL: libcuda.so.$DRIVER_VER not installed"; exit 1; }
 fi
@@ -142,7 +145,7 @@ if [ "$KCH" = 1 ]; then
 if rpm -q kdump-utils >/dev/null 2>&1 && [ ! -f "/boot/Image-$KVER" ]; then
   ZOFF=$(od -Ad -tu4 -j 8  -N 4 "/boot/vmlinuz-$KVER" | awk '{print $2; exit}')
   ZSZ=$(od -Ad -tu4 -j 12 -N 4 "/boot/vmlinuz-$KVER" | awk '{print $2; exit}')
-  dd if="/boot/vmlinuz-$KVER" bs=1 skip="$ZOFF" count="$ZSZ" status=none | zstd -dc > "/boot/Image-$KVER" \
+  dd if="/boot/vmlinuz-$KVER" bs=4M iflag=skip_bytes,count_bytes skip="$ZOFF" count="$ZSZ" status=none | zstd -dc > "/boot/Image-$KVER" \
     && od -Ax -tx1 -j 56 -N 4 "/boot/Image-$KVER" | grep -q "41 52 4d 64" \
     && echo "  kdump: raw Image-$KVER extracted (ARMd magic verified)" \
     || { echo "  WARN: kdump Image extraction failed — kdump will not arm on the new kernel"; rm -f "/boot/Image-$KVER"; }

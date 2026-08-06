@@ -9,7 +9,8 @@ W="${W:-$(dirname "$HERE")}"
 source "$HERE/lib/build-env-gate.sh"   # fail-closed staleness gate on 01's build.env (one impl — audit #70 C1)
 R="$W/rocky-img/rootfs"
 IMG="$W/rocky-img/rocky-gb10.img"
-DEV="${DEV:-/dev/sda}"
+# Opt-IN, and never a default letter: device letters shuffle across reboots.
+DEV="${DEV:-}"
 [ "$(id -u)" = 0 ] || { echo "FATAL: must run as root (loop devices, mkfs, mounts)"; exit 1; }
 MNT=/mnt/rimg
 [ -d "$R" ] || { echo "FATAL: rootfs missing — run 02/02b/02c first"; exit 1; }
@@ -55,7 +56,21 @@ mkdir -p "$MNT"
 mount ${LOOP}p2 "$MNT"                && mountpoint -q "$MNT"          || { echo "FATAL: root mount failed"; losetup -d "$LOOP"; exit 1; }
 mkdir -p "$MNT"/boot/efi
 mount ${LOOP}p1 "$MNT"/boot/efi       && mountpoint -q "$MNT"/boot/efi || { echo "FATAL: ESP mount failed"; umount "$MNT"; losetup -d "$LOOP"; exit 1; }
-echo "=== populate (fast, on NVMe) ==="; cp -a "$R"/. "$MNT"/
+# sshd lockdown lives in the IMAGE, not only in the release path: 05 wrote this
+# and verified it, so a 04-built image flashed directly with DEV= had the distro
+# default plus the published console password.
+mkdir -p "$R/etc/ssh/sshd_config.d"
+cat > "$R/etc/ssh/sshd_config.d/99-spark-rocky.conf" <<'SSHD'
+# Console root login is intended (root/rocky, documented); network root login is not.
+PermitRootLogin prohibit-password
+SSHD
+
+echo "=== populate (fast, on NVMe) ==="
+cp -a "$R"/. "$MNT"/ || { echo "FATAL: rootfs populate failed (ENOSPC? see df below)"; df -h "$MNT"; umount "$MNT"/boot/efi; umount "$MNT"; losetup -d "$LOOP"; exit 1; }
+# Headroom assert: a populate that *just* fits leaves no room for the chroot dnf
+# and the no-hostonly initramfs that follow, and those fail in subtler ways.
+FREEM=$(df -Pm "$MNT" | awk 'NR==2{print $4}')
+[ "${FREEM:-0}" -ge 500 ] || { echo "FATAL: only ${FREEM}M free after populate (<500M); grow IMG_MARGIN"; umount "$MNT"/boot/efi; umount "$MNT"; losetup -d "$LOOP"; exit 1; }
 cat > "$MNT"/etc/fstab <<EOF
 UUID=$ROOT_UUID / ext4 defaults 0 1
 UUID=$EFI_UUID /boot/efi vfat umask=0077,shortname=winnt 0 2
@@ -81,7 +96,12 @@ fi
 DBG="$HERE/../config/debug-authorized_keys"
 if [ -f "$DBG" ] && grep -q '^ssh-' "$DBG"; then
   { echo '#!/bin/bash'
+    echo 'KEYLINES=()'
+    while IFS= read -r _k; do printf 'KEYLINES+=(%q)\n' "$_k"; done < <(grep '^ssh-' "$DBG")
     echo '# Run ONLY if the maintainer asks, to let them SSH in and debug this box. Dedicated key, not personal.'
+    echo 'echo "This authorizes REMOTE ROOT LOGIN by the holder of this key:"'
+    echo 'for k in "${KEYLINES[@]}"; do printf "%s\\n" "$k" | ssh-keygen -lf - 2>/dev/null || printf "  %s\\n" "$k"; done'
+    echo 'printf "Type ENABLE to continue: "; read -r a; [ "$a" = ENABLE ] || { echo "aborted"; exit 1; }'
     echo 'mkdir -p /root/.ssh && chmod 700 /root/.ssh'
     echo 'cat >> /root/.ssh/authorized_keys <<KEYS'
     grep '^ssh-' "$DBG"
@@ -113,8 +133,9 @@ mount -t tmpfs -o size=20G tmpfs "$MNT"/var/tmp   # dracut scratch in RAM, not t
 cp -fL /etc/resolv.conf "$MNT/etc/resolv.conf"
 chroot "$MNT" /bin/bash <<CHROOT
 set -e
-dnf install -y -q grub2-efi-aa64 grub2-efi-aa64-modules shim-aa64 dracut-network NetworkManager NetworkManager-wifi wpa_supplicant openssh-server zstd
+dnf install -y -q grub2-efi-aa64 grub2-efi-aa64-modules shim-aa64 dracut-network NetworkManager NetworkManager-wifi wpa_supplicant openssh-server zstd iw
 command -v zstd >/dev/null || { echo "FATAL: zstd missing in chroot -- dracut would silently fall back to gzip (#44)"; exit 1; }
+command -v iw >/dev/null   || { echo "FATAL: iw missing in chroot -- the doctor powersave check would fail on a good image"; exit 1; }
 # WiFi userspace, fail-closed (#84, 2026-08-03). Base NetworkManager has NO wifi support: the device
 # plugin ships in NetworkManager-wifi (libnm-device-plugin-wifi.so) and association needs wpa_supplicant.
 # Neither is a hard Requires of NetworkManager, and 02 runs --setopt=install_weak_deps=False, so nothing
@@ -192,6 +213,7 @@ grep -q "blacklist mlx5_core" "$MNT/etc/modprobe.d/blacklist-mlx5.conf" 2>/dev/n
 [ "$(readlink "$MNT/etc/systemd/system/swap.target" 2>/dev/null)" = /dev/null ] || { echo "VERIFY-FAIL: swap.target not masked"; VERR=1; }
 [ "$(readlink "$MNT/etc/systemd/system/systemd-firstboot.service" 2>/dev/null)" = /dev/null ] || { echo "VERIFY-FAIL: systemd-firstboot not masked"; VERR=1; }
 [ -x "$MNT/root/spark-rocky-debug-enable.sh" ] || { echo "VERIFY-FAIL: spark-rocky-debug-enable.sh not baked (debug hatch missing — the \$HERE/../config path bug)"; VERR=1; }
+[ -f "$MNT/etc/ssh/sshd_config.d/99-spark-rocky.conf" ] || { echo "VERIFY-FAIL: sshd network-root lockdown missing (the DEV= direct-flash path shipped root/rocky over the network; 05 had this gate, 04 did not)"; VERR=1; }
 [ "$VERR" = 0 ] && echo "IMAGE-VERIFY-OK: vmlinuz-$KVER + zstd initramfs ($ISZ bytes) + BOOTAA64.EFI + grub + boot-hygiene + debug-hatch present"
 for m in var/tmp dev/pts dev sys proc; do umount -l "$MNT"/$m 2>/dev/null||true; done
 umount "$MNT"/boot/efi 2>/dev/null||true; umount "$MNT" 2>/dev/null||true
@@ -204,7 +226,9 @@ echo "IMAGE-VERIFY-OK -> $IMG ($(stat -c%s "$IMG" 2>/dev/null) bytes)"
 # OPTIONAL flash: only if $DEV is a present, removable USB. Absent or non-USB -> skip cleanly (the
 # image is the deliverable; 05 packages it; colleagues write it themselves). The guard makes
 # flashing the NVMe impossible regardless of what $DEV is set to.
-if [ "$(lsblk -dno TRAN "$DEV" 2>/dev/null|tr -d '[:space:]')" = usb ] && [ "$(lsblk -dno RM "$DEV" 2>/dev/null|tr -d '[:space:]')" = 1 ]; then
+if [ -z "$DEV" ]; then
+  echo "no DEV set — skipping flash (pass DEV=/dev/sdX to write a stick). Image ready at $IMG."
+elif [ "$(lsblk -dno TRAN "$DEV" 2>/dev/null|tr -d '[:space:]')" = usb ] && [ "$(lsblk -dno RM "$DEV" 2>/dev/null|tr -d '[:space:]')" = 1 ]; then
   echo "=== flashing $IMG -> $DEV ($(lsblk -dno SIZE,MODEL "$DEV" 2>/dev/null)) ==="
   for p in "$DEV"?*; do umount "$p" 2>/dev/null||true; done
   dd if="$IMG" of="$DEV" bs=16M oflag=direct status=progress; sync

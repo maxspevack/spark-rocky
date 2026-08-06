@@ -67,12 +67,20 @@ case "$KERNEL_SOURCE" in
   clk)
     # CIQ Linux Kernel (GPL; CIQ redistributes it). Pinned by commit SHA so the tarball is immutable.
     CLK_REPO=ctrliq/kernel-src-tree
-    TARBALL="clk-${CLK_COMMIT}.tar.gz"
-    [ -f "$TARBALL" ] || wget -q -O "$TARBALL" "https://github.com/$CLK_REPO/archive/$CLK_COMMIT.tar.gz" \
-      || { rm -f "$TARBALL"; echo "FATAL: failed to download CLK tarball (commit $CLK_COMMIT)"; exit 1; }
     EXTRACT_DIR="$(basename "$CLK_REPO")-$CLK_COMMIT"
+    # Fetched as GIT OBJECTS, not as a tarball: git verifies object hashes on
+    # receipt (with SHA-1 collision detection), so a tampered tree cannot present
+    # the pinned commit id. The archive tarball had NO verification at all -- and
+    # a stale cached $TARBALL was reused forever with no check -- while this same
+    # script refuses to build kernel.org sources without a GPG-anchored sha.
     rm -rf "$EXTRACT_DIR"
-    tar xf "$TARBALL"
+    git init -q "$EXTRACT_DIR"
+    git -C "$EXTRACT_DIR" fetch -q --depth 1 "https://github.com/$CLK_REPO" "$CLK_COMMIT" \
+      || { rm -rf "$EXTRACT_DIR"; echo "FATAL: failed to fetch CLK commit $CLK_COMMIT from $CLK_REPO"; exit 1; }
+    git -C "$EXTRACT_DIR" checkout -q FETCH_HEAD
+    GOT=$(git -C "$EXTRACT_DIR" rev-parse HEAD)
+    [ "$GOT" = "$CLK_COMMIT" ] || { echo "FATAL: CLK tree is $GOT, pinned $CLK_COMMIT"; exit 1; }
+    rm -rf "$EXTRACT_DIR/.git"   # a pristine source tree, as tar would have left
     # The CLK source tree defines the kernel version — derive it from the Makefile.
     # EXTRAVERSION is not parsed; CLK stable branches do not set it.
     CLK_V=$(sed -n "s/^VERSION *= *//p"    "$EXTRACT_DIR/Makefile")

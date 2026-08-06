@@ -5,11 +5,15 @@
 # Overall verdict CLEAN only if every segment is CLEAN and every bench rc=0.
 set -uo pipefail
 RECIPE="${1:?usage: $0 <recipe.yaml>}"
-PIN="ghcr.io/spark-arena/dgx-vllm-eugr-nightly:2026072302"
+# One source of truth for the serving pin: a hardcoded copy here meant a pin
+# bump left receipts measured on a runtime a generation behind every doc.
+. "$(cd "$(dirname "$0")/.." && pwd)/config/serving-images.env"
+PIN="$SERVING_IMAGE"
 OUT=/root/receipt-run
 mkdir -p "$OUT"
 
 teardown(){ ids=$(docker ps -aq --filter name=sparkrun); [ -n "$ids" ] && docker rm -f $ids >/dev/null 2>&1; }
+trap teardown EXIT INT TERM   # an interrupted run must not leave ~90 GB of KV cache resident
 preserve(){ C=$(docker ps -q --filter name=sparkrun | head -1); [ -n "$C" ] && docker cp "$C":/tmp/sparkrun_serve.log "$OUT/serve-incontainer.log" >/dev/null 2>&1; }
 cool(){ for i in $(seq 1 90); do t=$(nvidia-smi --query-gpu=temperature.gpu --format=csv,noheader,nounits 2>/dev/null | head -1); [ "${t:-99}" -le 55 ] && return 0; sleep 5; done; }
 

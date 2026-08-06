@@ -54,4 +54,23 @@ fi
 served=$(curl -s "http://localhost:$PORT/v1/models" 2>/dev/null | grep -c '"id"') || true
 [ "$served" -ge 1 ] || { echo "GATE-FAIL: /health 200 but /v1/models served no model"; exit 1; }
 
+# Bind the pass to the bytes it licenses (#C1): 06 refuses to sign an image no
+# gate covers, and refuses a receipt that predates a re-pack.
+VEND="${VEND:-$(cd "$(dirname "$0")/.." && pwd)/vend}"
+shopt -s nullglob
+CAND=( "$VEND"/*.raw.xz )
+if [ ${#CAND[@]} -eq 1 ]; then
+    sha256sum "${CAND[0]}" | cut -d" " -f1 > "$VEND/serve-gate.pass"
+    {
+        echo "# serve-gate PASS $(date -u +%FT%TZ)"
+        echo "# kernel $(uname -r) pagesize $(getconf PAGESIZE) recipe $RECIPE"
+        echo "# image $(basename "${CAND[0]}")"
+    } >> "$VEND/serve-gate.pass"
+    echo "  receipt: $VEND/serve-gate.pass"
+elif [ ${#CAND[@]} -eq 0 ]; then
+    echo "  note: no vended image yet — run 05 then re-run this gate to write its receipt."
+else
+    echo "  note: ${#CAND[@]} images in $VEND — rotate to one before gating."
+fi
+
 echo "GATE-PASS: vLLM served on $(uname -r) ($(getconf PAGESIZE)-byte pages) — KV cache allocated, model on the API. Releasable."

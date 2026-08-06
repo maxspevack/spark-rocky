@@ -55,10 +55,22 @@ say "=== verify (fail-closed) ==="
 # has pinned VALIDSIG since day one — same standard here).
 FPR="71C16676F9D40A4CE0C6EB6608B14BC398311101"
 gpg --import "$KEY" >/dev/null 2>&1 || true
-gpg --status-fd 1 --verify "$tmp/CHECKSUM" 2>/dev/null | grep -q "VALIDSIG $FPR"
+# Extract the signed BODY and compare against that, never the container: gpg reports VALIDSIG on a
+# clearsigned file with unsigned text prepended, so grepping the raw file would accept attacker-supplied
+# lines sitting outside the signature (same root cause as the 2026-08-06 flash.sh fix).
+gpg --status-fd 1 --output "$tmp/CHECKSUM.signed" --yes --decrypt "$tmp/CHECKSUM" 2>/dev/null | grep -q "VALIDSIG $FPR"
 res $? "served CHECKSUM carries a valid signature from the PINNED release key (${FPR:0:8}...)"
-# 3. the served image's sha is the one inside that signed CHECKSUM (binds manifest <-> signed bytes)
-[ -n "$asha" ] && grep -qF "$asha" "$tmp/CHECKSUM"; res $? "served image sha ${asha:0:12}... is covered by the signed CHECKSUM"
+# 3. the served image's sha is the one inside that signed CHECKSUM (binds manifest <-> signed bytes).
+# ANCHORED to the artifact's own line: an unanchored match accepted the sha of ANY signed artifact, so a
+# trojan image whose manifest quoted the kernel rpm's sha would have passed.
+aname=$(awk -F': *' '$1 ~ /^artifact *$/{print $2; exit}' "$tmp/manifest")
+[ -n "$asha" ] && [ -n "$aname" ] && grep -qE "^${asha}  ${aname}$" "$tmp/CHECKSUM.signed"
+res $? "served image sha ${asha:0:12}... is the signed sha for $aname"
+
+# 3b. the image object is actually SERVED. Metadata can be perfect while the
+# object is missing or truncated (a failed 1.5 GB upload, or the wrong file
+# removed during the manual #78 rotation).
+$GS ls "$BUCKET/$aname" $A >/dev/null 2>&1; res $? "served image object $aname exists in the bucket"
 
 # 4 (#59/#77). each served rpm: present in the bucket, sha inside the signed CHECKSUM.
 # Manifests older than the rpm pipeline have no rpm lines — skipped, not failed (old releases verify).
@@ -69,6 +81,7 @@ for pair in "kernel_rpm kernel_rpm_sha256 kernel" "kmod_rpm kmod_rpm_sha256 kmod
   psha=$(awk -F': *' -v k="$2" '$1 ~ "^"k" *$" {print $2; exit}' "$tmp/manifest")
   if [ -n "$prpm" ]; then
     sawrpm=1
+    case "$prpm" in *[\*\?\[]*) say "FATAL: rpm name from the served manifest contains a glob: $prpm"; exit 1;; esac
     $GS ls "$BUCKET/$prpm" $A >/dev/null 2>&1; res $? "$3 rpm $prpm is served from the bucket"
     [ -n "$psha" ] && grep -qF "$psha" "$tmp/CHECKSUM"; res $? "served $3 rpm sha ${psha:0:12}... is covered by the signed CHECKSUM"
   fi

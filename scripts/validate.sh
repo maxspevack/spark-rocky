@@ -123,7 +123,7 @@ if [ -n "$WDEV" ]; then
   chk '[ -d /sys/class/ieee80211/phy0 ]'            "a wifi phy is registered (driver + firmware came up)"
   chk '[ "$WSTATE" != unavailable ]'                "$WDEV is manageable by NM (state=$WSTATE, NOT 'unavailable')"
   nmcli device wifi rescan >/dev/null 2>&1; sleep 5
-  APS=$(nmcli -t -f SSID device wifi list 2>/dev/null | grep -c . || echo 0)
+  APS=$(nmcli -t -f SSID device wifi list 2>/dev/null | grep -c .) || true   # grep -c prints 0 and exits 1; `|| echo 0` would append a SECOND line (#70 A4)
   chk '[ "${APS:-0}" -ge 1 ]'                       "a scan returns access points (${APS:-0} seen) — proves firmware+driver+plugin+supplicant work together"
   chk '[ "$(iw dev '"$WDEV"' get power_save 2>/dev/null | awk "{print \$3}")" = off ]'  "wifi powersave off (PS on costs ~4x gateway RTT — measured 2026-08-03)"
 else
