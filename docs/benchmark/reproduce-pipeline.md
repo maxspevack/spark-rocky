@@ -124,6 +124,9 @@ Validation evidence: #72.
 # this block rotted exactly that way (a prose install line is a pin in disguise).
 scripts/install-sparkrun.sh          # from the repo root
 sparkrun update              # fetches the recipe registries (official/community/eugr/...)
+# THIS repo is also a registry — the receipt-backed configs, runnable by name (recipes/README.md):
+#   sparkrun registry add https://github.com/maxspevack/spark-rocky
+#   sparkrun run @spark-rocky/<recipe> ...
 ```
 
 The `sparkrun setup` wizard (cluster/SSH-mesh/sudoers/earlyoom) is **not required** for
