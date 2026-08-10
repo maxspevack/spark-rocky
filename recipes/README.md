@@ -25,7 +25,7 @@ captured, and the ledger says so).
 
 | File | Was (until 2026-08-10) | Receipts |
 |---|---|---|
-| [`spark-rocky/nemotron-3-super-120b-a12b-nvfp4-mtp-nst3-2026072302.yaml`](spark-rocky/nemotron-3-super-120b-a12b-nvfp4-mtp-nst3-2026072302.yaml) | `recipes/nemotron-3-super-120b-a12b-nvfp4-mtp-nst3-2026072302.yaml` | `reproduce-Nemotron-3-Super-NVFP4-mtp-2026-07-26.txt` (#73), re-proven under the official arena-v2 profile: `arena-v2-nemotron-3-super-nvfp4-mtp-1x-2026-08-10.*` |
+| [`spark-rocky/nemotron-3-super-120b-a12b-nvfp4-mtp-nst3-2026072302.yaml`](spark-rocky/nemotron-3-super-120b-a12b-nvfp4-mtp-nst3-2026072302.yaml) | `recipes/nemotron-3-super-120b-a12b-nvfp4-mtp-nst3-2026072302.yaml` | `reproduce-Nemotron-3-Super-NVFP4-mtp-2026-07-26.txt` (#73). The arena-v2 receipts (`arena-v2-nemotron-3-super-nvfp4-mtp-1x-2026-08-10.*`) re-prove the same config *lineage* under the official profile — via the upstream experimental-registry recipe on a newer runtime, not these pinned bytes; provenance in the receipt |
 | [`spark-rocky/qwen3.6-35b-a3b-nvfp4-board-2026072302.yaml`](spark-rocky/qwen3.6-35b-a3b-nvfp4-board-2026072302.yaml) | `recipes/qwen3.6-35b-a3b-nvfp4-board-2026072302.yaml` | `reproduce-Qwen3.6-35B-A3B-NVFP4-mtp-2026-07-25.txt` (#74). Board-lineage config re-expressed in sparkrun v2 (derivation in its `description:`); its `mods/fix-qwen3.6-chat-template` resolves from the default `eugr` registry — verified on a clean host (#91) |
 
 Recipes that carry `mods:` copy and execute the mod's `run.sh` inside the container before the

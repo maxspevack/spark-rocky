@@ -41,16 +41,9 @@ fi
 cat <<'EOF'
 
 Optional — this repo is also a sparkrun registry (receipt-backed GB10 recipes, #88):
-
     sparkrun registry add https://github.com/maxspevack/spark-rocky
-
-The registry is the convenient UNPINNED channel: it tracks git HEAD and is covered by no release
-signature. The receipts/ directory is the pinned one — registry recipes serve what was proven on
-their receipt date and carry no maintenance cadence against upstream drift.
-
-Recipes that carry mods execute the mod's run.sh in the container before the serve; sparkrun
-asks before running hooks from an untrusted registry. 'sparkrun registry trust spark-rocky'
-(or --trust at add time) skips that prompt by trusting this registry's current git HEAD —
-that grant is yours to make, and no release signature covers it.
-(Not run automatically: adding a registry is your trust decision, not this script's.)
+The registry tracks git HEAD — unpinned, no release signature; receipts/ is the pinned channel.
+Recipes with mods run the mod's run.sh in the container; sparkrun prompts before hooks from an
+untrusted registry. 'sparkrun registry trust spark-rocky' skips that prompt — that grant is
+yours to make, which is why this script does not add the registry for you.
 EOF

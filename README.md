@@ -22,7 +22,8 @@ Then boot the Spark from the USB and run `/root/validate.sh`. Full steps and the
 ## The recipe registry
 
 This repo is a [sparkrun](https://github.com/spark-arena/sparkrun) registry (#88): receipt-backed
-GB10 serve recipes, consumable directly —
+GB10 serve recipes, consumable directly (resolution and mods verified from a clean consumer host,
+#91; the serve semantics are what the receipts prove) —
 
 ```bash
 scripts/install-sparkrun.sh                                    # pinned harness install (uv)
@@ -43,7 +44,7 @@ rules, and the byte-binding ledgers: [`recipes/README.md`](recipes/README.md).
 | GPU + CUDA | the open driver builds and loads; the GPU computes | **PROVEN** |
 | Bare metal | installed on the NVMe (reference box) | **PROVEN** — install is destructive, not yet clean-room-validated elsewhere |
 | Benchmark | reproduce published single-host entries | **3 full-matrix parity** (35B-A3B-FP8 1.01×, 0.8B 0.96×, gemma-3-1b 1.05×; **re-confirmed on the current pinned runtime, 2026-07-24 — 0.8B median 1.010×**) **+ 2 frontier lanes receipt-grade on the current NVFP4+MTP meta** (Qwen3.6-35B: all 28 official cells throttle-CLEAN, statistically indistinguishable from the board's single-node field; Nemotron-3-Super-120B: statistical tie with board-best single-node, the cooling boundary measured per-cell). → [`docs/benchmark/scoreboard.md`](docs/benchmark/scoreboard.md) |
-| Leaderboard | peer-reviewed, third-party-reproduced, then submitted | **harness validated** (the board's own sparkrun + official profile run here end-to-end, #72 → the sparkrun section of [`docs/benchmark/reproduce-pipeline.md`](docs/benchmark/reproduce-pipeline.md)); **first recipe contributed to the community registry** ([PR #12](https://github.com/spark-arena/community-recipe-registry/pull/12), Nemotron single-node, **merged 2026-08-04**; #75 closed); the experimental-tier recipe **merged 2026-08-07** ([recipe-registry#19](https://github.com/spark-arena/recipe-registry/pull/19)) — [live in the registry spark-arena.com serves](https://github.com/spark-arena/recipe-registry/blob/main/experimental-recipes/nemotron-3-super/nemotron-3-super-nvfp4-mtp-1x-vllm.yaml) (#82 closed, M5 complete) |
+| Leaderboard | peer-reviewed, third-party-reproduced, then submitted | **harness validated** (the board's own sparkrun + official profile run here end-to-end, #72 → the sparkrun section of [`docs/benchmark/reproduce-pipeline.md`](docs/benchmark/reproduce-pipeline.md)); **first recipe contributed to the community registry** ([PR #12](https://github.com/spark-arena/community-recipe-registry/pull/12), Nemotron single-node, **merged 2026-08-04**; #75 closed); the experimental-tier recipe **merged 2026-08-07** ([recipe-registry#19](https://github.com/spark-arena/recipe-registry/pull/19)) — [live in the registry spark-arena.com serves](https://github.com/spark-arena/recipe-registry/blob/main/experimental-recipes/nemotron-3-super/nemotron-3-super-nvfp4-mtp-1x-vllm.yaml) (#82 closed, M5 complete); official arena-v2 profile run receipted 2026-08-10 (`receipts/arena-v2-*`) |
 
 ## Zero patches, and what's novel
 

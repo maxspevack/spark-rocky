@@ -3,10 +3,7 @@
 #   sparkrun registry add https://github.com/maxspevack/spark-rocky
 #   sparkrun run @spark-rocky/<recipe> ...
 #
-# The guarantee split, stated wherever the registry is offered: the registry is the convenient
-# UNPINNED channel — it tracks git HEAD and is covered by no release signature; the receipts in
-# receipts/ are the pinned one. Recipes serve what was proven on their receipt date and carry no
-# maintenance cadence against upstream drift (the #29 posture, inherited).
+# Guarantees and posture (unpinned channel vs pinned receipts): recipes/README.md is canonical.
 #
 # `recipes:` and `visible:` are EXPLICIT on every entry, never defaulted (CI-enforced): upstream
 # defaults `recipes:` to the repo's recipes/ ROOT — which here holds verbatim spark-arena mirrors
