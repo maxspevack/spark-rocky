@@ -25,7 +25,7 @@ swap. The June prefill deficit (0.75–0.93× at `pp2048`) closed to 1.011× onc
 — it was vLLM version drift, not the host ([#18](https://github.com/maxspevack/spark-rocky/issues/18)
 tracks the one residual cell class).
 
-**The frontier holds too.** On the board's current meta — NVFP4 quantization + MTP speculative
+**The frontier holds too.** On the board's meta as of 2026-07-25 — NVFP4 quantization + MTP speculative
 decoding — the same host runs the board's own top recipes receipt-grade: **Qwen3.6-35B-A3B**
 statistically indistinguishable from the board's single-node field (zero throttle samples across all
 28 official cells), and **Nemotron-3-Super-120B** — NVIDIA's flagship for this hardware — at a
