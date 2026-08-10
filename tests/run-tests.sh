@@ -302,6 +302,13 @@ if [ -f scripts/install-sparkrun.sh ]; then
   grep -qF 'sparkrun --version' scripts/install-sparkrun.sh && ok "install-sparkrun verifies the installed version against the pin" || no "install-sparkrun does not verify its own install (#92)"
 else no "scripts/install-sparkrun.sh missing (#92)"; fi
 
+# --- README front-door claims, mechanized (2026-08-10 FIXME pass) ---
+# "Zero patches carried by this repo" is CI-enforced, not asserted: no patch artifacts in the
+# tree, no patch application in any script, and the README's driver string matches the pin.
+if find . -path ./.git -prune -o \( -name '*.patch' -o -name '*.diff' \) -print | grep -q .; then no "a .patch/.diff file exists — the zero-patches claim on the README front door is now false"; else ok "zero patch artifacts in the tree (the README front-door claim holds)"; fi
+if grep -rnE '(^|[;&| ])(patch |git apply )' scripts/ | grep -vE '^\S+:[0-9]+:\s*#' | grep -q .; then no "a script invokes patch/git-apply — zero-patches claim broken at build time"; else ok "no script applies a patch (zero-patches holds at build time too)"; fi
+grep -qF "driver $DRIVER_VER" README.md && ok "README driver version matches the pin ($DRIVER_VER)" || no "README names a driver version that is not DRIVER_VER — front door drifted from the pin"
+
 # The RESULT tally + exit gate are the last lines of this file — the 2026-08-06 class: checks
 # appended below the gate are silenced (their FAILs print, the suite exits 0). Enforced, not
 # remembered: the tail guard fails the suite if anything sits after the gate.
