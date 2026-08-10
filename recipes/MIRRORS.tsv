@@ -1,0 +1,12 @@
+# MIRRORS.tsv — byte-integrity tripwire for every recipe at the recipes/ root (#88).
+# NOTHING at this level is served by the registry tiers. The four verbatim mirrors are
+# spark-arena's bytes ("not ours" — see README.md); the dated variants are receipt-backed but
+# promotion-pending (#91). Honesty note: pull-time hashes were never captured — these rows bind
+# bytes as recorded 2026-08-10, a no-drift-since-recorded claim, NOT a pull-time attestation.
+# Fields (tab-separated): sha256 path receipt recorded
+5cc3f62b727f5da5ed270e0e324a7df17de487be6dd749bd175be3b2322d9272	recipes/gemma-3-1b-it-arena.yaml	-	2026-08-10
+e1b713529418a13cdc095c0f6e1fa079a2c5303a440d6a1f3eccec1fa2223351	recipes/gpt-oss-120b-arena.yaml	-	2026-08-10
+14b7a8300c07286859a659e64f46ac024ee9853083bf5bf4d4a6ae04c6dbcd7c	recipes/qwen3.5-0.8b-arena-2026072302.yaml	receipts/reproduce-Qwen3.5-0.8B-gen2-2026-07-24.txt	2026-08-10
+ff8f7e2d55d8dbdff412a3b7934c7f2a9de56b7a83ff620cce2c4fbf2b7aeb55	recipes/qwen3.5-0.8b-arena.yaml	-	2026-08-10
+9b04180d31fc72fa2c37075b5bbfc507861ae24b0e7f1684af85d2c27a23a57c	recipes/qwen3.5-35b-a3b-fp8-arena.yaml	-	2026-08-10
+9a16efca5e06263239663204d4168cb41ef3385f9239ad3c4007a78cbc675f22	recipes/qwen3.6-35b-a3b-nvfp4-board-2026072302.yaml	receipts/reproduce-Qwen3.6-35B-A3B-NVFP4-mtp-2026-07-25.txt	2026-08-10

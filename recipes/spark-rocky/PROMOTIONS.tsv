@@ -1,0 +1,5 @@
+# PROMOTIONS.tsv — the official-tier promotion ledger (#88). Promotion binds BYTES, not filenames.
+# A recipe is served from recipes/spark-rocky/ only with a row here. CI enforces bidirectionally:
+# every served file has a row (stowaway guard), and every row names an existing file, matching
+# sha256, and an existing receipt in receipts/. Fields (tab-separated): sha256 path receipt promoted
+e70d31d9ddb24936d0e02a8a0bd6f176552559e3aed440f9e318b11b7b79501e	recipes/spark-rocky/nemotron-3-super-120b-a12b-nvfp4-mtp-nst3-2026072302.yaml	receipts/reproduce-Nemotron-3-Super-NVFP4-mtp-2026-07-26.txt	2026-08-10

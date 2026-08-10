@@ -233,6 +233,71 @@ grep -q 'git -C "$EXTRACT_DIR" rev-parse HEAD' scripts/01-build-kernel.sh && ok 
 grep -qF 'SERVING_IMAGE' scripts/receipt-chunked.sh && ok "receipt-chunked reads the serving pin from serving-images.env (one source of truth)" || no "receipt-chunked: hardcoded serving pin drifts from the documented runtime"
 grep -q 'nvidia-ctk cdi generate' scripts/upgrade-metal.sh && ok "a driver bump regenerates the CDI spec (a stale spec breaks every GPU container)" || no "upgrade-metal: driver bump leaves /etc/cdi/nvidia.yaml pinned to the OLD driver — hardware-proven 2026-08-06"
 
+# --- M7 registry (#88): the repo is a sparkrun registry; it serves receipts, not intentions ---
+# registry.yaml: both tiers declared with recipes: and visible: EXPLICIT. Upstream defaults
+# recipes: to the recipes/ ROOT (would serve the verbatim mirrors — the exact thing #88's
+# modification 1 prohibits) and visible: to true. Omission is fail-open; the keys must be present.
+RY=.sparkrun/registry.yaml
+[ -f "$RY" ] && ok "registry manifest exists ($RY)" || no "registry manifest missing ($RY)"
+[ "$(grep -cE '^\s*-\s*name:' "$RY")" = 2 ] && ok "registry.yaml declares exactly two registries" || no "registry.yaml does not declare exactly two registries"
+grep -qE '^\s*-\s*name:\s*spark-rocky\s*$' "$RY" && ok "official tier name is spark-rocky (#90)" || no "official tier name missing — #90 decided spark-rocky"
+grep -qE '^\s*-\s*name:\s*spark-rocky-experimental\s*$' "$RY" && ok "experimental tier name is spark-rocky-experimental" || no "experimental tier name missing"
+if grep -E '^\s*-\s*name:' "$RY" | grep -qE 'name:\s*(sparkrun|official|arena|spark-arena)'; then no "a registry name collides with a reserved prefix (sparkrun/official/arena/spark-arena)"; else ok "registry names avoid the reserved prefixes"; fi
+[ "$(grep -cE '^\s*recipes:\s*recipes/[a-zA-Z0-9._-]+\s*$' "$RY")" = 2 ] && ok "both entries declare an explicit recipes: subdirectory" || no "an entry lacks an explicit recipes: subdir — upstream default is the recipes/ ROOT (serves the mirrors)"
+grep -qE '^\s*recipes:\s*recipes\s*$' "$RY" && no "an entry points recipes: at the recipes/ root — would serve the verbatim mirrors" || ok "no entry points recipes: at the recipes/ root"
+if awk '/- name: spark-rocky-experimental/{f=1} f&&/visible:/{print $2; exit}' "$RY" | grep -qx false; then ok "experimental tier declares visible: false explicitly"; else no "experimental tier missing explicit visible: false (upstream default is true)"; fi
+if awk '/- name: spark-rocky$/{f=1} f&&/visible:/{print $2; exit}' "$RY" | grep -qx true; then ok "official tier declares visible: true explicitly"; else no "official tier missing explicit visible: (explicit-keys rule)"; fi
+[ -d recipes/spark-rocky ] && ok "official tier dir exists" || no "recipes/spark-rocky/ missing"
+[ -d recipes/spark-rocky-experimental ] && ok "experimental tier dir exists" || no "recipes/spark-rocky-experimental/ missing"
+# Structural YAML parse when python3+yaml is available; the grep gates above are the enforcement,
+# so absence of a parser on a dev box is a skip-note, not a failure (CI's ubuntu-latest has both).
+if command -v python3 >/dev/null 2>&1 && python3 -c 'import yaml' 2>/dev/null; then
+  if python3 -c '
+import yaml
+d = yaml.safe_load(open(".sparkrun/registry.yaml"))
+rs = d["registries"]; assert isinstance(rs, list) and len(rs) == 2
+for r in rs: assert r["name"] and "recipes" in r and "visible" in r
+' 2>/dev/null; then ok "registry.yaml parses as YAML with the required keys per entry"; else no "registry.yaml fails the YAML structural parse"; fi
+else ok "registry.yaml YAML parse skipped (no python3+yaml on this host; grep gates enforce)"; fi
+# Promotion binds BYTES bidirectionally: every served official file has a ledger row (stowaway
+# guard), and every row names an existing file with matching sha256 and an existing receipt.
+sha256_of(){ if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1; else shasum -a 256 "$1" | cut -d' ' -f1; fi; }
+PT=recipes/spark-rocky/PROMOTIONS.tsv
+[ -f "$PT" ] && ok "official tier carries PROMOTIONS.tsv" || no "PROMOTIONS.tsv missing — promotion is a ledger row, not a file move"
+if [ -f "$PT" ]; then
+  # RECURSIVE + .y*ml: the guard's coverage must equal sparkrun's serving surface (per-registry
+  # recursive glob) — a nested or .yml stowaway is served just the same. Exact extension set: #91.
+  while IFS= read -r f; do
+    if awk -F'\t' -v p="$f" '$0!~/^#/ && $2==p {found=1} END{exit !found}' "$PT"; then ok "promotion row exists: $f"; else no "STOWAWAY: $f is served official with no PROMOTIONS row"; fi
+  done < <(find recipes/spark-rocky -name '*.y*ml' | sort)
+  while IFS=$'\t' read -r sha path receipt _date || [ -n "$sha" ]; do
+    case "$sha" in \#*|"") continue;; esac
+    [ -f "$path" ] || { no "PROMOTIONS row names a missing file: $path"; continue; }
+    [ "$(sha256_of "$path")" = "$sha" ] && ok "promotion bytes match ledger: $path" || no "promotion bytes DIFFER from ledger: $path"
+    [ -f "$receipt" ] && ok "promotion receipt exists: $receipt" || no "promotion receipt missing: $receipt"
+  done < "$PT"
+fi
+# The recipes/ root is deliberately unserved and byte-guarded: every root recipe has a MIRRORS row
+# (no-drift-since-recorded — pull-time hashes were never captured, and the ledger header says so).
+MT=recipes/MIRRORS.tsv
+[ -f "$MT" ] && ok "recipes/ root carries MIRRORS.tsv (the root-integrity ledger)" || no "MIRRORS.tsv missing"
+if [ -f "$MT" ]; then
+  # maxdepth 1 is CORRECT here (root only) — subdirs at this level are the served tiers, which
+  # PROMOTIONS governs. .y*ml for the same reason as the tier guard.
+  while IFS= read -r f; do
+    if awk -F'\t' -v p="$f" '$0!~/^#/ && $2==p {found=1} END{exit !found}' "$MT"; then ok "root ledger row exists: $f"; else no "unledgered recipe at recipes/ root: $f"; fi
+  done < <(find recipes -maxdepth 1 -name '*.y*ml' | sort)
+  while IFS=$'\t' read -r sha path receipt _date || [ -n "$sha" ]; do
+    case "$sha" in \#*|"") continue;; esac
+    [ -f "$path" ] || { no "MIRRORS row names a missing file: $path"; continue; }
+    [ "$(sha256_of "$path")" = "$sha" ] && ok "root bytes match ledger: $path" || no "root recipe DRIFTED from ledger: $path"
+    if [ "$receipt" = "-" ] || [ -f "$receipt" ]; then ok "root ledger receipt ok: $path"; else no "MIRRORS row cites a missing receipt: $receipt ($path)"; fi
+  done < "$MT"
+fi
+# The release runbook mandates the registry e2e gate (by-name resolution — a listing check proves
+# nothing while the experimental tier is visible: false). The serve-gate pattern (#67) applied to #88.
+grep -qF 'sparkrun registry add' docs/build/build.md && grep -qF '@spark-rocky/' docs/build/build.md && ok "release runbook mandates the registry e2e gate (#88)" || no "build.md missing the registry e2e release step (#88)"
+
 # The RESULT tally + exit gate MUST be the last lines of this file. The 2026-08-06 block above was
 # appended after them, which silenced 13 invariants: their FAILs printed but never failed the suite,
 # and the script's exit status was whatever the last grep chain returned (always 0 via ok/no).

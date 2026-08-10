@@ -41,7 +41,9 @@ curl -fsSL -o recipes/<name>.yaml "https://spark-arena.com/api/recipes/$UUID/raw
 ```
 
 This yaml is the authoritative reproducer — the exact `vllm serve` command, defaults, env, mods, and the
-`container:` tag the entry was produced with. Commit it under `recipes/`.
+`container:` tag the entry was produced with. Commit it under `recipes/` (top level — verbatim
+mirrors are never served by the registry tiers) and add its row to `recipes/MIRRORS.tsv`; CI
+enforces the root-integrity ledger.
 
 ## Step 3 — serve it (spark-vllm-docker), single host
 
@@ -51,7 +53,8 @@ cd /root/spark-vllm-docker
 #   gen 1 (behind the June receipts): local builds — ./build-and-copy.sh [--tf5] -> vllm-node[-tf5]
 #   gen 2 (current, preferred): pull the PINNED permanent mirror tag instead of building —
 #     docker pull ghcr.io/spark-arena/dgx-vllm-eugr-nightly@$SERVING_IMAGE_DIGEST
-#     and run a recipe VARIANT whose container: names that tag (recipes/*-<TAG>.yaml).
+#     and run a recipe VARIANT whose container: names that tag (recipes/*-<TAG>.yaml; receipt-backed
+#     variants promote into recipes/spark-rocky/ per recipes/README.md).
 #     Upstream's --tf5 lineage collapsed 2026-07 — one gen-2 image serves both.
 ./run-recipe.sh <name> --solo -d     # applies serve flags + mods + env from the recipe; host networking
 until [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/health)" = 200 ]; do sleep 5; done

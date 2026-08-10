@@ -85,7 +85,7 @@ at N=3 but adjacent gaps are not resolved. Receipt:
 [`reproduce-Nemotron-3-Super-NVFP4-probes-2026-07-25.txt`](../../receipts/reproduce-Nemotron-3-Super-NVFP4-probes-2026-07-25.txt).
 
 **At parity with board-best, receipt-grade** (measured 2026-07-25/26). On the board-best lineage upgraded to nst=3
-([`recipes/nemotron-3-super-120b-a12b-nvfp4-mtp-nst3-2026072302.yaml`](../../recipes/nemotron-3-super-120b-a12b-nvfp4-mtp-nst3-2026072302.yaml)),
+([`recipes/spark-rocky/nemotron-3-super-120b-a12b-nvfp4-mtp-nst3-2026072302.yaml`](../../recipes/spark-rocky/nemotron-3-super-120b-a12b-nvfp4-mtp-nst3-2026072302.yaml) — promoted to the registry's official tier, #88),
 the headline N=5 fresh-serve receipt is **23.57 ± 1.74, CLEAN** — statistically indistinguishable
 from the 23.71 single-submission best. Probe serves on the same config reached a mean of 25.6 with
 raw runs to 27.0, within noise of the sole *dual-node* entry (27.23). Not "faster"; at parity, with
