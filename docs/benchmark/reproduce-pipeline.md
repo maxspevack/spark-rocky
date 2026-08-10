@@ -119,11 +119,10 @@ Validation evidence: #72.
 ### Install (no wizard needed)
 
 ```bash
-# Published PyPI release; the pin lives in config/serving-images.env (SPARKRUN_VERSION).
-# Never hand-copy a version number into this doc — the previous form of this block rotted
-# exactly that way (a prose install line is a pin in disguise).
-source config/serving-images.env     # from the repo root
-uv tool install --force "sparkrun==$SPARKRUN_VERSION"
+# Pinned install + post-install verification; the pin lives in config/serving-images.env
+# (SPARKRUN_VERSION). Never hand-copy a version number into this doc — the previous form of
+# this block rotted exactly that way (a prose install line is a pin in disguise).
+scripts/install-sparkrun.sh          # from the repo root
 sparkrun update              # fetches the recipe registries (official/community/eugr/...)
 ```
 

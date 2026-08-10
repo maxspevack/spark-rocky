@@ -297,6 +297,18 @@ fi
 # The release runbook mandates the registry e2e gate (by-name resolution — a listing check proves
 # nothing while the experimental tier is visible: false). The serve-gate pattern (#67) applied to #88.
 grep -qF 'sparkrun registry add' docs/build/build.md && grep -qF '@spark-rocky/' docs/build/build.md && ok "release runbook mandates the registry e2e gate (#88)" || no "build.md missing the registry e2e release step (#88)"
+# The installer ships and carries no version literal — the pin rides serving-images.env (#92, the
+# #93 rot class; same no-drift family as the receipt-chunked SERVING_IMAGE check above).
+if [ -f scripts/install-sparkrun.sh ]; then
+  grep -qF 'serving-images.env' scripts/install-sparkrun.sh && ok "install-sparkrun sources the pin file (#92)" || no "install-sparkrun does not source serving-images.env (#92)"
+  grep -qF 'SPARKRUN_VERSION' scripts/install-sparkrun.sh && ok "install-sparkrun consumes SPARKRUN_VERSION" || no "install-sparkrun does not consume SPARKRUN_VERSION (#92)"
+  if grep -qE 'sparkrun[= ]=?[0-9]' scripts/install-sparkrun.sh; then no "install-sparkrun carries a literal version — pins live in serving-images.env only (#92)"; else ok "install-sparkrun carries no literal version (no-drift, #92)"; fi
+  # Belt to the above suspender: ANY semver literal in the script defeats the pin (a fallback
+  # default like ${SPARKRUN_VERSION:-x.y.z} or a spaced PEP 508 specifier escapes the regex above).
+  if grep -vE '^\s*#' scripts/install-sparkrun.sh | grep -qE '[0-9]+\.[0-9]+\.[0-9]+'; then no "install-sparkrun carries a semver literal in code — a fallback default defeats the pin (#92)"; else ok "install-sparkrun code carries no semver literal (comments exempt, #92)"; fi
+  [ -x scripts/install-sparkrun.sh ] && ok "install-sparkrun is executable (docs invoke it directly)" || no "install-sparkrun is not executable (#92)"
+  grep -qF 'sparkrun --version' scripts/install-sparkrun.sh && ok "install-sparkrun verifies the installed version against the pin" || no "install-sparkrun does not verify its own install (#92)"
+else no "scripts/install-sparkrun.sh missing (#92)"; fi
 
 # The RESULT tally + exit gate MUST be the last lines of this file. The 2026-08-06 block above was
 # appended after them, which silenced 13 invariants: their FAILs printed but never failed the suite,

@@ -19,6 +19,22 @@ Then boot the Spark from the USB and run `/root/validate.sh`. Full steps and the
 - **[Build it](docs/build/)** — how this was made and how to rebuild from source: the kernel, the open module, the config-only delta. An OS-development project.
 - **[Benchmark it](docs/benchmark/)** — the parity numbers, how to reproduce them, and how they compare to published results. Start at [`docs/benchmark/proof.md`](docs/benchmark/proof.md).
 
+## The recipe registry
+
+This repo is a [sparkrun](https://github.com/spark-arena/sparkrun) registry (#88): receipt-backed
+GB10 serve recipes, consumable directly —
+
+```bash
+scripts/install-sparkrun.sh                                    # pinned harness install (uv)
+sparkrun registry add https://github.com/maxspevack/spark-rocky
+sparkrun run @spark-rocky/<recipe> ...
+```
+
+The registry is the convenient **unpinned** channel — it tracks git HEAD and is covered by no
+release signature; the [`receipts/`](receipts/) are the pinned one. Recipes serve what was proven
+on their receipt date and carry no maintenance cadence against upstream drift. Tiers, promotion
+rules, and the byte-binding ledgers: [`recipes/README.md`](recipes/README.md).
+
 ## What's proven
 
 | Tier | Claim | State |
@@ -40,7 +56,7 @@ Everything runs upstream and unmodified — no `.patch`/`.diff` exists anywhere 
 | [`docs/`](docs/) | the three stories: [use](docs/use/) · [build](docs/build/) · [benchmark](docs/benchmark/) |
 | [`scripts/`](scripts/) | `flash`, `validate`, `install-baremetal`, and the `01`→`07` build/release pipeline |
 | [`config/`](config/) | the kernel `.config` and the pin files — `versions.env` (build) + `serving-images.env` (benchmark stack) |
-| [`recipes/`](recipes/) · [`data/`](data/) · [`receipts/`](receipts/) | benchmark recipes, the leaderboard snapshot, committed results |
+| [`recipes/`](recipes/) · [`data/`](data/) · [`receipts/`](receipts/) | the registry tiers + verbatim mirrors, the leaderboard snapshot, committed results |
 | [`keys/`](keys/) | the release signing public key |
 
 ## License
