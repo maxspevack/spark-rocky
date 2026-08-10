@@ -218,10 +218,6 @@ if grep -qF 'findmnt -no SOURCE /' scripts/05b-boot-gate.sh && grep -q 'nvme' sc
 if grep -qF 'PARTUUID' scripts/05b-boot-gate.sh && grep -qF 'efibootmgr -n' scripts/05b-boot-gate.sh; then ok "05b resolves BootNext from the pinned ESP GUID (#47/#86)"; else no "05b does not resolve BootNext by ESP GUID (#86)"; fi
 if grep -qF 'RESULT: PASS' scripts/05b-boot-gate.sh && grep -qF 'validate.sh' scripts/05b-boot-gate.sh; then ok "05b verdict comes from the doctor ON the booted artifact (#86)"; else no "05b does not gate on the booted doctor (#86)"; fi
 
-echo
-echo "RESULT: $pass passed, $fail failed"
-[ "$fail" = 0 ]
-
 # --- 2026-08-06 review: gates bound to bytes, and the parse-the-signed-body rule ---
 grep -q 'require_receipt' scripts/06-sign-release.sh && ok "06 requires serve-gate + boot-gate receipts before signing (gates bound to the artifact, not remembered)" || no "06: signs without proof the gates ran — the #35 class"
 grep -q 'IMG_SHA' scripts/06-sign-release.sh && ok "06 binds the gate receipts to the sha of the image being signed (catches a re-pack after the gate)" || no "06: receipts not bound to the image sha"
@@ -236,3 +232,11 @@ grep -q 'no-install-libglvnd' scripts/upgrade-metal.sh && ok "upgrade-metal uses
 grep -q 'git -C "$EXTRACT_DIR" rev-parse HEAD' scripts/01-build-kernel.sh && ok "the CLK source tree is content-verified against the pinned commit" || no "01: CLK source fetched with no verification — it is the SHIPPING kernel"
 grep -qF 'SERVING_IMAGE' scripts/receipt-chunked.sh && ok "receipt-chunked reads the serving pin from serving-images.env (one source of truth)" || no "receipt-chunked: hardcoded serving pin drifts from the documented runtime"
 grep -q 'nvidia-ctk cdi generate' scripts/upgrade-metal.sh && ok "a driver bump regenerates the CDI spec (a stale spec breaks every GPU container)" || no "upgrade-metal: driver bump leaves /etc/cdi/nvidia.yaml pinned to the OLD driver — hardware-proven 2026-08-06"
+
+# The RESULT tally + exit gate MUST be the last lines of this file. The 2026-08-06 block above was
+# appended after them, which silenced 13 invariants: their FAILs printed but never failed the suite,
+# and the script's exit status was whatever the last grep chain returned (always 0 via ok/no).
+# Sabotage-verified 2026-08-10: an appended deliberate FAIL exited 0. New checks go ABOVE this line.
+echo
+echo "RESULT: $pass passed, $fail failed"
+[ "$fail" = 0 ]
