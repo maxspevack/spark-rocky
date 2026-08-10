@@ -11,7 +11,7 @@ The mechanism behind deliverable #1. Full walkthrough + prerequisites: [`docs/bu
 | `02b-install-gpu-docker.sh` | docker + the NVIDIA container toolkit in the rootfs, plus the **shipping open `.ko` packaged as `kmod-nvidia-open-<kver>` and dnf-installed** (#77 — sha256-gated `.run` source, boot auto-load config rides the rpm, depmod wired) |
 | `02c-driver-userspace.sh` | pinned `DRIVER_VER` driver userspace via the sha256-gated `.run` (`--no-kernel-modules`), then **packaged as `nvidia-driver-userspace` from the install's ground-truth path-diff and dnf-installed over it** (#77 — every NVIDIA byte answers to `rpm -qf`) |
 | `03-build-nvidia-open.sh` | **optional verify** — a standalone proof-build of the open kernel module in `rockylinux:10` (el10 gcc 14.3.1); `make all` skips it — the shipping `.ko` comes from `02b` |
-| `04-build-image.sh` | the bootable image: `nvidia-drm.modeset=0` (compute-only GPU, EFI-fb console), autologin, `mlx5_core` blacklist, masks `swap.target` + `systemd-firstboot`; bakes the one-command debug enabler (see the debug-hatch section of [`docs/build/build.md`](../docs/build/build.md)). Flash to USB is optional (`DEV=/dev/null` skips it). |
+| `04-build-image.sh` | the bootable image: `nvidia-drm.modeset=0` (compute-only GPU, EFI-fb console), console root login (`root`/`rocky`, console-only — autologin is baked but does not fire, #97), `mlx5_core` blacklist, masks `swap.target` + `systemd-firstboot`; bakes the one-command debug enabler (see the debug-hatch section of [`docs/build/build.md`](../docs/build/build.md)). Flash to USB is optional (`DEV=/dev/null` skips it). |
 
 ## Package · sign · write — the vendable release
 

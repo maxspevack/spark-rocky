@@ -25,11 +25,11 @@ provably the released bytes); what you give up is boot-*chain* attestation at po
 threat model requires Secure Boot, this image is not for you as shipped — see the boot-chain note in
 [`build.md`](../build/build.md).
 
-Reboot and select the USB in the firmware boot menu (or set a one-time boot entry). The image logs in to a root shell automatically.
+Reboot and select the USB in the firmware boot menu (or set a one-time boot entry).
 
 ## 3. Run the check
-The console auto-logs-in as root. If autologin does not fire, the console credential is **`root` /
-`rocky`** — console-only: the image ships with network password auth disabled (key-only SSH).
+Log in at the console as **`root` / `rocky`** — console-only: the image ships with network
+password auth disabled (key-only SSH).
 ```
 /root/validate.sh
 ```

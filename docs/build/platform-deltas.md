@@ -203,7 +203,7 @@ Inherited from the proven bare-metal box; each is a deliberate boot parameter, n
   console; this removes both, with zero effect on CUDA.
 - `fbcon=nodefer` — take the framebuffer console over immediately instead of deferring. With `modeset=0` the
   deferral never resolves to a GPU console, so fbcon would otherwise take the simpledrm console ~1 min in,
-  *after* getty has started — switching the console under the running autologin and forcing a one-time getty
+  *after* getty has started — switching the console under the running getty and forcing a one-time getty
   restart (a visible screen-blank before login holds). Taking over early keeps the console stable (#45).
 - `quiet loglevel=3` — trims the boot console to essentials; paired with `modeset=0` the boot is clean, not a wall
   of warnings.
