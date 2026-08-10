@@ -96,4 +96,4 @@ hardcoded copy here has rotted before). The booted kernel states its own lineage
   `KERNEL_SOURCE=kernelorg` for the A/B leg) and rebuild — a pin change, never a patch-rebase.
 
 → **Run the proven configs in ~5 minutes** (the registry): [`README.md`](README.md#run-the-proven-configs-the-fast-path)
-→ **Reproduce or refute any entry yourself, credential-free:** [`reproduce-pipeline.md`](reproduce-pipeline.md)
+→ **Reproduce or refute any entry yourself** (no spark-arena account; HF token only for gated models): [`reproduce-pipeline.md`](reproduce-pipeline.md)
