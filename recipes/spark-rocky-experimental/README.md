@@ -8,6 +8,6 @@ at each release cut. Promotion to the official tier requires a committed receipt
 [`../../receipts/`](../../receipts/) plus a byte-binding row in
 [`../spark-rocky/PROMOTIONS.tsv`](../spark-rocky/PROMOTIONS.tsv).
 
-Empty at go-live (2026-08-10) — the two promotion-pending Qwen configs sit at the `recipes/` root,
-deliberately unserved, until the mods-resolution question (#91) answers whether their `mods/fix-*`
-references resolve for registry consumers at all.
+Empty at go-live (2026-08-10). The one not-yet-promotable config at the `recipes/` root (the
+v1-form qwen3.5 variant) waits on its sparkrun-v2 re-expression plus a fresh receipt (#94), not
+on this tier — the mods-resolution question that gated promotion was answered same-day (#91).

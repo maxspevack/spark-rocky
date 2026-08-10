@@ -55,7 +55,7 @@ so the format axis is not a speculative-decoding artifact.
 
 **The receipt (2026-07-25, the first through chapter 3's chunked protocol):** all 28 official v2
 cells on the board-lineage config
-([`recipes/qwen3.6-35b-a3b-nvfp4-board-2026072302.yaml`](../../recipes/qwen3.6-35b-a3b-nvfp4-board-2026072302.yaml)
+([`recipes/spark-rocky/qwen3.6-35b-a3b-nvfp4-board-2026072302.yaml`](../../recipes/spark-rocky/qwen3.6-35b-a3b-nvfp4-board-2026072302.yaml)
 — the exact recipe behind the board's two top vLLM entries, flag semantics verbatim), **zero throttle
 samples across the sweep** (11 segments CLEAN; four deep segments are honest near-throttle WARNs).
 Headline `tg128 (c1)` at N=5 on the fresh serve: **100.1 ± 6.2**. Full table + raw values:

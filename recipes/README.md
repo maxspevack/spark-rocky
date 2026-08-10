@@ -26,6 +26,12 @@ captured, and the ledger says so).
 | File | Was (until 2026-08-10) | Receipts |
 |---|---|---|
 | [`spark-rocky/nemotron-3-super-120b-a12b-nvfp4-mtp-nst3-2026072302.yaml`](spark-rocky/nemotron-3-super-120b-a12b-nvfp4-mtp-nst3-2026072302.yaml) | `recipes/nemotron-3-super-120b-a12b-nvfp4-mtp-nst3-2026072302.yaml` | `reproduce-Nemotron-3-Super-NVFP4-mtp-2026-07-26.txt` (#73), re-proven under the official arena-v2 profile: `arena-v2-nemotron-3-super-nvfp4-mtp-1x-2026-08-10.*` |
+| [`spark-rocky/qwen3.6-35b-a3b-nvfp4-board-2026072302.yaml`](spark-rocky/qwen3.6-35b-a3b-nvfp4-board-2026072302.yaml) | `recipes/qwen3.6-35b-a3b-nvfp4-board-2026072302.yaml` | `reproduce-Qwen3.6-35B-A3B-NVFP4-mtp-2026-07-25.txt` (#74). Board-lineage config re-expressed in sparkrun v2 (derivation in its `description:`); its `mods/fix-qwen3.6-chat-template` resolves from the default `eugr` registry — verified on a clean host (#91) |
+
+Recipes that carry `mods:` copy and execute the mod's `run.sh` inside the container before the
+serve. sparkrun asks before running hooks from an untrusted registry — `sparkrun registry trust
+spark-rocky` (or `--trust` at add time) skips that prompt by granting shell-hook trust to this
+registry's **current git HEAD**; that grant is yours to make, and no release signature covers it.
 
 ## The verbatim mirrors — not ours
 
@@ -43,16 +49,18 @@ is exactly why they are never served under our namespace: republishing spark-are
 | `gemma-3-1b-it-arena.yaml` | gemma-3-1b-it (`sub1779455882567`) | `vllm-node-tf5` | HF-gated (token required to download) |
 | `gpt-oss-120b-arena.yaml` | gpt-oss-120b | `vllm-node-mxfp4` | MXFP4 `--mxfp4-backend CUTLASS`, fp8 KV, flashinfer, ray |
 
-## Receipt-backed, promotion-pending (#91)
+## Receipt-backed, not yet promotable (#94)
 
-Both reference `mods/fix-*` this repo does not carry; they promote to the official tier when #91
-answers whether sparkrun resolves a recipe's mods across registries. Until then they stay here,
-unserved, bytes frozen by `MIRRORS.tsv`.
+`qwen3.5-0.8b-arena-2026072302.yaml` is **v1-form** (bare `command:`, no `recipe_version`; its
+receipt ran via spark-vllm-docker's `run-recipe.sh`, not sparkrun) — promoting it would serve a
+recipe the harness may not run, the #64 class. It promotes after a sparkrun-v2 re-expression plus
+a fresh receipt (#94, rides the gen-3 session). Until then it stays here, unserved, bytes frozen
+by `MIRRORS.tsv`. (The mods question that used to gate both Qwen configs is answered — #91:
+resolution works via the `eugr` fallback; qwen3.6 is promoted above.)
 
 | File | Derivation | Receipt |
 |---|---|---|
 | `qwen3.5-0.8b-arena-2026072302.yaml` | `qwen3.5-0.8b-arena.yaml` with a one-line `container:` delta to the permanent gen-2 tag (#71) — same serve, pinned runtime | `reproduce-Qwen3.5-0.8B-gen2-2026-07-24.txt` |
-| `qwen3.6-35b-a3b-nvfp4-board-2026072302.yaml` | The recipe behind the board's two top vLLM entries for Qwen3.6-35B-A3B-NVFP4 (permalink `1199b578`, entries 118.91 + 109.3, both single-node), re-expressed in sparkrun v2 template syntax — flag semantics verbatim; the published v1 form fails under sparkrun 0.2.40 (`{{…}}` escaping passes through to argparse) | `reproduce-Qwen3.6-35B-A3B-NVFP4-mtp-2026-07-25.txt` (#74) |
 
 ## Add a recipe
 

@@ -168,17 +168,19 @@ Run on the Spark (aarch64 — `05` chroots into the image):
    files (WiFi profile, ssh key, self-return unit); the artifact that gets signed is untouched. **A
    release that has not passed the boot gate on its own bytes is not signable.**
 
-2c. **REGISTRY E2E GATE (mandatory since #88; exact invocations owed by #91).** The repo is a
-   sparkrun registry; a cut must not ship a registry consumers cannot resolve. On any host with
-   sparkrun installed ([`reproduce-pipeline.md` → Install](../benchmark/reproduce-pipeline.md)):
+2c. **REGISTRY E2E GATE (mandatory since #88; commands verified 2026-08-10 on a clean second
+   host, #91).** The repo is a sparkrun registry; a cut must not ship a registry consumers cannot
+   resolve. On any host with sparkrun installed (`scripts/install-sparkrun.sh`):
    ```
-   sparkrun registry add https://github.com/maxspevack/spark-rocky
+   sparkrun registry add https://github.com/maxspevack/spark-rocky   # `sparkrun registry update` if already added
+   sparkrun show @spark-rocky/nemotron-3-super-120b-a12b-nvfp4-mtp-nst3-2026072302
    ```
-   then resolve **by name** — one official recipe (`@spark-rocky/...`) and one experimental recipe
-   when that tier is non-empty. A listing check proves nothing: the experimental tier is
-   `visible: false` by design, and component success (yaml parses, registry listed) is not
-   capability (#64). #91 pins the exact verified resolution commands on their first box run; until
-   then this step runs interactively and its output is recorded in the cut notes.
+   `show` exiting 0 with the full recipe rendered = PASS. Repeat for any recipe promoted since
+   the last cut, and for one `@spark-rocky-experimental/<recipe>` when that tier is non-empty.
+   A listing check proves nothing: the experimental tier is `visible: false` by design, and
+   component success (yaml parses, registry listed) is not capability (#64). Mods resolve at
+   run time — our seeds' mods come from the default `eugr` registry (verified, #91); hook
+   execution from an untrusted registry prompts the user by design. Never pre-wire `--trust`.
 
 3. **Sign**, on the host that holds the release key: `OUTDIR=<vend-dir> scripts/06-sign-release.sh`. Produces the GPG-clearsigned `CHECKSUM` and exports the public key. The passphrase comes from the human via pinentry; it is never scripted.
 4. **Tag the build commit:**
