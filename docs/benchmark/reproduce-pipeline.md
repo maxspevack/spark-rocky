@@ -116,9 +116,11 @@ Validation evidence: #72.
 ### Install (no wizard needed)
 
 ```bash
-# 0.3.0-alpha is our default since 2026-07-27 (upstream converges fixes there); installed from
-# our fork mirror pinned by commit — see config/serving-images.env (SPARKRUN_COMMIT):
-uv tool install --force "sparkrun @ git+https://github.com/maxspevack/sparkrun@<SPARKRUN_COMMIT>"
+# Published PyPI release; the pin lives in config/serving-images.env (SPARKRUN_VERSION).
+# Never hand-copy a version number into this doc — the previous form of this block rotted
+# exactly that way (a prose install line is a pin in disguise).
+source config/serving-images.env     # from the repo root
+uv tool install --force "sparkrun==$SPARKRUN_VERSION"
 sparkrun update              # fetches the recipe registries (official/community/eugr/...)
 ```
 
@@ -141,7 +143,8 @@ Two host-compat divergences were hit on this stack (everything else ran unmodifi
   exists in the launcher but is not the CLI default.
 - **`--rootful` stays, by choice.** [sparkrun#225](https://github.com/spark-arena/sparkrun/issues/225)
   (rootless adds `--device /dev/infiniband` unconditionally; dies on this mlx5-blacklisted stack)
-  is fixed in the 0.3.0-alpha we now run — but the alpha's rootless GPU path needs CDI specs on
+  is fixed in the release line we now run (`SPARKRUN_VERSION` in `config/serving-images.env`) —
+  but its rootless GPU path needs CDI specs on
   wizard-free hosts (`unresolvable CDI devices`; `nvidia-ctk cdi generate` would provision them).
   `--rootful` sidesteps both and is what every receipt on this host ran with; keeping it.
 - **If the recipe sets its served name inline** (in the `command:` string rather than as a
