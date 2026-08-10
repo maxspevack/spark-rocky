@@ -5,6 +5,9 @@ on:
   push: {}
   pull_request: {}
   workflow_dispatch: {}
+  schedule:
+    - cron: '20 9 * * 1'   # Monday: the ledger byte-checks must run on a DORMANT repo too —
+                           # push-only triggers make mirror/promotion drift invisible between commits
 permissions:
   contents: read
 jobs:
