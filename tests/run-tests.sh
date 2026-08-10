@@ -125,6 +125,7 @@ if grep -rqw 'KREL' scripts/;                then no "KREL variable reintroduced
 if grep -qF 'make -s kernelrelease' scripts/01-build-kernel.sh; then ok "01 derives KVER from make kernelrelease"; else no "01 does not derive the kernel release"; fi
 if grep -qF 'kernel_source=${KERNEL_SOURCE}' scripts/05-package-image.sh; then ok "05 stamps kernel_source + clk_commit provenance"; else no "05 provenance missing the kernel source"; fi
 if grep -qF 'ciq-6.18.y' scripts/drift-check.sh && grep -qF 'row CLK' scripts/drift-check.sh; then ok "drift-check: CLK branch tip is the trigger row"; else no "drift-check missing the CLK trigger row"; fi
+if grep -qF 'QMAX_DAYS' scripts/drift-check.sh && grep -qF 'BOXQ' scripts/drift-check.sh; then ok "drift-check carries the box-queue linger tripwire (BOXQ)"; else no "drift-check lost the BOXQ tripwire — box work can linger unbounded again"; fi
 # Serve gate (#67): exists, fails closed on a dead container, and is a documented pre-sign release step.
 if [ -f scripts/serve-gate.sh ] && grep -qF 'GATE-PASS' scripts/serve-gate.sh && grep -qF 'GATE-FAIL' scripts/serve-gate.sh; then ok "serve-gate.sh present + pass/fail-closed (#67)"; else no "serve-gate.sh missing or not fail-closed (#67)"; fi
 if grep -qF 'serve-gate.sh' docs/build/build.md; then ok "release runbook requires the serve gate pre-sign (#67)"; else no "the release runbook (build.md) does not mandate the serve gate (#67)"; fi

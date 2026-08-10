@@ -127,6 +127,31 @@ rup=$(curl -fsSL --max-time 15 https://dl.rockylinux.org/pub/rocky/ 2>/dev/null 
   | grep -oE 'href="1[0-9]\.[0-9]+/"' | grep -oE '1[0-9]\.[0-9]+' | sort -V | tail -1)
 printf '%-8s current=%-12s upstream=%-12s [INFO]\n' "ROCKY" "$ROCKY_RELEASEVER (10.2)" "${rup:-FETCH-FAIL}"
 
+# BOXQ — the Spark work-queue linger tripwire (2026-08-10: "idle time on that machine is a bug").
+# box-labeled open issues ARE the box's work queue; the standing rule is any session that touches
+# the Spark drains the queue head before its own work. A head older than QMAX_DAYS is lingering —
+# DRIFT, same severity as a stale pin. Empty queue = MATCH; gh failure = CHECK-FAIL, never drift.
+QMAX_DAYS=7
+bq=$(gh issue list --repo maxspevack/spark-rocky --label box --state open --json number,createdAt 2>/dev/null) || bq=""
+if [ -z "$bq" ]; then
+  row BOXQ "queue" "FETCH-FAIL"
+else
+  read -r qn qage <<<"$(printf '%s' "$bq" | python3 -c '
+import sys, json, datetime
+q = json.load(sys.stdin)
+now = datetime.datetime.now(datetime.timezone.utc)
+ages = [(i["number"], (now - datetime.datetime.fromisoformat(i["createdAt"].replace("Z","+00:00"))).days) for i in q]
+n, a = max(ages, key=lambda x: x[1]) if ages else (0, -1)
+print(n, a)')"
+  if [ "$qage" = "-1" ]; then
+    printf '%-8s current=%-12s upstream=%-12s [MATCH]\n' "BOXQ" "empty" "empty"
+  elif [ "$qage" -gt "$QMAX_DAYS" ]; then
+    printf '%-8s current=%-12s upstream=%-12s [DRIFT] #%s has lingered %sd (>%sd) — drain it or kill it\n' "BOXQ" "#$qn ${qage}d" "${QMAX_DAYS}d-max" "$qn" "$qage" "$QMAX_DAYS"; drift=2
+  else
+    printf '%-8s current=%-12s upstream=%-12s [INFO] queue head #%s age %sd; drains when the box frees\n' "BOXQ" "#$qn ${qage}d" "${QMAX_DAYS}d-max" "$qn" "$qage"
+  fi
+fi
+
 # Exit contract: 0 = pins match; 2 = real drift (the workflow opens/updates the pin-drift issue);
 # 3 = a tracked row could not be verified (the workflow goes RED — fix the sensor, not the pins).
 # A verified drift outranks a fetch failure: it is actionable regardless.
