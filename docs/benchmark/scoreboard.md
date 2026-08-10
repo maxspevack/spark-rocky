@@ -1,9 +1,15 @@
 # Scoreboard — single-host, spark-arena vs spark-rocky
 
-The claim this page carries, in one line: **on this host — Rocky 10.2 + the CIQ Linux Kernel + the open
-610 driver, zero patches — published spark-arena numbers come back at parity, and on the current
-leaderboard meta the same host measures receipt-grade results statistically indistinguishable from
-the community's field. Every time a number moved, the mover was serving config, never the host.**
+This is the **evidence ledger** — the measurements, decompositions, confounds, and discipline rules
+behind the claim, with receipts. For the 3-minute version read [`proof.md`](proof.md); to run the
+proven configs, the registry fast path is in
+[`README.md`](README.md#run-the-proven-configs-the-fast-path).
+
+The claim under evidence: **on this host — Rocky 10.2 + the CIQ Linux Kernel + the
+open driver, zero source patches — published spark-arena numbers come back at parity, and on the
+current leaderboard meta the same host measures receipt-grade results statistically
+indistinguishable from the community's field. Every time a number moved, the mover was serving
+config, never the host.**
 
 Three chapters, each with receipts.
 
@@ -23,14 +29,14 @@ Medians spanning **0.96–1.05×** straddle parity — the signature of a transp
 prefill deficit (0.75–0.93×) closed to **1.011×** on the pinned current runtime: it was vLLM version
 drift, not the host. One localized residual remains (single-user contextual `pp2048 (c1)` cells at
 0.68–0.82×, [#18](https://github.com/maxspevack/spark-rocky/issues/18)). The runtime confound is closed
-from our side: every current receipt names a **permanent dated
+from our side: every receipt since 2026-07-24 names a **permanent dated
 [`dgx-vllm`](https://github.com/spark-arena/dgx-vllm) mirror tag** anyone can pull byte-identically
 ([#71](https://github.com/maxspevack/spark-rocky/issues/71)); the residual delta on any cross-date
 comparison is the *entry's* unpinned side. Not "faster"; reproduced at parity.
 
-## 2 — The frontier: the current meta, in the community band
+## 2 — The frontier: the NVFP4+MTP meta, in the community band
 
-The leaderboard's current meta is **NVFP4 quantization + MTP speculative decoding** on vLLM nightlies.
+The leaderboard's meta as of 2026-07-25 is **NVFP4 quantization + MTP speculative decoding** on vLLM nightlies.
 Target: Qwen3.6-35B-A3B-NVFP4 + MTP ([#74](https://github.com/maxspevack/spark-rocky/issues/74)) —
 the board's single-node vLLM field for this model: **102–119** `tg128 (c1)`, best entry 118.91
 (committed comparison slice: `data/published-raw-frontier-tg128c1-2026-07-25.md`).
