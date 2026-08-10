@@ -33,7 +33,7 @@ All six are forked to `maxspevack/<name>`; local clones (where present) live **f
 |---|---|---|---|
 | [`eugr/spark-vllm-docker`](https://github.com/eugr/spark-vllm-docker) | serving-container build system behind the June parity receipts; `run-recipe.sh` drives the serve-gate | cloned on the box (`/root/spark-vllm-docker`), pinned checkout | `serving-images.env` (`SPARK_VLLM_DOCKER_COMMIT` for the June generation; `SERVING_SVD_COMMIT` for the gen-2 image's provenance) |
 | [`eugr/llama-benchy`](https://github.com/eugr/llama-benchy) | the benchmark meter (spark-arena's canonical tool) | `uvx` from PyPI | `scripts/run-benchmark-matrix.sh` (`llama-benchy==<ver>` — the one permitted non-env pin: it must ride the command line, and the matrix script is itself the canonical-measurement artifact) |
-| [`spark-arena/sparkrun`](https://github.com/spark-arena/sparkrun) | official runner + `arena benchmark` submission CLI; validated on this host (#72; the sparkrun section of [`docs/benchmark/reproduce-pipeline.md`](docs/benchmark/reproduce-pipeline.md)) | `uv tool install sparkrun==0.3.1` from PyPI (published release == tag `v0.3.1`; carries the #225 IB guard + our merged #233/#234 fixes; adopted 2026-08-05, superseding the 2026-07-27 alpha commit-pin, which predated the #225 guard it was adopted for) | `serving-images.env` (`SPARKRUN_VERSION`, `SPARKRUN_COMMIT`, `SPARKRUN_LLAMA_BENCHY`) |
+| [`spark-arena/sparkrun`](https://github.com/spark-arena/sparkrun) | official runner + `arena benchmark` submission CLI; validated on this host (#72; the sparkrun section of [`docs/benchmark/reproduce-pipeline.md`](docs/benchmark/reproduce-pipeline.md)) | `scripts/install-sparkrun.sh` — PyPI, pinned by `SPARKRUN_VERSION` (the published release equals its git tag; carries the #225 IB guard + our merged #233/#234 fixes; adopted 2026-08-05, superseding the 2026-07-27 alpha commit-pin, which predated the #225 guard it was adopted for) | `serving-images.env` (`SPARKRUN_VERSION`, `SPARKRUN_COMMIT`, `SPARKRUN_LLAMA_BENCHY`) |
 | [`spark-arena/recipe-registry`](https://github.com/spark-arena/recipe-registry) | official recipes + the v1/v2 benchmark profiles (the board's run rules) | reference at HEAD | the per-receipt recipe copy in `receipts/` is the pin |
 | [`spark-arena/community-recipe-registry`](https://github.com/spark-arena/community-recipe-registry) | **our upstream contribution path** — recipes PR into `recipes/<model>/maxspevack/` (#75; first PR filed 2026-07-27: [community-recipe-registry#12](https://github.com/spark-arena/community-recipe-registry/pull/12), the Nemotron single-node recipe, **merged 2026-08-04**) | PR target | n/a — contribution target, not a dependency |
 | [`spark-arena/dgx-vllm`](https://github.com/spark-arena/dgx-vllm) | **the serving-image pin source since 2026-07-24** (#71 generation-2, landed + benchmark-validated — receipt `gen2-2026-07-24`): permanent dated mirror tags of eugr's vLLM nightlies; `build-index.json` maps tag → vLLM/FlashInfer coordinates | images pulled from ghcr by digest, run by tag | `serving-images.env` (`SERVING_IMAGE_TAG` + digests); the June-generation digests stay as the receipt-era baseline. The drift sensor's `SERVING` row watches the tag age (INFO < 31 days, DRIFT past) |
@@ -66,9 +66,10 @@ carries this as a cut step.
    ```
 2. **Local clone remotes are fork+upstream** (for every `~/dev/<name>` that exists):
    `git -C ~/dev/<name> remote -v` → `origin` = `maxspevack/`, `upstream` = the source org.
-3. **This file carries no pin values**: `grep -E '[0-9a-f]{12,40}|sha256[:]' THIRD_PARTY.md`
-   returns nothing (the test suite enforces this — a hit means a pin leaked into prose; the
-   bracketed colon keeps this very line from matching itself).
+3. **This file carries no pin values**: the test suite greps this file for SHAs AND version
+   literals (`==x.y`, `x.y.z`, `vX.Y.Z`) — a hit means a pin leaked into prose. The
+   `sparkrun==<ver>` install line lived here until 2026-08-10, exactly the class the widened
+   check now catches.
 4. **The pin files agree with the box**: the box's `/root/spark-vllm-docker` checkout is at
    `SPARK_VLLM_DOCKER_COMMIT`; the serve-gate recipe runs the image `serving-images.env` names.
 5. **Row currency**: any issue or PR this file cites as pending that has since closed/merged

@@ -45,7 +45,7 @@ if grep -qF 'BUILD_KERNEL_SOURCE=$KERNEL_SOURCE' scripts/01-build-kernel.sh && g
 # THIRD_PARTY.md is AI-maintainable BY CONSTRUCTION: prose never carries a pin (inline SHAs in the
 # roster rotted twice in the week of 2026-07-24) — volatile coordinates live in the env files, and the
 # registry maps input -> role -> pin location. The release runbook carries the maintenance protocol.
-if grep -qE '[0-9a-f]{12,40}|sha256[:]' THIRD_PARTY.md; then no "THIRD_PARTY.md carries an inline pin value — pins live in env files only"; else ok "THIRD_PARTY.md carries no pin values (prose-pin rule)"; fi
+if grep -qE '[0-9a-f]{12,40}|sha256[:]|==[0-9]|v?[0-9]+\.[0-9]+\.[0-9]+' THIRD_PARTY.md; then no "THIRD_PARTY.md carries an inline pin value (SHA or version literal) — pins live in env files only"; else ok "THIRD_PARTY.md carries no pin values (prose-pin rule, incl. version literals)"; fi
 if grep -qF 'config/versions.env' THIRD_PARTY.md && grep -qF 'config/serving-images.env' THIRD_PARTY.md; then ok "THIRD_PARTY.md points at both authoritative pin files"; else no "THIRD_PARTY.md missing a pin-file pointer"; fi
 if grep -qF 'Maintenance protocol' THIRD_PARTY.md; then ok "THIRD_PARTY.md carries its own maintenance protocol"; else no "THIRD_PARTY.md has no maintenance protocol — not AI-maintainable"; fi
 if grep -qF 'THIRD_PARTY.md' docs/build/build.md; then ok "release runbook runs the third-party currency check at cut"; else no "release runbook missing the THIRD_PARTY.md currency step"; fi
