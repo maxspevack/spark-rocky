@@ -1,0 +1,78 @@
+arena-v2 profile run — Nemotron-3-Super-120B-A12B-NVFP4, single node (recipe as merged)
+======================================================================================
+date (run end, UTC): 2026-08-10T12:27:41.385752+00:00
+recipe: @experimental/nemotron-3-super-nvfp4-mtp-1x-vllm (spark-arena/recipe-registry, merged 2026-08-07)
+recipe hash: c571aec18619488ca8aab2778126ba3fcbdae94c34a45b3e94df630f082a315f
+profile: spark-arena-v2 (registry blob dde1731a1952e965cec9d5aa400b49650e403c71) — the board's official sweep
+image: ghcr.io/spark-arena/dgx-vllm-eugr-nightly:latest resolved at run time = sha256:beef3c5229cbd794921818dbed167b9b3883b1693ee48e3108cd1f3891f53503
+stack: spark-rocky-live-20260805 metal — Rocky 10.2, kernel 6.18.42-clk (4k), open driver 610.57.04
+harness: sparkrun 0.3.1 (box-local port-wait patch 40->80 min; methodology untouched) + llama-benchy 0.4.0
+method: ONE continuous run per board methodology, overnight window; N=3 per cell; nvidia-persistenced held the GPU (see spark-rocky #62)
+
+HEADLINE (board-comparable): tg128 depth-0 c1 decode = 25.34 +/- 2.57 t/s
+  (board-best single-node at run time: 23.71; our 2026-07-26 chunked receipt on the 2026072302 pin: 23.57 +/- 1.74)
+
+HONEST LIMITS: templog capture failed at launch — NO per-cell throttle verdicts for this run;
+deep-context cells carry the this-box cooling-envelope caveat by reference to
+receipts/reproduce-Nemotron-3-Super-NVFP4-mtp-2026-07-26.txt (14/28 cells throttle even as single
+cells from cooled starts). Overnight window is favorable but unproven. N=3 is the profile's own count.
+
+    ctx conc    phase  tg mean  tg std   pp mean   pp std
+      0    1   decode    25.34    2.57    1478.2      2.5
+      0    2   decode    34.50    0.68    1533.4      1.9
+      0    5   decode    39.74    0.48     692.6     12.8
+      0   10   decode    39.37    0.55     688.3      9.9
+   4096    1   decode    22.39    1.15     620.8      0.1
+   4096    1  prefill    25.10    1.45    1751.2      3.3
+   4096    2   decode    33.41    1.95     634.0      0.3
+   4096    2  prefill    34.04    3.73    1791.4      1.0
+   4096    5   decode    30.32    1.19     423.9     18.8
+   4096    5  prefill    39.05    0.17    1138.0     72.6
+   4096   10   decode    26.44    0.43     414.1      2.7
+   4096   10  prefill    32.65    1.48    1028.9     34.6
+   8192    1   decode    21.62    1.79     386.9      0.2
+   8192    1  prefill    21.91    1.99    1901.3      2.4
+   8192    2   decode    34.23    5.15     395.2      0.3
+   8192    2  prefill    34.30    3.38    1946.1      0.8
+   8192    5   decode    21.66    0.11     299.4      2.7
+   8192    5  prefill    23.02    0.58    1420.2     61.6
+   8192   10   decode    19.00    0.02     291.3      0.7
+   8192   10  prefill    21.28    0.10    1368.2     11.8
+  16384    1   decode    24.00    1.98     212.5      0.1
+  16384    1  prefill    20.37    1.90    1901.9      3.7
+  16384    2   decode    19.84    0.45     216.0      0.1
+  16384    2  prefill    23.19    1.13    1932.7      1.4
+  16384    5   decode    13.27    0.37     185.4      2.4
+  16384    5  prefill    14.54    0.14    1636.5     11.0
+  16384   10   decode    11.95    0.10     182.5      1.8
+  16384   10  prefill    13.22    0.31    1617.6     26.2
+  32768    1   decode    21.15    1.13     205.0      0.6
+  32768    1  prefill    26.45    0.92    1894.4      3.7
+  32768    2   decode    20.64    0.40     208.4      0.4
+  32768    2  prefill    11.41    2.72    1915.0      1.7
+  32768    5   decode    12.86    0.09     179.3      0.6
+  32768    5  prefill     8.12    0.08    1753.2      9.1
+  32768   10   decode    11.79    0.07     177.9      1.1
+  32768   10  prefill     7.29    0.26    1782.1     11.1
+  65535    1   decode    21.65    0.82     191.5      0.1
+  65535    1  prefill    25.94    4.29    1787.2      1.8
+  65535    2   decode    20.35    0.74     194.7      0.1
+  65535    2  prefill     6.55    0.09    1798.4      3.0
+  65535    5   decode    12.45    0.19     170.3      2.1
+  65535    5  prefill     3.87    0.28    1779.7     17.6
+  65535   10   decode     4.05    0.45      59.9      4.7
+  65535   10  prefill     3.69    0.08    1755.0      8.9
+ 100000    1   decode    23.25    2.37     164.7      0.1
+ 100000    1  prefill    20.93    1.86    1680.4      3.0
+ 100000    2   decode    17.24    0.71     167.4      0.1
+ 100000    2  prefill     4.18    0.09    1694.8      0.1
+ 100000    5   decode    11.07    0.18     148.4      1.5
+ 100000    5  prefill     2.62    0.02    1676.7      7.6
+ 100000   10   decode     2.29    0.03      34.2      1.3
+ 100000   10  prefill     2.27    0.10    1668.5      4.6
+
+raw document: arena-v2-nemotron-3-super-nvfp4-mtp-1x-2026-08-10.results.yaml (same dir) — sparkrun's
+native benchmark schema incl. full recipe text, per-run raw values, and throughput-over-time series.
+run log + operational provenance: .provenance.txt. The official board submission re-runs under
+`sparkrun arena benchmark` when account auth lands (its flow controls its own run) — this receipt is
+the de-risk + reference, and the direct answer to the maintainer's post-merge benchmark request.

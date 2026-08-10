@@ -1,0 +1,9 @@
+=== arena-v2 run provenance 2026-08-10T01:30:19Z ===
+recipe: @experimental/nemotron-3-super-nvfp4-mtp-1x-vllm (registry post-merge)
+profile: spark-arena-v2 (blob dde1731a)
+sparkrun, version 0.3.1
+6.18.42-clk
+610.57.04
+image: sha256:beef3c5229cbd794921818dbed167b9b3883b1693ee48e3108cd1f3891f53503
+port-wait patched 2026-08-10T02:04:56Z: sparkrun _benchmark.py max_retries 180->480 (vLLM 0.26 autotune startup exceeds the 15min default; methodology unchanged)
+port-wait 40->80min 2026-08-10T05:23:45Z: tonight nightly loads ~40min (8 autotune passes); round5 lost a photo-finish at the exact ceiling
