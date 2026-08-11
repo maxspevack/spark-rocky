@@ -8,6 +8,8 @@ at each release cut. Promotion to the official tier requires a committed receipt
 [`../../receipts/`](../../receipts/) plus a byte-binding row in
 [`../spark-rocky/PROMOTIONS.tsv`](../spark-rocky/PROMOTIONS.tsv).
 
-Empty at go-live (2026-08-10). The one not-yet-promotable config at the `recipes/` root (the
-v1-form qwen3.5 variant) waits on its sparkrun-v2 re-expression plus a fresh receipt (#94), not
-on this tier — the mods-resolution question that gated promotion was answered same-day (#91).
+Empty at go-live (2026-08-10), and still empty: the first candidate (#94's qwen3.5 v2
+re-expression, 2026-08-11) was authored, receipted as a **local-recipe** serve byte-identical to
+the promoted file, and promoted directly under the ledger contract (committed receipt +
+PROMOTIONS row — all the contract requires) in a single overnight pass. The tier itself was not
+exercised; it waits for a recipe that needs to live in staging across sessions.

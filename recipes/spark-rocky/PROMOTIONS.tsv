@@ -4,3 +4,4 @@
 # sha256, and an existing receipt in receipts/. Fields (tab-separated): sha256 path receipt promoted
 e70d31d9ddb24936d0e02a8a0bd6f176552559e3aed440f9e318b11b7b79501e	recipes/spark-rocky/nemotron-3-super-120b-a12b-nvfp4-mtp-nst3-2026072302.yaml	receipts/reproduce-Nemotron-3-Super-NVFP4-mtp-2026-07-26.txt	2026-08-10
 9a16efca5e06263239663204d4168cb41ef3385f9239ad3c4007a78cbc675f22	recipes/spark-rocky/qwen3.6-35b-a3b-nvfp4-board-2026072302.yaml	receipts/reproduce-Qwen3.6-35B-A3B-NVFP4-mtp-2026-07-25.txt	2026-08-10
+92ab1ae76550c6439f2aff2f30cf94017235bb64266d2a6e45d890e27a53c049	recipes/spark-rocky/qwen3.5-0.8b-arena-2026072302.yaml	receipts/sparkrun-serve-qwen3.5-0.8b-arena-2026072302-2026-08-11.txt	2026-08-11

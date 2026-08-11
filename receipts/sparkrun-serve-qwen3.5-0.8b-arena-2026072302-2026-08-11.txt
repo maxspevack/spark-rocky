@@ -1,0 +1,283 @@
+=== SPARKRUN SERVE — the #94 receipt: the v2 re-expression serves under sparkrun ===
+WHAT: recipes/spark-rocky/qwen3.5-0.8b-arena-2026072302.yaml (sha256 below) served on the GB10
+by sparkrun 0.3.1 as a local recipe: dry-run render (leg 0), env + identity (leg 1), serve launch
+(leg 2), health 200 + one real completion on the pinned gen-2 container (leg 3), clean teardown
+(leg 4). This is the receipt #94 said the v1 could never earn: the v1-form's rendered command ends
+in a dangling backslash under sparkrun (verified through the pinned library, Gafton review
+2026-08-11) — this v2 is what the registry serves.
+
+VERDICT: PASS — health 200 at 2026-08-11T05:43:10Z (~4m20s startup), completion served,
+system_fingerprint vllm-0.23.1rc1.dev1408+ga354a9055.d20260723-c880f2b4 (the pinned 2026072302
+build), containers-remaining=0.
+
+FOUND EN ROUTE (recorded honestly; both attempts in the raw transcript): the first serve attempt
+failed at container start. The raw transcript shows the downstream symptom (pre_exec copy: 'No
+such container'); the dockerd journal on the box carries the cause: 'CDI device injection failed
+... failed to stat CDI host device "/dev/nvidia-uvm": no such file or directory'. sparkrun
+launches via CDI, which stats host device nodes before any hook. The nvidia_uvm MODULE loads at
+boot (modules-load.d, journal-verified) — but module insertion does not create the device NODE;
+nvidia-modprobe -u -c=0 (or a legacy --gpus-all container's first CUDA init) does. Every prior
+sparkrun serve on this box had accidentally ridden a tuner container's node creation. Fix:
+persisted as ExecStartPost=/usr/bin/nvidia-modprobe -u -c=0 on the box's nvidia-persistenced
+unit; reboot-survives verified (node present at boot, zero containers run). Not a recipe or
+sparkrun defect; whether the shipped image needs the same bake is an open follow-up (the image
+carries the identical modules-load config and no persistenced unit).
+
+IDENTITY NOTE: leg 1's inline 'recipe sha256:' capture is empty on both serve legs (a quoting bug
+in the harness script, fixed after this run). Identity still binds: leg 0's header carries the
+sha, and the PASS leg's rendered serve command is byte-identical to leg 0's dry-run render.
+
+TRUST NOTE (#91 residual, answered for the local-file path): a local recipe resolves as trusted
+(resolve_recipe_trust) — the mod (mods/fix-qwen3.5-chat-template, eugr fallback) fetched and ran
+with no prompt, stdin at /dev/null throughout.
+
+=== RAW TRANSCRIPT (box: /root/94-transcript.log) ===
+=== #94 receipt leg 0: dry-run render (2026-08-11T02:22:48Z, sparkrun 0.3.1, recipe sha256: 92ab1ae76550c6439f2aff2f30cf94017235bb64266d2a6e45d890e27a53c049)
+sparkrun v0.3.1
+
+Runtime:   vllm-distributed
+Image:     ghcr.io/spark-arena/dgx-vllm-eugr-nightly:2026072302
+Model:     Qwen/Qwen3.5-0.8B
+Mode:      solo
+Platform:  DGX Spark (NVIDIA GB10, NCCL)
+Scheduler: greedy
+
+VRAM Estimation:
+  Model dtype:      bfloat16
+  KV cache dtype:   bfloat16
+  Architecture:     24 layers, 2 KV heads, 256 head_dim
+  Model weights:    1.63 GB
+  KV cache:         12.00 GB (max_model_len=262,144)
+  Tensor parallel:  1
+  Per-GPU total:    13.63 GB
+  DGX Spark fit:    YES
+
+  GPU Memory Budget:
+    gpu_memory_utilization: 80%
+    Usable GPU memory:     96.8 GB (121 GB x 80%)
+    Available for KV:      95.2 GB
+    Max context tokens:    2,079,086
+    Context multiplier:    7.9x (vs max_model_len=262,144)
+
+Hosts:     --hosts
+  Target:  localhost
+
+[1/6] Preparing
+  done (0.1s)
+[2/6] Building
+  done (0.0s)
+[3/6] Distributing resources
+  done (0.1s)
+[4/6] Syncing tuning configs
+  done (0.0s)
+[5/6] Launching vllm runtime
+  Step 1/3: Detecting InfiniBand
+  Step 2/3: Launching container
+  Step 3/3: Executing serve command
+  done (0.0s)
+Cluster:   sparkrun_eb641f4628860e2b_49960de5880e
+
+Serve command:
+  vllm serve Qwen/Qwen3.5-0.8B \
+    --host 0.0.0.0 \
+    --port 8000 \
+    --language-model-only \
+    --max-model-len 262144 \
+    --max-num-batched-tokens 8192 \
+    --max-num-seqs 4 \
+    --gpu-memory-utilization 0.8 \
+    --load-format fastsafetensors \
+    --attention-backend flash_attn \
+    --enable-prefix-caching \
+    --enable-chunked-prefill \
+    --trust-remote-code \
+    --dtype auto \
+    --reasoning-parser qwen3 \
+    --enable-auto-tool-choice \
+    --tool-call-parser qwen3_coder
+
+[6/6] Post-launch hooks — skipped
+
+=== #94 leg 1: environment + recipe identity (2026-08-11T05:20:50Z) ===
+6.18.42-clk
+NVRM version: NVIDIA UNIX Open Kernel Module for aarch64  610.57.04  Release Build  (dvs-builder@U22-I3-G07-01-3)  Wed Jul 29 03:02:27 UTC 2026
+avail=118G
+sparkrun, version 0.3.1
+cut: '"': No such file or directory
+recipe sha256: 
+
+=== #94 leg 2: serve launch (2026-08-11T05:20:50Z) ===
+sparkrun v0.3.1
+
+Runtime:   vllm-distributed
+Image:     ghcr.io/spark-arena/dgx-vllm-eugr-nightly:2026072302
+Model:     Qwen/Qwen3.5-0.8B
+Mode:      solo
+Platform:  DGX Spark (NVIDIA GB10, NCCL)
+Scheduler: greedy
+
+VRAM Estimation:
+  Model dtype:      bfloat16
+  KV cache dtype:   bfloat16
+  Architecture:     24 layers, 2 KV heads, 256 head_dim
+  Model weights:    1.63 GB
+  KV cache:         12.00 GB (max_model_len=262,144)
+  Tensor parallel:  1
+  Per-GPU total:    13.63 GB
+  DGX Spark fit:    YES
+
+  GPU Memory Budget:
+    gpu_memory_utilization: 80%
+    Usable GPU memory:     96.8 GB (121 GB x 80%)
+    Available for KV:      95.2 GB
+    Max context tokens:    2,079,086
+    Context multiplier:    7.9x (vs max_model_len=262,144)
+
+Hosts:     --hosts
+  Target:  localhost
+
+[1/6] Preparing
+  done (0.2s)
+[2/6] Building
+  done (0.0s)
+[3/6] Distributing resources
+Fetching 13 files:   0%|          | 0/13 [00:00<?, ?it/s]Fetching 13 files:  85%|████████▍ | 11/13 [00:00<00:00, 30.57it/s]Fetching 13 files: 100%|██████████| 13/13 [00:00<00:00, 21.76it/s]
+  done (0.8s)
+[4/6] Syncing tuning configs
+  done (0.0s)
+[5/6] Launching vllm runtime
+  Step 1/3: Detecting InfiniBand
+  Step 2/3: Launching container
+Error: launch_inference failed: pre_exec[1] copy failed on localhost/sparkrun_eb641f4628860e2b_49960de5880e_solo: Error response from daemon: No such container: sparkrun_eb641f4628860e2b_49960de5880e_solo
+
+sparkrun-run-rc=1
+--- health poll (max 15 min for a 0.8B) ---
+HEALTH FAILED after 15 min
+CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES
+
+=== #94 leg 1: environment + recipe identity (2026-08-11T05:38:31Z) ===
+6.18.42-clk
+NVRM version: NVIDIA UNIX Open Kernel Module for aarch64  610.57.04  Release Build  (dvs-builder@U22-I3-G07-01-3)  Wed Jul 29 03:02:27 UTC 2026
+avail=118G
+sparkrun, version 0.3.1
+cut: '"': No such file or directory
+recipe sha256: 
+
+=== #94 leg 2: serve launch (2026-08-11T05:38:32Z) ===
+sparkrun v0.3.1
+
+Runtime:   vllm-distributed
+Image:     ghcr.io/spark-arena/dgx-vllm-eugr-nightly:2026072302
+Model:     Qwen/Qwen3.5-0.8B
+Mode:      solo
+Platform:  DGX Spark (NVIDIA GB10, NCCL)
+Scheduler: greedy
+
+VRAM Estimation:
+  Model dtype:      bfloat16
+  KV cache dtype:   bfloat16
+  Architecture:     24 layers, 2 KV heads, 256 head_dim
+  Model weights:    1.63 GB
+  KV cache:         12.00 GB (max_model_len=262,144)
+  Tensor parallel:  1
+  Per-GPU total:    13.63 GB
+  DGX Spark fit:    YES
+
+  GPU Memory Budget:
+    gpu_memory_utilization: 80%
+    Usable GPU memory:     96.8 GB (121 GB x 80%)
+    Available for KV:      95.2 GB
+    Max context tokens:    2,079,086
+    Context multiplier:    7.9x (vs max_model_len=262,144)
+
+Hosts:     --hosts
+  Target:  localhost
+
+[1/6] Preparing
+  done (0.2s)
+[2/6] Building
+  done (0.0s)
+[3/6] Distributing resources
+Fetching 13 files:   0%|          | 0/13 [00:00<?, ?it/s]Fetching 13 files: 100%|██████████| 13/13 [00:00<00:00, 2107.20it/s]
+  done (0.2s)
+[4/6] Syncing tuning configs
+  done (0.0s)
+[5/6] Launching vllm runtime
+  Step 1/3: Detecting InfiniBand
+  Step 2/3: Launching container
+  Step 3/3: Executing serve command
+  done (4.4s)
+Cluster:   sparkrun_eb641f4628860e2b_49960de5880e
+
+Serve command:
+  vllm serve Qwen/Qwen3.5-0.8B \
+    --host 0.0.0.0 \
+    --port 8000 \
+    --language-model-only \
+    --max-model-len 262144 \
+    --max-num-batched-tokens 8192 \
+    --max-num-seqs 4 \
+    --gpu-memory-utilization 0.8 \
+    --load-format fastsafetensors \
+    --attention-backend flash_attn \
+    --enable-prefix-caching \
+    --enable-chunked-prefill \
+    --trust-remote-code \
+    --dtype auto \
+    --reasoning-parser qwen3 \
+    --enable-auto-tool-choice \
+    --tool-call-parser qwen3_coder
+
+Runtime versions:
+  build_base_image: ${CUDA_IMAGE}
+  build_build_args_build_jobs: 16
+  build_build_args_exp_mxfp4: False
+  build_build_args_transformers_5: True
+  build_build_args_vllm_prs: 
+  build_build_args_vllm_ref: main
+  build_build_date: 2026-07-23 10:05:33+00:00
+  build_build_script_commit: 4851a0965c1d4eba4934f6f23508134583160d32
+  build_flashinfer_commit: e4b8594ef150316677dc400b6bf68dc661c3977d
+  build_gpu_arch: 12.1a
+  build_vllm_commit: a354a90550322361af2ba86a08d3ff4cc04522ed
+  build_vllm_version: 0.23.1rc1.dev1408+ga354a9055.d20260723
+  container_dev_sparkrun_build_flags: 
+  container_dev_sparkrun_flashinfer_hash: e4b8594ef150316677dc400b6bf68dc661c3977d
+  container_dev_sparkrun_repo_commit: 4851a0965c1d4eba4934f6f23508134583160d32
+  container_dev_sparkrun_source_digest: sha256:a45f994d6c1faa943f08901adbf534daac559bc5c906b06a1f6cd0aa9eb295ee
+  container_dev_sparkrun_source_image: docker.io/eugr/spark-vllm
+  container_dev_sparkrun_source_tag: nightly-20260723
+  container_dev_sparkrun_vllm_hash: a354a90550322361af2ba86a08d3ff4cc04522ed
+  container_dev_sparkrun_vllm_version: 0.23.1rc1.dev1408+ga354a9055.d20260723
+  container_maintainer: NVIDIA CORPORATION <cudatools@nvidia.com>
+  container_org_opencontainers_image_ref_name: ubuntu
+  container_org_opencontainers_image_version: 24.04
+  container_sparkrun_cluster_id: sparkrun_eb641f4628860e2b_49960de5880e
+  container_sparkrun_intent_id: eb641f4628860e2b
+  container_sparkrun_model: Qwen/Qwen3.5-0.8B
+  container_sparkrun_recipe: /root/qwen35-v2-94.yaml
+  container_sparkrun_runtime: vllm-distributed
+  container_sparkrun_served_model_name: Qwen/Qwen3.5-0.8B
+  cuda:      13.0
+  nccl:      (2, 28, 9)
+  python:    3.12.3
+  torch:     2.11.0+cu130
+  vllm:      0.23.1rc1.dev1408+ga354a9055.d20260723
+
+[6/6] Post-launch hooks — skipped
+sparkrun-run-rc=0
+--- health poll (max 15 min for a 0.8B) ---
+health 200 at 2026-08-11T05:43:10Z (poll 26, ~260s)
+
+=== #94 leg 3: real completion (2026-08-11T05:43:10Z) ===
+{"object":"list","data":[{"id":"Qwen/Qwen3.5-0.8B","object":"model","created":1786426990,"owned_by":"vllm","root":"Qwen/Qwen3.5-0.8B","parent":null,"max_model_len":262144,"permission":[{"id":"modelperm-8da9d65ecb611b99","object":"model_permission","created":1786426990,"allow_create_engine":false,"allow_sampling":true,"allow_logprobs":true,"allow_search_indices":false,"allow_view":true,"allow_fine_tuning":false,"organization":"*","group":null,"is_blocking":false}]}]}
+{"id":"cmpl-9ab6078106214586","object":"text_completion","created":1786426990,"model":"Qwen/Qwen3.5-0.8B","choices":[{"index":0,"text":" on a 1000 MHz processor, and the DGX Spark GB1000 runs on a ","logprobs":null,"finish_reason":"length","stop_reason":null,"token_ids":null,"prompt_logprobs":null,"prompt_token_ids":null,"routed_experts":null}],"service_tier":null,"system_fingerprint":"vllm-0.23.1rc1.dev1408+ga354a9055.d20260723-c880f2b4","usage":{"prompt_tokens":8,"total_tokens":32,"completion_tokens":24,"prompt_tokens_details":null},"kv_transfer_params":null,"ec_transfer_params":null,"metrics":null}
+
+=== #94 leg 4: teardown (2026-08-11T05:43:52Z) ===
+Discovering sparkrun containers on 1 host(s)...
+Found 1 job(s), 1 container(s):
+  sparkrun_eb641f4628860e2b_49960de5880e_solo on localhost
+Stopping all containers...
+Stopped 1 job(s), 1 container(s) across 1 host(s).
+containers-remaining=0
+=== #94 serve run complete (2026-08-11T05:43:59Z) ===

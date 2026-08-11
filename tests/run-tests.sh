@@ -255,8 +255,8 @@ if awk '/- name: spark-rocky$/{f=1} f&&/visible:/{print $2; exit}' "$RY" | grep 
 # are order-dependent — plus YAML validity of every SERVED recipe. The registry serves git HEAD
 # between cuts and the byte ledger blesses deliberate edits, so parse what consumers pull.
 if command -v python3 >/dev/null 2>&1 && python3 -c 'import yaml' 2>/dev/null; then
-  python3 -c 'import yaml,glob; rs=yaml.safe_load(open(".sparkrun/registry.yaml"))["registries"]; assert len(rs)==2 and all(r["name"] and r["recipes"].startswith("recipes/") and "visible" in r for r in rs); [yaml.safe_load(open(f)) for f in glob.glob("recipes/spark-rocky/**/*.y*ml", recursive=True)]' 2>/dev/null \
-    && ok "registry.yaml + every served recipe parse with required keys (python3+yaml)" || no "registry.yaml or a served recipe fails the YAML structural parse"
+  python3 -c 'import yaml,glob; rs=yaml.safe_load(open(".sparkrun/registry.yaml"))["registries"]; assert len(rs)==2 and all(r["name"] and r["recipes"].startswith("recipes/") and "visible" in r for r in rs); [yaml.safe_load(open(f)) for f in glob.glob("recipes/spark-rocky/**/*.y*ml", recursive=True)+glob.glob("recipes/spark-rocky-experimental/**/*.y*ml", recursive=True)]' 2>/dev/null \
+    && ok "registry.yaml + every served recipe parses, BOTH tiers (experimental serves by name too — #94 review)" || no "registry.yaml or a served recipe fails the YAML structural parse"
 else ok "YAML parse skipped (no python3+yaml on this host; grep gates enforce)"; fi
 sha256_of(){ if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1; else shasum -a 256 "$1" | cut -d' ' -f1; fi; }
 # ledger_check <ledger> <tag> <dash-receipt-ok:yes|no> <find-args...> — bidirectional: every found

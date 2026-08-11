@@ -1,0 +1,45 @@
+recipe_version: "2"
+model: Qwen/Qwen3.5-0.8B
+runtime: vllm
+container: ghcr.io/spark-arena/dgx-vllm-eugr-nightly:2026072302
+
+metadata:
+  description: >-
+    The pinned qwen3.5-0.8b variant (recipes/qwen3.5-0.8b-arena-2026072302.yaml — the
+    spark-arena mirror with a one-line container pin to the permanent gen-2 tag, #71)
+    re-expressed in sparkrun v2 template syntax, flag semantics verbatim (#94). The v1
+    form's receipt (receipts/reproduce-Qwen3.5-0.8B-gen2-2026-07-24.txt) ran via
+    spark-vllm-docker's run-recipe.sh; this re-expression is what sparkrun serves.
+
+mods:
+  - mods/fix-qwen3.5-chat-template
+
+defaults:
+  port: 8000
+  host: 0.0.0.0
+  max_model_len: 262144
+  max_num_batched_tokens: 8192
+  max_num_seqs: 4
+  gpu_memory_utilization: 0.8
+
+env:
+  VLLM_MARLIN_USE_ATOMIC_ADD: "1"
+
+command: |
+  vllm serve {model} \
+    --host {host} \
+    --port {port} \
+    --language-model-only \
+    --max-model-len {max_model_len} \
+    --max-num-batched-tokens {max_num_batched_tokens} \
+    --max-num-seqs {max_num_seqs} \
+    --gpu-memory-utilization {gpu_memory_utilization} \
+    --load-format fastsafetensors \
+    --attention-backend flash_attn \
+    --enable-prefix-caching \
+    --enable-chunked-prefill \
+    --trust-remote-code \
+    --dtype auto \
+    --reasoning-parser qwen3 \
+    --enable-auto-tool-choice \
+    --tool-call-parser qwen3_coder
