@@ -1,0 +1,129 @@
+=== REGISTRY CONSUMER SERVE — the completing receipt for #95 (#88/#91 close the loop) ===
+WHAT: first sparkrun-driven serve of an @spark-rocky registry recipe on the GB10, as a real
+consumer: install via scripts/install-sparkrun.sh, `sparkrun registry add` from the public GitHub
+URL (NO --trust), by-name resolution, serve, one real completion, teardown. Before this receipt,
+the registry's serve semantics were proven only by the original run-recipe.sh receipts; this run
+closes the consumer loop end-to-end on hardware.
+
+TIMELINE (UTC; crosses midnight 2026-08-10 -> 2026-08-11):
+  23:38:37Z leg 1 start (install + add + resolve)   23:39:12Z serve launch (--no-follow)
+  23:56:01Z first health 200  (16m49s startup: weight load + torch.compile 42.58s +
+            Mamba2 warmup + FlashInfer autotune - first-serve full autotune; the cache
+            persists at /root/.cache/vllm, subsequent serves reuse it)
+  00:58:58Z completion request served               00:59:0xZ teardown, containers-remaining=0
+
+NOTES:
+- No trust prompt: the recipe carries no mods (hooks only exist via mods); the qwen3.6
+  trust-prompt observation stays open on #91's residual (needs an interactive session).
+- The recipe pins its container (ghcr.io/spark-arena/dgx-vllm-eugr-nightly:2026072302); the
+  completion's system_fingerprint names the pinned vLLM build - runtime identity verified
+  end to end.
+- The model, asked to complete "The DGX Spark GB10 runs", answered "on NVIDIA's Linux-based
+  DGX OS" - while serving on Rocky Linux 10.2 + CLK 6.18.42 via this registry. Recorded
+  without further comment.
+
+=== RAW TRANSCRIPT (box: /root/95-transcript.log) ===
+=== #95 registry-consumer receipt leg 1: install + add + resolve (2026-08-10T23:38:37Z) ===
+--- host ---
+6.18.42-clk
+610.57.04
+Mem:             121           2         118           0           0         118
+--- installer (as a consumer, from the repo checkout at HEAD) ---
+7b0c418 proof.md footer: scope 'credential-free' the same way the gemma receipt forced everywhere else
+Resolved 33 packages in 932ms
+Prepared 1 package in 170ms
+Installed 33 packages in 20ms
+ + annotated-doc==0.0.5
+ + anyio==4.14.2
+ + botwinick-utils==0.0.20
+ + certifi==2026.7.22
+ + click==8.3.3
+ + filelock==3.32.2
+ + fsspec==2026.7.0
+ + h11==0.16.0
+ + hf-xet==1.6.0
+ + httpcore==1.0.9
+ + httpx==0.28.1
+ + huggingface-hub==1.8.0
+ + idna==3.15
+ + linkify-it-py==2.1.0
+ + markdown-it-py==4.2.0
+ + mdit-py-plugins==0.6.1
+ + mdurl==0.1.2
+ + packaging==26.3
+ + platformdirs==4.11.2
+ + pygments==2.20.0
+ + python-json-logger==4.1.0
+ + pyyaml==6.0.3
+ + rich==15.0.0
+ + scitrera-app-framework==0.0.69
+ + shellingham==1.5.4
+ + six==1.17.0
+ + sparkrun==0.3.1
+ + textual==8.2.5
+ + tqdm==4.70.0
+ + typer==0.27.1
+ + typing-extensions==4.16.0
+ + uc-micro-py==2.0.0
+ + vpd==0.9.13
+Installed 1 executable: sparkrun
+OK: sparkrun 0.3.1 installed and on PATH.
+
+Optional — this repo is also a sparkrun registry (receipt-backed GB10 recipes, #88):
+    sparkrun registry add https://github.com/maxspevack/spark-rocky
+The registry tracks git HEAD — unpinned, no release signature; receipts/ is the pinned channel.
+Recipes with mods run the mod's run.sh in the container; sparkrun prompts before hooks from an
+untrusted registry. 'sparkrun registry trust spark-rocky' skips that prompt — that grant is
+yours to make, which is why this script does not add the registry for you.
+--- registry add (no --trust) ---
+Discovering registries from https://github.com/maxspevack/spark-rocky...
+Added 2 registries:
+  spark-rocky — Receipt-backed GB10 recipes from the spark-rocky stack (Rocky Linux 10 + CLK kernel + NVIDIA open driver). Every recipe here has a committed receipt in receipts/ and a byte-binding row in recipes/spark-rocky/PROMOTIONS.tsv.
+  spark-rocky-experimental — Staging tier — recipes actively being driven toward a receipt. Hidden from listings; resolvable by name. (hidden)
+
+Fetching registry contents...
+  Updating spark-rocky... done
+  Updating spark-rocky-experimental... done
+--- by-name resolution ---
+Name:         @spark-rocky/nemotron-3-super-120b-a12b-nvfp4-mtp-nst3-2026072302
+Description:  The #73 receipt config: the board-best single-node entry lineage (permalink ff09e374; marlin lane triple-enforced, async-scheduling, chunked prefill, max-model-len 131072) upgraded to nst=3 (their nst=1) at gpu-mem 0.88 (their 0.75 leaves no KV room on this runtime). Behind receipts/reproduce-Nemotron-3-Super-NVFP4-mtp-2026-07-26.txt. Their runtime is an upstream vllm-openai digest; ours is the pinned eugr build - recorded as the standing runtime confound. (--served-model-name dropped: it equals the model id, and inline served names 404 llama-benchy.)
+Runtime:      vllm-distributed
+Model:        nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4
+Container:    ghcr.io/spark-arena/dgx-vllm-eugr-nightly:2026072302
+Nodes:        1 - unlimited
+
+Defaults:
+resolve-rc=1
+
+--- by-name resolution rc, uncut ---
+sparkrun-show-rc=0
+--- serve launch (23:39:12Z): registry-pulled recipe, pinned container, no --trust, no mods ---
+  container_sparkrun_intent_id: 54c76f74d230549f
+  container_sparkrun_model: nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4
+  container_sparkrun_recipe: @spark-rocky/nemotron-3-super-120b-a12b-nvfp4-mtp-nst3-2026072302
+  container_sparkrun_runtime: vllm-distributed
+  container_sparkrun_served_model_name: nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4
+  cuda:      13.0
+  nccl:      (2, 28, 9)
+  python:    3.12.3
+  torch:     2.11.0+cu130
+  vllm:      0.23.1rc1.dev1408+ga354a9055.d20260723
+
+[6/6] Post-launch hooks — skipped
+run-launch-rc=0
+sparkrun_54c76f74d230549f_49960de5880e_solo ghcr.io/spark-arena/dgx-vllm-eugr-nightly:2026072302 Up 18 seconds
+--- health 200 at 23:56:01Z ---
+{"object":"list","data":[{"id":"nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4","object":"model","created":1786406161,"owned_by":"vllm","root":"nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4","parent":null,"max_model_len":131072,"permission":[{"id":"modelperm-8f8c03101edbb982","object":"model_permis
+--- completion through the registry-pulled serve (00:58:58Z) ---
+{"id":"cmpl-9947cccdbd423c12","object":"text_completion","created":1786409938,"model":"nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4","choices":[{"index":0,"text":" on NVIDIA’s Linux-based DGX OS, which is optimized for AI workloads and includes pre-installed frameworks","logprobs":null,"finish_reason":"length","stop_reason":null,"token_ids":null,"prompt_logprobs":null,"prompt_token_ids":null,"routed_experts":null}],"service_tier":null,"system_fingerprint":"vllm-0.23.1rc1.dev1408+ga354a9055.d20260723-bd093932","usage":{"prompt_tokens":8,"total_tokens":32,"completion_tokens":24,"prompt_tokens_details":null},"kv_transfer_params":null,"ec_transfer_params":null,"metrics":null}
+
+=== SERVE LOG EXCERPTS (box: /root/95-serve.log, 261 lines; container labels + milestones) ===
+(EngineCore pid=425) INFO 08-10 23:50:01 [backends.py:393] Compiling a graph for compile range (1, 16384) takes 24.85 s
+(EngineCore pid=425) INFO 08-10 23:50:07 [monitor.py:53] torch.compile took 42.58 s in total
+(EngineCore pid=425) INFO 08-10 23:50:07 [mamba_mixer2.py:578] Warming up Mamba2 SSD Triton kernels...
+(EngineCore pid=425) INFO 08-10 23:51:42 [backends.py:393] Compiling a graph for compile range (1, 16384) takes 7.69 s
+(EngineCore pid=425) INFO 08-10 23:51:42 [monitor.py:53] torch.compile took 9.70 s in total
+(EngineCore pid=425) INFO 08-10 23:51:59 [kernel_warmup.py:236] Using FlashInfer autotune cache file: /root/.cache/vllm/flashinfer_autotune_cache/0.6.15/121a/3ed1c51d315a12f0653d27d5d7ff5d2cac9263bd37f43fd0664652bc648e521d/autotune_configs.json
+(EngineCore pid=425) INFO 08-10 23:55:12 [kernel_warmup.py:277] FlashInfer autotune cache loaded on rank 0 from /root/.cache/vllm/flashinfer_autotune_cache/0.6.15/121a/3ed1c51d315a12f0653d27d5d7ff5d2cac9263bd37f43fd0664652bc648e521d/autotune_configs.json.
+(EngineCore pid=425) INFO 08-10 23:55:12 [kernel_warmup.py:68] Warming up ll_bf16 router GEMM kernels.
+(APIServer pid=88) INFO:     Application startup complete.

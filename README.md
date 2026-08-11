@@ -23,7 +23,7 @@ Then boot the Spark from the USB and run `/root/validate.sh`. Full steps and the
 
 ## The recipe registry
 
-This repo is a [sparkrun](https://github.com/spark-arena/sparkrun) registry: receipt-backed GB10 serve recipes, consumable directly (resolution and mods verified from a clean consumer host; the serve semantics are what the receipts prove) —
+This repo is a [sparkrun](https://github.com/spark-arena/sparkrun) registry: receipt-backed GB10 serve recipes, consumable directly — consumer-verified end-to-end: clean-host resolution and mods (#91), and a registry-pulled serve on the GB10 itself (`receipts/registry-serve-*`, #95) —
 
 ```bash
 scripts/install-sparkrun.sh                                    # pinned harness install (uv)
