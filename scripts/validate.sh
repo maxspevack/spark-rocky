@@ -130,6 +130,17 @@ else
   echo "  !! no wifi device found at all — the image is supposed to ship a usable MT7925 radio (#84)"; FAIL=1
 fi
 
+sect "7. console autologin fired (#97 — the drop-in FILE shipping is not a root shell on tty1)"
+# The #97 miss encoded as a test: 04 baked the getty drop-in from 2026-06-12 and the gates only ever
+# verified the file's existence in the image — the behavior went unverified and the metal (installed
+# 2026-06-10, two days before the bake) never had it. The gate is the user-visible outcome: a root
+# session on tty1 by the time this doctor runs. Honest race: sshd and getty@tty1 start in
+# parallel under multi-user.target, so a root SSH in the first seconds of boot can observe
+# tty1 before agetty's login -f writes utmp — a false FAIL (fail-closed; re-run). The file
+# check below tells race/regression apart from deployment gap.
+chk 'who | grep -qE "^root +tty1 "'  "root is logged in on tty1 without input (autologin fired)"
+chk '[ -f /etc/systemd/system/getty@tty1.service.d/autologin.conf ]'  "the autologin drop-in exists (diagnosis aid: behavior-fail + file-present = race/regression; file-absent = deployment gap, the metal's 2026-08-10 failure mode)"
+
 line
 if [ "$FAIL" = 0 ]; then
   echo " RESULT: PASS"

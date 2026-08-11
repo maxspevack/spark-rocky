@@ -211,7 +211,7 @@ But debugging has to be **easy**, or a stuck test user just gives up. So there a
 
 ### For the test user — the happy path needs nothing
 
-Boot the USB → log in as **`root` / `rocky`** (console-only; autologin is baked but does not fire — #97) → run `validate.sh` → file the result. No SSH, no keys. That's the whole experience.
+Boot the USB → the console auto-logs-in as **root** (behavior-gated in `validate.sh` §7 — #97; fallback credential **`root` / `rocky`**, console-only) → run `validate.sh` → file the result. No SSH, no keys. That's the whole experience.
 
 ### For the test user — if something breaks and we need to look
 
