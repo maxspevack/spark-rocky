@@ -11,6 +11,48 @@ ships (`uname -r`).
 ## [Unreleased]
 
 ### Added
+- **The repo is a sparkrun registry (#88, 2026-08-10; namespace ratified in #90).** `sparkrun
+  registry add https://github.com/maxspevack/spark-rocky` → `sparkrun run @spark-rocky/<recipe>`.
+  Two tiers: `recipes/spark-rocky/` (official — admission requires a committed receipt in
+  `receipts/` **plus** a byte-binding row in `PROMOTIONS.tsv`, CI-enforced in both directions) and
+  `recipes/spark-rocky-experimental/` (hidden staging, resolvable by name). Everything at the
+  `recipes/` root stays deliberately unserved (verbatim spark-arena mirrors, byte-guarded by
+  `MIRRORS.tsv` — republishing their bytes under our namespace would misattribute them). The
+  guarantee split is stated honestly: the registry is the convenient unpinned channel; the
+  receipts are the pinned one. Registry mechanics proven end to end: the mods-resolution question
+  answered at the sparkrun source level with a clean-host PASS (#91, qwen3.6-board promoted on
+  it), and the full consumer loop receipted on the GB10 — registry add from the public URL with
+  no trust grant, by-name resolution, serve to health 200, one real completion on the pinned
+  runtime, clean teardown (#95, `receipts/registry-serve-nemotron-3-super-nvfp4-mtp-2026-08-10.txt`). A weekly CI
+  cron keeps the ledger byte-checks running on a dormant repo.
+- **`scripts/install-sparkrun.sh` — the pinned harness install, verified end to end (#92, 2026-08-10).**
+  One command from a bare host to the pinned sparkrun (`SPARKRUN_VERSION`, env-sourced from
+  `config/serving-images.env` — no version literal in code, CI-enforced), self-verifying the
+  installed version against the pin. Docs route through it; the superseded git-pin install form
+  is gone (#93).
+- **The Nemotron recipe is live in spark-arena's experimental registry, and the arena-v2 receipt
+  is committed.** Upstream recipe-registry#19 merged 2026-08-07 (M5 complete, #82 closed): the
+  recipe spark-arena.com serves for Nemotron-3-Super-120B NVFP4 MTP is ours. The full arena-v2
+  profile run on that merged recipe is receipted in-repo (2026-08-10,
+  `receipts/arena-v2-nemotron-3-super-nvfp4-mtp-1x-2026-08-10.*`): 28 cells, headline tg128
+  d0/c1 = 25.34 ± 2.57 t/s on the shipped stack — statistically tied with board-best single-node
+  (23.71 t/s at run time, inside this run's spread; N=3). The receipt states its own limits —
+  templog capture failed, so no per-cell throttle verdicts — and the board submission itself is
+  #87, pending arena account auth.
+- **kdump armed on the metal, and it survives kernel bumps (#62, 2026-08-06).** `crashkernel=` persists via a
+  metal-only cmdline-extras file consumed by `upgrade-metal.sh`, which also extracts and verifies
+  the raw kdump `Image` on every kernel bump — a panic now yields a vmcore instead of a mystery,
+  and a vmcore's *absence* is an affirmative not-a-panic discriminator (load-bearing in the #62
+  GSP-crash case file).
+- **Driver-bump hardening in `upgrade-metal.sh` (2026-08-06):** the CDI spec regenerates on every driver bump
+  (a stale `/etc/cdi/nvidia.yaml` pinned to the old driver breaks every GPU container —
+  hardware-proven 2026-08-06), and the drift sensor is branch-aware (`DRIVER_BRANCH`-scoped
+  matching plus the #83 orphan tripwire).
+- **`docs/benchmark/` rewritten by reader question (#96, 2026-08-10):** router + fast path / proof /
+  reproduce / ledger, with the consumption path (the registry) visible from the benchmark story.
+  The README front door resolved its FIXME pass the same day: the "zero patches" claim scoped to
+  **zero SOURCE patches** (CI-enforced, sabotage-calibrated) with configuration deltas owned
+  honestly.
 - **Console autologin gated on BEHAVIOR, not the file (#97, 2026-08-11).** The metal was installed
   2026-06-10; the 04 autologin bake landed 2026-06-12; `upgrade-metal.sh` carries no rootfs config —
   so nine releases shipped a drop-in the hardware never received while every gate verified the file
@@ -49,6 +91,20 @@ ships (`uname -r`).
   metal, verdict. Refuses a busy box (shared-box arbitration) and a box not on the metal. Six
   `make test` invariants hold its rules; `docs/build/build.md` step 2b makes it blocking: no
   `BOOT-GATE: PASS`, no signature.
+
+### Fixed
+- **The test suite's exit gate had been fail-open since 2026-08-06.** Thirteen invariants were
+  appended *after* the `RESULT` tally and exit line — their FAILs printed, the suite exited 0
+  regardless. Repaired 2026-08-10 and sabotage-verified in both directions, and the class is now enforced
+  rather than remembered: a tail guard fails the suite if anything sits after the gate.
+- **A signature bypass in `flash.sh` (fixed 2026-08-06):** gpg reports VALIDSIG on a clearsigned CHECKSUM even with
+  unsigned text *prepended*, and `flash.sh` verified the signature but parsed the container — so a
+  hostile mirror (a documented arg), bucket write, or proxy could choose both the image name and
+  its expected sha past a "Good signature", with the unvalidated name feeding a root `curl -o`.
+  Reproduced end to end against the live 20260805 artifact. Now only the `--decrypt`-extracted
+  signed body is parsed, the name is validated as a filename, and the release gates bind to the
+  signed bytes. The same commit closed a Python-injection path in `drift-check.sh` (third-party
+  JSON was interpolated into a `python3 -c` string on the box that holds the signing key).
 
 ## [spark-rocky-live-20260805] — 2026-08-05 · `6.18.42-clk` (4k pages) — WiFi works, and the artifact boots before it ships
 
