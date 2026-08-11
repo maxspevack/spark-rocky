@@ -171,6 +171,31 @@ systemctl mask systemd-firstboot.service 2>/dev/null || true
 # Auto-login root at the console — validation image, nobody should type root/rocky; just run validate.sh.
 mkdir -p /etc/systemd/system/getty@tty1.service.d
 printf '[Service]\nExecStart=\nExecStart=-/sbin/agetty --autologin root --noclear %%I\n' > /etc/systemd/system/getty@tty1.service.d/autologin.conf
+# nvidia-persistenced at boot — byte-identical to the metal's proven pair (#62 mitigation, holding
+# since 2026-08-09) — plus the /dev/nvidia-uvm node: CDI container launches (sparkrun's path) stat
+# host device nodes BEFORE any hook runs, and the nvidia_uvm module loading via modules-load.d does
+# NOT create the node — nvidia-modprobe does. Without this, the first CDI serve on a fresh boot
+# fails (bit the #94 serve on the metal 2026-08-11; the image-side gate is #98).
+cat > /etc/systemd/system/nvidia-persistenced.service <<'PUNIT'
+[Unit]
+Description=NVIDIA Persistence Daemon (GSP held initialized — #62 mitigation)
+After=syslog.target
+[Service]
+Type=forking
+ExecStart=/usr/bin/nvidia-persistenced --verbose
+ExecStopPost=/bin/rm -rf /var/run/nvidia-persistenced
+[Install]
+WantedBy=multi-user.target
+PUNIT
+mkdir -p /etc/systemd/system/nvidia-persistenced.service.d
+cat > /etc/systemd/system/nvidia-persistenced.service.d/uvm-node.conf <<'PDROP'
+[Service]
+# CDI container launches stat /dev/nvidia-uvm on the HOST before any hook runs; the nvidia_uvm
+# MODULE loads at boot (modules-load.d) but insertion does not create the device NODE —
+# nvidia-modprobe does (bitten 2026-08-11, #94 serve; image-side gate #98).
+ExecStartPost=/usr/bin/nvidia-modprobe -u -c=0
+PDROP
+systemctl enable nvidia-persistenced.service
 # GB10 unified memory: swap-on-overcommit hangs the box ("zombie" instead of a clean CUDA OOM). Disable swap.
 # (fstab here carries no swap; this mask is belt-and-suspenders so nothing activates swap at runtime.)
 systemctl mask swap.target 2>/dev/null || true

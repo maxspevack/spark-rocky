@@ -11,6 +11,26 @@ ships (`uname -r`).
 ## [Unreleased]
 
 ### Added
+- **Console autologin gated on BEHAVIOR, not the file (#97, 2026-08-11).** The metal was installed
+  2026-06-10; the 04 autologin bake landed 2026-06-12; `upgrade-metal.sh` carries no rootfs config —
+  so nine releases shipped a drop-in the hardware never received while every gate verified the file
+  in the image. `validate.sh` §7 now demands the outcome (a root session on tty1, honest boot-race
+  note, file-presence demoted to a diagnosis aid) on every 05b boot-gate pass. Metal fixed live; behavior
+  PASS on four observations (the apply-time getty restart + three cold boots); docs restored to the autologin claim with `root`/`rocky` as fallback.
+- **qwen3.5-0.8b promoted to the official registry tier (#94, 2026-08-11).** The v1-form variant
+  cannot serve under sparkrun 0.3.1 (its rendered command ends in a dangling backslash — verified
+  through the pinned library); the v2 re-expression keeps flag semantics verbatim and promotes with
+  its byte-binding PROMOTIONS.tsv row and a sparkrun serve receipt (health 200, real completion on
+  the pinned gen-2 build, failed first attempt recorded honestly). The suite's YAML parse gate now
+  covers BOTH registry tiers.
+- **nvidia-persistenced + the `/dev/nvidia-uvm` node baked into the image (#98, 2026-08-11).**
+  CDI container launches (sparkrun's path) stat host device nodes before any hook runs, and the
+  `nvidia_uvm` module loading at boot does not create the node — `nvidia-modprobe` does. On the
+  metal this failed the first CDI serve that didn't ride a legacy `--gpus all` container's node
+  creation (#94's receipt carries the incident); the image shared the gap. 04 now bakes the metal's
+  proven unit + drop-in byte-identically (also the #62 GSP mitigation riding the image for the
+  first time); `validate.sh` gates both as behavior on the booted artifact. The end-to-end
+  fresh-image gate (boot → install-sparkrun → registry serve health 200) remains #98.
 - **Driver branch policy decided and mechanized (#83, Max-signed 2026-08-06).** Posture: stay on the
   610/NFB line deliberately; treat "no formal support commitment" as a sensor problem. Three
   mechanisms are the policy: the drift sensor's **orphan tripwire** (pinned branch quiet ~120 days

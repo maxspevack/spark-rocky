@@ -110,6 +110,8 @@ SWAP=$(awk '/^SwapTotal/{print $2}' /proc/meminfo 2>/dev/null)
 chk '[ "${SWAP:-1}" = 0 ]'                       "swap off (SwapTotal=${SWAP:-?} kB; GB10 swap-on-overcommit hang prevention)"
 NOISE=$(dmesg 2>/dev/null | grep -ciE 'mlx5.*(firmware|insufficient power)|WQ_UNBOUND')
 chk '[ "${NOISE:-1}" = 0 ]'                      "dmesg clean of the known regressions (mlx5-firmware / WQ_UNBOUND): ${NOISE:-?} hit(s)"
+chk 'systemctl is-active -q nvidia-persistenced' "nvidia-persistenced active (#62 GSP mitigation, baked since #98)"
+chk '[ -c /dev/nvidia-uvm ]'                     "/dev/nvidia-uvm node exists at boot — CDI container launches stat it before any hook; module load alone does not create it (#94 lesson, #98 gate)"
 
 sect "6. WiFi radio usable end-to-end (#84 — firmware alone is not WiFi support)"
 # The #64 miss encoded as a test: the gate is that NM can MANAGE the radio and a SCAN returns APs,
