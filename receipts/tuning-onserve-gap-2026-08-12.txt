@@ -1,0 +1,27 @@
+=== ON-SERVE TUNING SYNC — the receipt that came back NEGATIVE (2026-08-12) ===
+The claim under test: "sparkrun syncs the shelf on every @spark-rocky serve and mounts it via
+VLLM_TUNED_CONFIG_FOLDER." Verdict: FALSE at sparkrun 0.3.1 for URL-added registries, on a
+current checkout. Three serve attempts, each fixing the previous attempt's measurement defect:
+
+1. First serve: warning check grabbed a container id post-teardown -> FALSE ZERO (worthless).
+2. Second serve (checks hardened, container captured by name): another zero — also FALSE:
+   sparkrun's two-phase launch (sleep-infinity + exec) means `docker logs` never carries the
+   serve output at all. Also found en route: the box was the stale-consumer case from
+   tuning/README.md (registry added pre-shelf, Tuning: no) — remedy exercised (remove/re-add,
+   Tuning: yes), which is the second consumer to validate that documented path.
+3. Third serve (follow mode, output captured to disk BEFORE teardown): the truth —
+     (EngineCore pid=429) WARNING 08-12 23:19:02 [fused_moe.py:1108] Using default MoE config.
+     Performance might be sub-optimal! Config file not found at .../E=512,N=2688,device_name=NVIDIA_GB10.json
+   No VLLM_TUNED_CONFIG_FOLDER in the serve environment output; "Syncing tuning configs" step
+   completed in 0.0s (no-op); the local tuning cache (~/.cache/sparkrun/tuning/vllm) was never
+   created — while the registry checkout at that moment was CURRENT (HEAD 8370a4b) with
+   `tuning` in its sparse-checkout list and the config file present under
+   registries/spark-rocky/tuning/vllm/. Source present, sync no-op: the gap is in the serve-time
+   copy for registry.yaml-declared (URL-added) registries, not in the checkout.
+
+What stands: update-time sync + sha256 delivery verified on two consumers (laptop receipt +
+this box's checkout). What does not: the serve-time auto-mount. Docs shrunk same day; the
+workaround (manual mount / VLLM_TUNED_CONFIG_FOLDER at the checkout path) documented in
+tuning/README.md. The sparkrun-side investigation is tracked in this repo's issues; if it
+resolves to an upstream defect, the filing goes through the Upstream Engagement Protocol.
+Logs: /root/onserve{,2,3}.log on the box.

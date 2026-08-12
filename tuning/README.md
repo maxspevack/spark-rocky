@@ -2,10 +2,14 @@
 
 Tuned Triton kernel configurations for the DGX Spark GB10, generated on this stack's own
 hardware (methodology + evidence: the receipts named in [`TUNING.tsv`](TUNING.tsv), and the
-diagnosis chain those receipts cite). sparkrun syncs this directory automatically when serving
-`@spark-rocky` recipes (`tuning_subpath` in [`.sparkrun/registry.yaml`](../.sparkrun/registry.yaml))
-and mounts it into the serve container via `VLLM_TUNED_CONFIG_FOLDER` — both the fused-MoE and
-Mamba SSM lookups in vLLM honor that folder before the bundled defaults.
+diagnosis chain those receipts cite). sparkrun materializes this directory
+into every consumer's registry checkout (`tuning_subpath` in
+[`.sparkrun/registry.yaml`](../.sparkrun/registry.yaml); sync + sha256 verified on two consumers).
+**The on-serve auto-mount does NOT yet fire for URL-added registries at sparkrun 0.3.1** — the
+registry checkout carries the configs but the serve-time copy to the local tuning cache no-ops
+(observed on a current checkout; tracked in the repo issues). Until that resolves upstream, mount
+the file yourself or set `VLLM_TUNED_CONFIG_FOLDER` at the registry checkout's `tuning/vllm/` —
+both vLLM lookups honor the folder before the bundled defaults.
 
 Added the registry before the shelf existed? As of sparkrun 0.3.1, `registry add` materializes
 manifest fields once and `registry update` never re-reads them — `sparkrun registry remove
