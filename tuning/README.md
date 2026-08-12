@@ -14,7 +14,12 @@ spark-rocky && sparkrun registry add <repo URL>` picks up the shelf.
 | File | Covers | Receipt |
 |---|---|---|
 | `vllm/E=512,N=2688,device_name=NVIDIA_GB10.json` | Nemotron-3-Super fused-MoE: decode keys M=1,2,4,8 tuned (re-race-validated; +3.5% geomean over the default heuristic at kernel level) + rows M=16..4096 pinned to the default heuristic's own per-M choices, so every M ≥ 13 resolves to exactly the stock config (the measured −2.35% pp2048 nearest-key snap, neutralized by construction) | `moe-config-kernel-AB-2026-08-12.txt` |
-| `vllm/headdim=64,dstate=128,device_name=NVIDIA_GB10,cache_dtype=float32.json` | Mamba `selective_state_update`, 13 effective-batch keys | `moe-tune-gb10-decode-keys-2026-08-12.txt` |
+
+
+**Held off the shelf (2026-08-12):** the Mamba `selective_state_update` config — generated and
+generation-receipted, but pulled pending its own kernel-level A/B: the serve-level gates could
+not attribute a small prefill residual between the two configs at their resolution, and this
+shelf's contract is receipts, not vibes. It returns with its receipt.
 
 **Honesty box:** the MoE ladder deliberately stops at M=8 — vLLM's lookup is nearest-key (no
 fallback), so decode traffic (concurrency 1–10) lands on tuned keys while large-batch prefill

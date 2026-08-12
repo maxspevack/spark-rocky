@@ -1,0 +1,30 @@
+=== SERVE-LEVEL GATES — the ship-rule receipts for the GB10 fused-MoE config (2026-08-12) ===
+Twelve paired boots on one day, direct docker (the promoted nemotron recipe's serve args
+verbatim), llama-benchy 0.3.8 pinned, per-boot templog, per-leg transcripts (/root/ab-gate/).
+Legs: A = stock (no config; the default-MoE warning fired every A boot). B = MoE config
+(tuned keys M=1,2,4,8 + rows 16..4096 pinned to the default heuristic's own per-M choices) +
+the Mamba config. M = MoE config ONLY. Warning absent every B/M boot (config consumed).
+
+SHIP RULE (Max-approved 2026-08-12) — final disposition:
+  Condition 1 (kernel geomean >= +3%): PASS at +3.50% (moe-config-kernel-AB-2026-08-12.txt).
+  Condition 3 (pp2048 CI floor > -2%): PASS on the shipping artifact — stock 1573.2 vs
+    MoE-config 1563.9 t/s, delta -0.59% CI[-1.74%, +0.55%] (n=32/arm, all twelve boots' cells).
+  Condition 2 (serve decode): A WASH — tg1024 +0.09% CI[-2.56%, +2.75%] (n=12/arm);
+    tg128 similar. The rule's prespecified wash path applies: SHIP with claims shrunk to the
+    kernel receipt + warning elimination. No serve-level win is claimed anywhere.
+
+THE PATH HERE, recorded honestly (this is why the artifact has pinned rows and no Mamba file):
+  1. First gate round (A1/A2 vs B1/B2, tuned-keys-1..8-only artifact): pp2048 -2.35%
+     CI[-2.65,-2.06] — REAL regression via vLLM's nearest-key snap (no fallback; prefill-scale
+     M landed on the M=8-tuned config). Condition 3 FAILED; the rule's remedy executed.
+  2. Pinned rows added (M=16..4096 = the default heuristic's own captured choices; 16/32 close
+     the M=9-35 snap hole found in review). Re-gate (B3/B4): -1.24%, CI crossing the bar.
+  3. Stock-drift control: A-afternoon vs A-evening +0.01% CI[-1.42,+1.44] — the measurement is
+     stable; the residual was real, not drift.
+  4. Single-variable isolation (M legs, MoE-only): -0.52% -> pooled -0.59% CI[-1.74,+0.55] =
+     PASS. B-vs-M attribution (the Mamba config's share): -0.73% CI[-3.16,+1.70] —
+     INCONCLUSIVE at this resolution. Disposition: the Mamba config is HELD (pulled from the
+     shelf same day) pending its own kernel-level A/B; the MoE config ships alone.
+
+Raw data: 40 llama-benchy CSVs + 12 transcripts + 12 templogs on the box (/root/ab-gate/);
+analysis commands in the session log. Environment: 6.18.42-clk, 610.57.04, pinned gen-2 image.
