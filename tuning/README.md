@@ -13,11 +13,13 @@ spark-rocky && sparkrun registry add <repo URL>` picks up the shelf.
 
 | File | Covers | Receipt |
 |---|---|---|
-| `vllm/E=512,N=2688,device_name=NVIDIA_GB10.json` | Nemotron-3-Super fused-MoE, decode keys M=1,2,4,8 (re-race-validated; +3.5% geomean over the default heuristic at kernel level) | `moe-config-kernel-AB-2026-08-12.txt` |
+| `vllm/E=512,N=2688,device_name=NVIDIA_GB10.json` | Nemotron-3-Super fused-MoE: decode keys M=1,2,4,8 tuned (re-race-validated; +3.5% geomean over the default heuristic at kernel level) + rows M=16..4096 pinned to the default heuristic's own per-M choices, so every M ≥ 13 resolves to exactly the stock config (the measured −2.35% pp2048 nearest-key snap, neutralized by construction) | `moe-config-kernel-AB-2026-08-12.txt` |
 | `vllm/headdim=64,dstate=128,device_name=NVIDIA_GB10,cache_dtype=float32.json` | Mamba `selective_state_update`, 13 effective-batch keys | `moe-tune-gb10-decode-keys-2026-08-12.txt` |
 
 **Honesty box:** the MoE ladder deliberately stops at M=8 — vLLM's lookup is nearest-key (no
 fallback), so decode traffic (concurrency 1–10) lands on tuned keys while large-batch prefill
-snaps to the M=8 entry. The kernel-level A/B is the receipt so far; the serve-level gates (paired
-tg CI, pp2048 snap non-regression) are owed before any serve-level claim. Admission to this shelf follows the ledger contract above — no receipt, no row,
+would snap to the M=8 entry — measured at −2.35% pp2048 and neutralized: rows M=16..4096 carry
+the default heuristic's own values, so above the tuned range the file is behavior-identical to no
+file. Decode receipts: kernel A/B +3.5% geomean; paired serve long-cell +2.1% [−1.2,+5.5]. The
+pp2048 re-gate on the pinned-rows artifact is the remaining receipt (owed before upstream PRs). Admission to this shelf follows the ledger contract above — no receipt, no row,
 no serve.
