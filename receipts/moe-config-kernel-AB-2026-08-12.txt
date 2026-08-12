@@ -1,0 +1,19 @@
+=== KERNEL-LEVEL A/B — tuned GB10 fused-MoE config vs default heuristic (2026-08-12) ===
+Method: benchmark_moe eval mode (graph-free build, num_iters=100, CUDA-event timing), both legs
+back-to-back on one boot (identical thermal posture), Nemotron shape E=512,N=2688. Leg A: no
+config file (the runtime logged "Using default MoE config. Performance might be sub-optimal!").
+Leg B: the tuned JSON mounted at the exact lookup path — the runtime consumed it (no warning;
+per-key configs printed match the tuned file byte-for-byte: the filename/lookup chain verified).
+
+  M | default (us) | tuned (us) | speedup
+  1 |     5755.49  |   5600.57  |  +2.77%
+  2 |    11435.03  |  11027.19  |  +3.70%
+  4 |    22804.90  |  21678.28  |  +5.20%
+  8 |    39272.90  |  38374.14  |  +2.34%
+  geometric mean: +3.50%
+
+SHIP RULE (Max-approved 2026-08-12): condition 1 (kernel geomean >= +3% across decode keys)
+PASSES at +3.50%. Conditions 2 (paired serve tg CI excludes worse-than -2%) and 3 (pp2048
+nearest-key-snap non-regression) remain owed before any PR claims a win.
+Raw logs: laptop task outputs b2sa088jl / b38jhku5a; default config for the shape was
+{M16,N64,K128,st4}; tuned keys are the re-race winners in moe-tune-gb10-decode-keys receipt.
