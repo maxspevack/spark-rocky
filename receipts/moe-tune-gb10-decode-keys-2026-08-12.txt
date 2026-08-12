@@ -1,0 +1,128 @@
+=== GB10 KERNEL-TUNING RECEIPT — the #8 tuning phase, complete (2026-08-10 → 2026-08-12) ===
+WHAT: the two kernel configs vLLM asks for by name on every GB10 Nemotron serve, generated on
+this box with a methodology the stock tuner could not deliver, scoped by consumption analysis,
+stopped deliberately by Max at decode coverage.
+
+DELIVERABLES (banked off-box; filenames are the exact strings vLLM's lookup requests):
+  E=512,N=2688,device_name=NVIDIA_GB10.json — fused-MoE, keys M=1,2,4,8. All four keys share
+    the BLOCK 16/32/256 family; per-key winners re-race-validated (see below). Decode coverage
+    is COMPLETE: nearest-key lookup maps every decode batch (concurrency 1-10) onto these keys.
+    Ladder extension above 8 is mechanical (per-bar architecture, done bars skip).
+  headdim=64,dstate=128,device_name=NVIDIA_GB10,cache_dtype=float32.json — Mamba SSM
+    selective_state_update, 13 eb keys to 262144, regenerated graph-free 2026-08-12 (the
+    graph-timed original agreed on 10/13 keys; 3 differed in block/warp neighbors).
+
+WHY THE STOCK TUNER COULD NOT DO THIS (each step receipted in the #8 thread + case file):
+  1. Four identical 2.3h corpses: per-capture CUDA-graph private pools leak driver-held pages
+     on unified memory (~25-235 MB/config, history-dependent); reserved-vs-avail discriminator
+     proved the retention below the allocator. Unreported upstream (symptom search 2026-08-11).
+  2. A shared-pool fix was A/B-convicted of altering capture-time dispatch (kernel load inside
+     capture -> CUDA "operation not permitted"; pure upstream ran the same configs clean).
+  3. Final methodology: graph-free eager timing (argmin-preserving; cross-validated against
+     graph timing on batch 2 — same block geometry) + one fresh process per batch-size bar +
+     top-16 re-race per bar (re-time finalists back-to-back in one thermal window).
+  4. The re-race PAID on its first live bar: scan winner != re-race winner at M=8 (8h scan
+     window drift). The re-race winner ships. [rerace] log line banked.
+  5. NEW Triton compiler defect found at M=8: 48 configs — exactly the BLOCK_SIZE_M=256
+     families (256/64/64, 256/128/128, 256/256/256; 16 stage/warp variants each) — crash the
+     MLIR pass pipeline (TritonGPURemoveLayoutConversions) at the M=8 specialization while
+     compiling FINE at M=1..4. First hit killed a 4h bar at idx 1632; rerun with log-and-skip
+     banked all 48 as receipts (skips.log).
+SCOPE DECISION (Max, 2026-08-12): stopped after M=8. Consumption analysis: decode at
+concurrency 1-10 = the entire range this box's serving exercises; bars 16-48 would tune
+batch sizes no present workload touches, at ~24-30h more box time. Two-way door.
+THERMAL: sidecar CSVs per bar from bar 8 (nvidia-smi clocks/temp/power, 10s cadence).
+Bars 1-4 ran pre-sidecar; the methodology change is stated rather than hidden.
+NEXT (the receipts that gate any upstream claim): kernel-level A/B per key (primary
+quantitative receipt), paired ABAB serve gates incl. pp2048 nearest-key-snap gate, prespecified
+ship rule in the case file. Upstream split per protocol: registry tuning PR + vLLM config PR +
+vLLM tool issue + driver-retention to the #62 NVIDIA case — every byte through Max's review.
+
+=== ARTIFACTS (box paths; logs quoted below are complete) ===
+box: /root/moe-configs/{E=512...json, partial-tokens{1,2,4,8}.json, memtrace.log, rerace.log,
+skips.log}, /root/moe-bar-{1,2,4,8}.log, /root/moe-bar-{8,16}-thermal.csv, /root/moe-runner.log
+laptop: ~/dev/local/arena-experimental-pr/{gb10-configs/, TUNE-LEAK.md (full diagnosis chain)}
+
+--- rerace.log (complete) ---
+[rerace] tokens=8 drifted=True scan_winner={"BLOCK_SIZE_M": 32, "BLOCK_SIZE_N": 32, "BLOCK_SIZE_K": 128, "GROUP_SIZE_M": 16, "num_warps": 4, "num_stages": 5} rerace_winner={"BLOCK_SIZE_M": 16, "BLOCK_SIZE_N": 32, "BLOCK_SIZE_K": 256, "GROUP_SIZE_M": 1, "num_warps": 8, "num_stages": 5}
+
+--- skips.log (complete — the Triton MLIR crash family at M=8) ---
+tokens=8 idx=1632 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 64, "BLOCK_SIZE_K": 64, "GROUP_SIZE_M": 1, "num_warps": 4, "num_stages": 2}
+tokens=8 idx=1633 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 64, "BLOCK_SIZE_K": 64, "GROUP_SIZE_M": 1, "num_warps": 4, "num_stages": 3}
+tokens=8 idx=1634 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 64, "BLOCK_SIZE_K": 64, "GROUP_SIZE_M": 1, "num_warps": 4, "num_stages": 4}
+tokens=8 idx=1635 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 64, "BLOCK_SIZE_K": 64, "GROUP_SIZE_M": 1, "num_warps": 4, "num_stages": 5}
+tokens=8 idx=1640 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 64, "BLOCK_SIZE_K": 64, "GROUP_SIZE_M": 16, "num_warps": 4, "num_stages": 2}
+tokens=8 idx=1641 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 64, "BLOCK_SIZE_K": 64, "GROUP_SIZE_M": 16, "num_warps": 4, "num_stages": 3}
+tokens=8 idx=1642 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 64, "BLOCK_SIZE_K": 64, "GROUP_SIZE_M": 16, "num_warps": 4, "num_stages": 4}
+tokens=8 idx=1643 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 64, "BLOCK_SIZE_K": 64, "GROUP_SIZE_M": 16, "num_warps": 4, "num_stages": 5}
+tokens=8 idx=1648 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 64, "BLOCK_SIZE_K": 64, "GROUP_SIZE_M": 32, "num_warps": 4, "num_stages": 2}
+tokens=8 idx=1649 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 64, "BLOCK_SIZE_K": 64, "GROUP_SIZE_M": 32, "num_warps": 4, "num_stages": 3}
+tokens=8 idx=1650 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 64, "BLOCK_SIZE_K": 64, "GROUP_SIZE_M": 32, "num_warps": 4, "num_stages": 4}
+tokens=8 idx=1651 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 64, "BLOCK_SIZE_K": 64, "GROUP_SIZE_M": 32, "num_warps": 4, "num_stages": 5}
+tokens=8 idx=1656 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 64, "BLOCK_SIZE_K": 64, "GROUP_SIZE_M": 64, "num_warps": 4, "num_stages": 2}
+tokens=8 idx=1657 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 64, "BLOCK_SIZE_K": 64, "GROUP_SIZE_M": 64, "num_warps": 4, "num_stages": 3}
+tokens=8 idx=1658 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 64, "BLOCK_SIZE_K": 64, "GROUP_SIZE_M": 64, "num_warps": 4, "num_stages": 4}
+tokens=8 idx=1659 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 64, "BLOCK_SIZE_K": 64, "GROUP_SIZE_M": 64, "num_warps": 4, "num_stages": 5}
+tokens=8 idx=1760 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 128, "BLOCK_SIZE_K": 128, "GROUP_SIZE_M": 1, "num_warps": 4, "num_stages": 2}
+tokens=8 idx=1761 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 128, "BLOCK_SIZE_K": 128, "GROUP_SIZE_M": 1, "num_warps": 4, "num_stages": 3}
+tokens=8 idx=1762 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 128, "BLOCK_SIZE_K": 128, "GROUP_SIZE_M": 1, "num_warps": 4, "num_stages": 4}
+tokens=8 idx=1763 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 128, "BLOCK_SIZE_K": 128, "GROUP_SIZE_M": 1, "num_warps": 4, "num_stages": 5}
+tokens=8 idx=1768 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 128, "BLOCK_SIZE_K": 128, "GROUP_SIZE_M": 16, "num_warps": 4, "num_stages": 2}
+tokens=8 idx=1769 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 128, "BLOCK_SIZE_K": 128, "GROUP_SIZE_M": 16, "num_warps": 4, "num_stages": 3}
+tokens=8 idx=1770 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 128, "BLOCK_SIZE_K": 128, "GROUP_SIZE_M": 16, "num_warps": 4, "num_stages": 4}
+tokens=8 idx=1771 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 128, "BLOCK_SIZE_K": 128, "GROUP_SIZE_M": 16, "num_warps": 4, "num_stages": 5}
+tokens=8 idx=1776 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 128, "BLOCK_SIZE_K": 128, "GROUP_SIZE_M": 32, "num_warps": 4, "num_stages": 2}
+tokens=8 idx=1777 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 128, "BLOCK_SIZE_K": 128, "GROUP_SIZE_M": 32, "num_warps": 4, "num_stages": 3}
+tokens=8 idx=1778 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 128, "BLOCK_SIZE_K": 128, "GROUP_SIZE_M": 32, "num_warps": 4, "num_stages": 4}
+tokens=8 idx=1779 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 128, "BLOCK_SIZE_K": 128, "GROUP_SIZE_M": 32, "num_warps": 4, "num_stages": 5}
+tokens=8 idx=1784 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 128, "BLOCK_SIZE_K": 128, "GROUP_SIZE_M": 64, "num_warps": 4, "num_stages": 2}
+tokens=8 idx=1785 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 128, "BLOCK_SIZE_K": 128, "GROUP_SIZE_M": 64, "num_warps": 4, "num_stages": 3}
+tokens=8 idx=1786 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 128, "BLOCK_SIZE_K": 128, "GROUP_SIZE_M": 64, "num_warps": 4, "num_stages": 4}
+tokens=8 idx=1787 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 128, "BLOCK_SIZE_K": 128, "GROUP_SIZE_M": 64, "num_warps": 4, "num_stages": 5}
+tokens=8 idx=1888 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 256, "BLOCK_SIZE_K": 256, "GROUP_SIZE_M": 1, "num_warps": 4, "num_stages": 2}
+tokens=8 idx=1889 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 256, "BLOCK_SIZE_K": 256, "GROUP_SIZE_M": 1, "num_warps": 4, "num_stages": 3}
+tokens=8 idx=1890 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 256, "BLOCK_SIZE_K": 256, "GROUP_SIZE_M": 1, "num_warps": 4, "num_stages": 4}
+tokens=8 idx=1891 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 256, "BLOCK_SIZE_K": 256, "GROUP_SIZE_M": 1, "num_warps": 4, "num_stages": 5}
+tokens=8 idx=1896 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 256, "BLOCK_SIZE_K": 256, "GROUP_SIZE_M": 16, "num_warps": 4, "num_stages": 2}
+tokens=8 idx=1897 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 256, "BLOCK_SIZE_K": 256, "GROUP_SIZE_M": 16, "num_warps": 4, "num_stages": 3}
+tokens=8 idx=1898 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 256, "BLOCK_SIZE_K": 256, "GROUP_SIZE_M": 16, "num_warps": 4, "num_stages": 4}
+tokens=8 idx=1899 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 256, "BLOCK_SIZE_K": 256, "GROUP_SIZE_M": 16, "num_warps": 4, "num_stages": 5}
+tokens=8 idx=1904 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 256, "BLOCK_SIZE_K": 256, "GROUP_SIZE_M": 32, "num_warps": 4, "num_stages": 2}
+tokens=8 idx=1905 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 256, "BLOCK_SIZE_K": 256, "GROUP_SIZE_M": 32, "num_warps": 4, "num_stages": 3}
+tokens=8 idx=1906 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 256, "BLOCK_SIZE_K": 256, "GROUP_SIZE_M": 32, "num_warps": 4, "num_stages": 4}
+tokens=8 idx=1907 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 256, "BLOCK_SIZE_K": 256, "GROUP_SIZE_M": 32, "num_warps": 4, "num_stages": 5}
+tokens=8 idx=1912 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 256, "BLOCK_SIZE_K": 256, "GROUP_SIZE_M": 64, "num_warps": 4, "num_stages": 2}
+tokens=8 idx=1913 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 256, "BLOCK_SIZE_K": 256, "GROUP_SIZE_M": 64, "num_warps": 4, "num_stages": 3}
+tokens=8 idx=1914 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 256, "BLOCK_SIZE_K": 256, "GROUP_SIZE_M": 64, "num_warps": 4, "num_stages": 4}
+tokens=8 idx=1915 RuntimeError config={"BLOCK_SIZE_M": 256, "BLOCK_SIZE_N": 256, "BLOCK_SIZE_K": 256, "GROUP_SIZE_M": 64, "num_warps": 4, "num_stages": 5}
+
+--- moe-runner.log (complete — the sweep timeline) ---
+2026-08-11_05:46:48 bar 1 starting (avail=118G)
+2026-08-11_07:52:11 bar 1 exited rc=0 (avail=54G)
+2026-08-11_07:52:11 HALT before bar 2: avail=54G < 60G — residue too high; reboot then rerun (done bars skip)
+2026-08-11_16:31:40 bar 1 already done, skipping
+2026-08-11_16:31:40 bar 2 starting (avail=118G)
+2026-08-11_19:47:14 bar 2 exited rc=0 (avail=54G)
+2026-08-11_19:47:14 HALT before bar 4: avail=54G < 60G — residue too high; reboot then rerun (done bars skip)
+2026-08-11_19:54:07 bar 1 already done, skipping
+2026-08-11_19:54:07 bar 2 already done, skipping
+2026-08-11_19:54:07 bar 4 starting (avail=118G)
+2026-08-12_01:32:58 bar 1 already done, skipping
+2026-08-12_01:32:58 bar 2 already done, skipping
+2026-08-12_01:32:58 bar 4 already done, skipping
+2026-08-12_01:32:58 bar 8 starting (avail=118G)
+2026-08-12_05:45:11 bar 8 exited rc=1 (avail=54G)
+2026-08-12_05:45:11 bar 8 produced no partial JSON — stopping the sweep for diagnosis
+2026-08-12_07:34:53 bar 1 already done, skipping
+2026-08-12_07:34:53 bar 2 already done, skipping
+2026-08-12_07:34:53 bar 4 already done, skipping
+2026-08-12_07:34:53 bar 8 starting (avail=118G)
+2026-08-12_15:32:55 bar 8 exited rc=0 (avail=54G)
+merged 4 keys
+2026-08-12_15:32:55 HALT before bar 16: avail=54G < 60G — residue too high; reboot then rerun (done bars skip)
+2026-08-12_15:37:05 bar 1 already done, skipping
+2026-08-12_15:37:05 bar 2 already done, skipping
+2026-08-12_15:37:05 bar 4 already done, skipping
+2026-08-12_15:37:05 bar 8 already done, skipping
+2026-08-12_15:37:05 bar 16 starting (avail=118G)
+2026-08-12_16:20:58 SWEEP STOPPED BY MAX — called at keys 1,2,4,8 (decode coverage complete; ladder extends later at zero rework)
