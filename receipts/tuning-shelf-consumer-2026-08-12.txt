@@ -1,0 +1,18 @@
+=== TUNING-SHELF CONSUMER RECEIPT (2026-08-12, Fedora laptop, sparkrun 0.3.1 pinned) ===
+The receipt the 1c985a6 commit promised: a real consumer, public URL, no credentials.
+
+Procedure (the stale-registry path from tuning/README.md, deliberately exercised):
+  sparkrun registry remove spark-rocky        # pre-shelf registration carried tuning_subpath=""
+  sparkrun registry add https://github.com/maxspevack/spark-rocky
+  sparkrun registry list                      # spark-rocky ... Tuning: yes
+  sparkrun registry update spark-rocky        # 1 registry updated
+
+Result: ~/.cache/sparkrun/registries/spark-rocky/tuning/vllm/ materialized both configs;
+sha256 of the consumer copies == TUNING.tsv rows exactly:
+  5282dc3f436dfb819c8d551eb212dcc62839f6aa8c1ccdfe50ccaf478b4834d8  E=512,N=2688,device_name=NVIDIA_GB10.json
+  73dc11b4bc7c85c84c0775ee8c2506b016afdac505d3dbc061d518ba92b08ae8  headdim=64,dstate=128,device_name=NVIDIA_GB10,cache_dtype=float32.json
+
+Residual (stated, not claimed): the on-serve leg — "Synced N tuning config(s)" + the configs
+mounted via VLLM_TUNED_CONFIG_FOLDER on a real @spark-rocky serve — lands with the box's next
+sparkrun serve; the mount/consumption mechanics are already receipt-proven on the runtime
+(moe-config-kernel-AB-2026-08-12.txt leg B).
