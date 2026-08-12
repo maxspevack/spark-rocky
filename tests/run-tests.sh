@@ -262,15 +262,16 @@ if command -v python3 >/dev/null 2>&1 && python3 -c 'import yaml' 2>/dev/null; t
     && ok "registry.yaml + every served recipe parses, BOTH tiers (experimental serves by name too — #94 review)" || no "registry.yaml or a served recipe fails the YAML structural parse"
 else ok "YAML parse skipped (no python3+yaml on this host; grep gates enforce)"; fi
 sha256_of(){ if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1; else shasum -a 256 "$1" | cut -d' ' -f1; fi; }
-# ledger_check <ledger> <tag> <dash-receipt-ok:yes|no> <find-args...> — bidirectional: every found
-# recipe has a row; every row has an existing file, matching bytes, and (unless dash-ok) a receipt.
+# ledger_check <ledger> <tag> <dash-receipt-ok:yes|no> <name-glob> <find-args...> — bidirectional:
+# every found artifact has a row; every row has an existing file, matching bytes, and (unless
+# dash-ok) a receipt. name-glob parameterized 2026-08-12: the tuning shelf ledgers .json configs.
 ledger_check(){
-  local L=$1 tag=$2 dash=$3; shift 3
+  local L=$1 tag=$2 dash=$3 glob=$4; shift 4
   [ -f "$L" ] || { no "$tag ledger missing ($L)"; return; }
   ok "$tag ledger exists ($L)"
   while IFS= read -r f; do
     awk -F'\t' -v p="$f" '$0!~/^#/ && $2==p {found=1} END{exit !found}' "$L" && ok "$tag row exists: $f" || no "$tag: unledgered/stowaway recipe: $f"
-  done < <(find "$@" -name '*.y*ml' | sort)
+  done < <(find "$@" -name "$glob" | sort)
   while IFS=$'\t' read -r sha path receipt _date || [ -n "$sha" ]; do
     case "$sha" in \#*|"") continue;; esac
     [ -f "$path" ] || { no "$tag row names a missing file: $path"; continue; }
@@ -281,9 +282,12 @@ ledger_check(){
   done < "$L"
 }
 # recursive + .y*ml: coverage must equal sparkrun's serving surface (per-registry recursive glob)
-ledger_check recipes/spark-rocky/PROMOTIONS.tsv promotion no recipes/spark-rocky
+ledger_check recipes/spark-rocky/PROMOTIONS.tsv promotion no '*.y*ml' recipes/spark-rocky
 # maxdepth 1: root only — subdirs at this level are the served tiers, PROMOTIONS governs those
-ledger_check recipes/MIRRORS.tsv root yes recipes -maxdepth 1
+ledger_check recipes/MIRRORS.tsv root yes '*.y*ml' recipes -maxdepth 1
+# The tuning shelf serves kernel configs by the same contract: no receipt, no row, no serve.
+ledger_check tuning/TUNING.tsv tuning no '*.json' tuning
+grep -qE '^\s*tuning_subpath:\s*tuning\s*$' "$RY" && ok "registry.yaml declares the tuning shelf (tuning_subpath explicit)" || no "registry.yaml missing tuning_subpath — the shelf exists but no consumer syncs it"
 # Doc-cited recipe links resolve (this rot class fired twice this session — both git mv promotions).
 while IFS=: read -r doc link; do t=${link#*(}; t=${t%)}
   [ -f "$(dirname "$doc")/$t" ] && ok "doc link resolves: $doc -> $t" || no "doc cites a missing yaml: $doc -> $t"

@@ -11,6 +11,18 @@ ships (`uname -r`).
 ## [Unreleased]
 
 ### Added
+- **The tuning shelf: GB10 kernel configs, receipt-bound, auto-distributed (#8, 2026-08-12).**
+  `tuning/vllm/` carries the two configs vLLM requests by name on a GB10 Nemotron serve — the
+  fused-MoE config (decode keys M=1,2,4,8, each re-race-validated; **+3.5% geomean over the
+  default heuristic at kernel level**, receipt `moe-config-kernel-AB-2026-08-12.txt`) and the
+  Mamba `selective_state_update` config (13 keys, graph-free regeneration). `registry.yaml`
+  declares `tuning_subpath`, so sparkrun syncs the shelf on every `@spark-rocky` serve (registries added before this entry: re-add once — see `tuning/README.md`) and mounts
+  it via `VLLM_TUNED_CONFIG_FOLDER` (both vLLM lookups honor it). Admission mirrors PROMOTIONS:
+  `tuning/TUNING.tsv` byte-binds every config to a committed receipt, CI-enforced both directions
+  (`ledger_check` name-glob parameterized for it). The stock tuner cannot produce these configs
+  on unified memory at this shape — the methodology and the four findings behind it are receipted
+  in `moe-tune-gb10-decode-keys-2026-08-12.txt`; upstream filings (vLLM configs + tuner issue,
+  Triton compiler-crash family, spark-arena registry PR) follow through the review gate.
 - **The repo is a sparkrun registry (#88, 2026-08-10; namespace ratified in #90).** `sparkrun
   registry add https://github.com/maxspevack/spark-rocky` → `sparkrun run @spark-rocky/<recipe>`.
   Two tiers: `recipes/spark-rocky/` (official — admission requires a committed receipt in

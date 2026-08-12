@@ -22,7 +22,10 @@ Evidence: [`proof.md`](proof.md).
 
 This repo is a sparkrun registry. Every recipe in the official tier is backed by a committed receipt
 in [`receipts/`](../../receipts/) and byte-bound to that receipt by CI — the registry cannot drift
-ahead of its evidence.
+ahead of its evidence. Serving an `@spark-rocky` recipe also auto-syncs the
+[tuning shelf](../../tuning/): GB10-tuned kernel configs (fused-MoE +3.5% geomean over the default
+heuristic at kernel level, receipt-bound the same way) mount into the serve via
+`VLLM_TUNED_CONFIG_FOLDER` — no flags, no setup.
 
 ```bash
 # from the repo root:

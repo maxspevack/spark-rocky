@@ -1,0 +1,6 @@
+# TUNING.tsv — byte-integrity ledger for the tuning shelf (the PROMOTIONS pattern, applied to
+# kernel configs). A config is served from tuning/ only with a row here binding its sha256 to a
+# committed receipt. CI enforces both directions: every shelf file has a row; every row names an
+# existing file (matching sha) and an existing receipt. Fields: sha256 path receipt added
+5282dc3f436dfb819c8d551eb212dcc62839f6aa8c1ccdfe50ccaf478b4834d8	tuning/vllm/E=512,N=2688,device_name=NVIDIA_GB10.json	receipts/moe-config-kernel-AB-2026-08-12.txt	2026-08-12
+73dc11b4bc7c85c84c0775ee8c2506b016afdac505d3dbc061d518ba92b08ae8	tuning/vllm/headdim=64,dstate=128,device_name=NVIDIA_GB10,cache_dtype=float32.json	receipts/moe-tune-gb10-decode-keys-2026-08-12.txt	2026-08-12

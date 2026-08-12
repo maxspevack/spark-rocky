@@ -10,9 +10,10 @@
 # we deliberately do NOT serve (provenance) — and `visible:` to true. Omission is fail-open.
 registries:
   - name: spark-rocky
-    description: Receipt-backed GB10 recipes from the spark-rocky stack (Rocky Linux 10 + CLK kernel + NVIDIA open driver). Every recipe here has a committed receipt in receipts/ and a byte-binding row in recipes/spark-rocky/PROMOTIONS.tsv.
+    description: Receipt-backed GB10 recipes from the spark-rocky stack (Rocky Linux 10 + CLK kernel + NVIDIA open driver). Every recipe here has a committed receipt in receipts/ and a byte-binding row in recipes/spark-rocky/PROMOTIONS.tsv; kernel configs on the tuning shelf are bound the same way (tuning/TUNING.tsv).
     recipes: recipes/spark-rocky
     visible: true
+    tuning_subpath: tuning
   - name: spark-rocky-experimental
     description: Staging tier — recipes actively being driven toward a receipt. Hidden from listings; resolvable by name.
     recipes: recipes/spark-rocky-experimental
