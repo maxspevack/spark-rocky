@@ -17,7 +17,7 @@ spark-rocky && sparkrun registry add <repo URL>` picks up the shelf.
 
 | File | Covers | Receipt |
 |---|---|---|
-| `vllm/E=512,N=2688,device_name=NVIDIA_GB10.json` | Nemotron-3-Super fused-MoE: decode keys M=1,2,4,8 tuned (re-race-validated; +3.5% geomean over the default heuristic at kernel level) + rows M=16..4096 pinned to the default heuristic's own per-M choices, so every M ≥ 13 resolves to exactly the stock config (the measured −2.35% pp2048 nearest-key snap, neutralized by construction) | `moe-config-kernel-AB-2026-08-12.txt` |
+| `vllm/E=512,N=2688,device_name=NVIDIA_GB10.json` | Nemotron-3-Super fused-MoE: decode keys M=1,2,4,8 tuned (re-race-validated; +3.5% geomean over the default heuristic at kernel level) + rows M=16..4096 pinned to the default heuristic's own per-M choices, so prefill-scale M can no longer land on a small-M-tuned config (the measured −2.35% pp2048 snap; re-gated to −0.59% [−1.74,+0.55], n=32/arm) | `moe-config-kernel-AB-2026-08-12.txt` |
 
 
 **Held off the shelf (2026-08-12):** the Mamba `selective_state_update` config — generated and
@@ -27,8 +27,10 @@ shelf's contract is receipts, not vibes. It returns with its receipt.
 
 **Honesty box:** the MoE ladder deliberately stops at M=8 — vLLM's lookup is nearest-key (no
 fallback), so decode traffic (concurrency 1–10) lands on tuned keys while large-batch prefill
-would snap to the M=8 entry — measured at −2.35% pp2048 and neutralized: rows M=16..4096 carry
-the default heuristic's own values, so above the tuned range the file is behavior-identical to no
-file. Decode receipts: kernel A/B +3.5% geomean; paired serve long-cell +2.1% [−1.2,+5.5]. The
-pp2048 re-gate on the pinned-rows artifact is the remaining receipt (owed before upstream PRs). Admission to this shelf follows the ledger contract above — no receipt, no row,
+would snap to the M=8 entry — measured at −2.35% pp2048; rows M=16..4096 carry the default
+heuristic's own values at those keys, and the re-gate on this artifact PASSED: pp2048 −0.59%
+[−1.74, +0.55] (n=32/arm; receipts/moe-config-serve-gates-2026-08-12.txt). Serve-level decode is
+a wash at the harness's resolution — the claim is the kernel-level win, deliberately. (Note the
+heuristic's internal breakpoints don't all align with nearest-key snap basins, so a few mid-M
+bands resolve differently than stock; the pp2048 receipt is the evidence that this nets ~zero.) Admission to this shelf follows the ledger contract above — no receipt, no row,
 no serve.
