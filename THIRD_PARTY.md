@@ -73,8 +73,9 @@ carries this as a cut step.
 4. **The pin files agree with the box**: the box's `/root/spark-vllm-docker` checkout is at
    `SPARK_VLLM_DOCKER_COMMIT`; the serve-gate recipe runs the image `serving-images.env` names.
 5. **Row currency**: any issue or PR this file cites as pending that has since closed/merged
-   means its row is stale — update the row in the same pass. (Currently pending:
-   [recipe-registry#19](https://github.com/spark-arena/recipe-registry/pull/19).)
+   means its row is stale — update the row in the same pass. (Nothing pending as of the
+   2026-08-16 pass: [recipe-registry#19](https://github.com/spark-arena/recipe-registry/pull/19),
+   the Nemotron recipe PR into the official registry, merged 2026-08-07.)
 
 ## Deliberately not tracked
 
